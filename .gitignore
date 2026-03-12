@@ -1,0 +1,9 @@
+# Ignore all node_modules folders
+backend/node_modules/
+frontend/node_modules/
+
+# Ignore environment variables (SECURITY RISK IF UPLOADED!)
+backend/.env
+
+# Ignore Vite build files
+frontend/dist/
