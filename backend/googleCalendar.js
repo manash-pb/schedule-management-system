@@ -11,8 +11,13 @@ const oauth2Client = new google.auth.OAuth2(
 // 2. Generate the "Sign In With Google" URL
 function getAuthUrl() {
     return oauth2Client.generateAuthUrl({
-        access_type: 'offline', // Requests a refresh token
-        scope: ['https://www.googleapis.com/auth/calendar.events']
+        access_type: 'offline',
+        prompt: 'consent', // <-- THE MAGIC FIX! Forces Google to re-ask for permissions
+        scope: [
+            'https://www.googleapis.com/auth/calendar',
+            'https://www.googleapis.com/auth/userinfo.email',   // Required to get the email
+            'https://www.googleapis.com/auth/userinfo.profile'  // Required to get the name
+        ]
     });
 }
 

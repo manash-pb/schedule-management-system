@@ -4,8 +4,18 @@ const express = require('express');
 const cors = require('cors');
 const pool = require('./db');
 const { startCronJobs } = require('./cronJobs'); // Import Cron Job logic
-require('dotenv').config();
+const { google } = require('googleapis');
 
+require('dotenv').config();
+const mysql = require('mysql2/promise');
+
+// Quick test to make sure the connection works
+pool.getConnection()
+    .then(conn => {
+        console.log('✅ Connected to MySQL Database!');
+        conn.release();
+    })
+    .catch(err => console.error('❌ Database connection error:', err));
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -103,20 +113,48 @@ app.get('/auth/google', (req, res) => {
     res.redirect(url); // Redirects the browser to Google's consent screen
 });
 
-// --- ROUTE 2: Google sends the user back here ---
+// --- UPDATED GOOGLE CALLBACK LOGIC ---
 app.get('/auth/google/callback', async (req, res) => {
-    const code = req.query.code; // Google gives us a special code in the URL
-    
     try {
-        // Exchange the code for an Access Token
-        const { tokens } = await oauth2Client.getToken(code);
-        
-        // Save the tokens in the client
+        const { tokens } = await oauth2Client.getToken(req.query.code);
         oauth2Client.setCredentials(tokens);
-        
-        res.send('<h3>Login Successful!</h3><p>Your app is now connected to your Google Calendar. You can return to Postman and test the POST /api/events route.</p>');
+
+        const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+        const userInfo = await oauth2.userinfo.get();
+
+        const googleId = userInfo.data.id;
+        const email = userInfo.data.email.toLowerCase();
+        const name = userInfo.data.name;
+
+        // 1. Check if the user exists by EMAIL (this handles manual signups too)
+        const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
+        let user = rows[0];
+
+        if (user) {
+            // 2. If they exist but don't have a google_id yet, UPDATE them (linking)
+            if (!user.google_id) {
+                await pool.execute('UPDATE users SET google_id = ? WHERE email = ?', [googleId, email]);
+                console.log(`✅ Linked Google ID to existing email: ${email}`);
+            }
+        } else {
+            // 3. If they don't exist at all, INSERT new record
+            await pool.execute(
+                'INSERT INTO users (name, email, google_id, role) VALUES (?, ?, ?, ?)', 
+                [name, email, googleId, 'user']
+            );
+            console.log(`✅ Created brand new Google user: ${email}`);
+            
+            // Re-fetch to get the role for the redirect
+            const [newRows] = await pool.execute('SELECT role FROM users WHERE email = ?', [email]);
+            user = newRows[0];
+        }
+
+        // 4. Final Redirect using the database role
+        const finalRole = user ? user.role : 'user';
+        res.redirect(`http://localhost:5173/?login=success&role=${finalRole}`);
+
     } catch (error) {
-        console.error('Error retrieving access token', error);
+        console.error('Error during Google authentication:', error);
         res.status(500).send('Authentication failed');
     }
 });
@@ -274,6 +312,63 @@ app.patch('/api/events/:id', async (req, res) => {
     } catch (error) {
         console.error('Error updating event:', error);
         res.status(500).json({ error: 'Failed to update event' });
+    }
+});
+
+// --- DATABASE-POWERED MANUAL LOGIN ---
+app.post('/api/auth/manual', async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ success: false, message: 'Email and password are required' });
+    }
+
+    try {
+        // Look up the user in MySQL
+        const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email.toLowerCase()]);
+        const user = rows[0]; // Get the first user found
+
+        // If user exists AND the password matches
+        if (user && user.password === password) {
+            console.log(`Manual login success: ${email} as ${user.role}`);
+            return res.json({ success: true, role: user.role });
+        }
+
+        // If wrong email or wrong password
+        return res.status(401).json({ success: false, message: 'Invalid email or password' });
+
+    } catch (error) {
+        console.error('Database error during login:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
+// --- NEW: Manual Sign Up Route ---
+app.post('/api/auth/signup', async (req, res) => {
+    const { name, email, password } = req.body; // Catch 'name' here
+
+    if (!name || !email || !password) {
+        return res.status(400).json({ success: false, message: 'All fields are required' });
+    }
+
+    try {
+        const [existing] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
+        if (existing.length > 0) {
+            return res.status(400).json({ success: false, message: 'User already exists' });
+        }
+
+        // Insert the actual 'name' provided by the user
+        await pool.execute(
+            'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
+            [name, email.toLowerCase(), password, 'user']
+        );
+
+        console.log(`✅ New user registered: ${name} (${email})`);
+        res.json({ success: true, role: 'user' });
+
+    } catch (error) {
+        console.error('❌ SIGNUP ERROR:', error);
+        res.status(500).json({ success: false });
     }
 });
 
