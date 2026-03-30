@@ -16,6 +16,8 @@ pool.getConnection()
         conn.release();
     })
     .catch(err => console.error('❌ Database connection error:', err));
+
+let currentUserTokens = null; // This will hold the "fuel" for the Google Calendar car
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -24,93 +26,108 @@ app.use(express.json());
 startCronJobs();
 
 app.post('/api/events', async (req, res) => {
-    // We assign '= null' so if the frontend forgets a field, it defaults to null instead of undefined!
-    // Use 'let' instead of 'const' so we can append the seconds!
-        let { 
-            title = null, 
-            description = null, 
-            venue = null, 
-            event_date = null, 
-            start_time = null, 
-            end_time = null, 
-            attendees = [] 
-        } = req.body;
+    let { 
+        title = null, 
+        description = null, 
+        venue = null, 
+        event_date = null, 
+        start_time = null, 
+        end_time = null, 
+        attendees = [] 
+    } = req.body;
 
-        // Google Calendar strictly requires seconds in the time string.
-        // If the frontend only sends "12:00" (5 characters), we add ":00" to make it "12:00:00"
-        if (start_time && start_time.length === 5) start_time += ':00';
-        if (end_time && end_time.length === 5) end_time += ':00';
+    console.log("DEBUG - Received from Frontend:", req.body);
 
-    // Add this line just to see what React is actually sending:
-    console.log("Incoming Data:", req.body);
+    // Helper to force HH:mm:ss
+    const cleanTime = (t) => {
+        if (!t) return null;
+        const parts = t.split(':');
+        if (parts.length === 2) return `${t}:00`; 
+        return t;
+    };
+
+    const mysqlStart = cleanTime(start_time);
+    const mysqlEnd = cleanTime(end_time);
+
+    // Build ISO strings
+    const googleStart = (event_date && mysqlStart) ? `${event_date}T${mysqlStart}` : null;
+    const googleEnd = (event_date && mysqlEnd) ? `${event_date}T${mysqlEnd}` : null;
+
+    // Detailed error logging
+    if (!googleStart || !googleEnd) {
+        console.error("❌ VALIDATION FAILED:", { 
+            date: event_date, 
+            start: mysqlStart, 
+            end: mysqlEnd 
+        });
+        return res.status(400).json({ 
+            error: `Missing fields: ${!event_date ? 'Date ' : ''}${!mysqlStart ? 'Start Time ' : ''}${!mysqlEnd ? 'End Time' : ''}` 
+        });
+    }
+
     let connection;
 
     try {
         connection = await pool.getConnection();
+        
+        const [userRows] = await connection.execute(
+            'SELECT google_tokens FROM users WHERE role = "admin" LIMIT 1'
+        );
+
+        if (userRows.length === 0 || !userRows[0].google_tokens) {
+            return res.status(401).json({ error: 'No Google connection found. Please sign in.' });
+        }
+
+        const storedTokens = typeof userRows[0].google_tokens === 'string' 
+            ? JSON.parse(userRows[0].google_tokens) 
+            : userRows[0].google_tokens;
+
         await connection.beginTransaction();
 
-        // 1. Insert into MySQL (Events Table)
+        // Use mysqlStart/mysqlEnd for the database insert
         const [eventResult] = await connection.execute(
-            `INSERT INTO Events (title, description, venue, event_date, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?)`,
-            [title, description, venue, event_date, start_time, end_time]
+            `INSERT INTO events (title, description, venue, event_date, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?)`,
+            [title, description, venue, event_date, mysqlStart, mysqlEnd]
         );
         const newEventId = eventResult.insertId;
 
-        // 2. Insert Attendees
+        // --- ATTENDEE LOOP (Keep your existing loop here) ---
         if (attendees && attendees.length > 0) {
             for (let person of attendees) {
-                // FALLBACK: If name is missing, use 'Guest'
                 const attendeeName = person.name || 'Guest'; 
-                
-                await connection.execute(
-                    `INSERT IGNORE INTO Attendees (name, email) VALUES (?, ?)`, 
-                    [attendeeName, person.email]
-                );
-                
-                const [attendeeRecord] = await connection.execute(
-                    `SELECT attendee_id FROM Attendees WHERE email = ?`, 
-                    [person.email]
-                );
+                await connection.execute(`INSERT IGNORE INTO Attendees (name, email) VALUES (?, ?)`, [attendeeName, person.email]);
+                const [attendeeRecord] = await connection.execute(`SELECT attendee_id FROM Attendees WHERE email = ?`, [person.email]);
                 const attendeeId = attendeeRecord[0].attendee_id;
-
-                await connection.execute(
-                    `INSERT INTO Event_Attendees (event_id, attendee_id) VALUES (?, ?)`, 
-                    [newEventId, attendeeId]
-                );
+                await connection.execute(`INSERT INTO Event_Attendees (event_id, attendee_id) VALUES (?, ?)`, [newEventId, attendeeId]);
             }
         }
 
-        // 3. Sync to Google Calendar
-        const eventData = { title, description, venue, event_date, start_time, end_time };
-        const googleEventId = await createGoogleEvent(eventData, attendees);
+        // 3. Sync to Google Calendar using the CLEAN ISO strings
+        const eventData = { 
+            title, 
+            description, 
+            venue, 
+            startISO: googleStart, 
+            endISO: googleEnd 
+        };
+        
+        const googleEventId = await createGoogleEvent(eventData, attendees, storedTokens);
 
-        // 4. Update MySQL with the Google Event ID
         await connection.execute(
-            `UPDATE Events SET google_event_id = ? WHERE event_id = ?`,
+            `UPDATE events SET google_event_id = ? WHERE event_id = ?`,
             [googleEventId, newEventId]
         );
 
-        await connection.commit(); // Save transaction
-        
-        res.status(201).json({ 
-            message: 'Event created and synced to Google Calendar successfully!', 
-            eventId: newEventId,
-            googleEventId: googleEventId
-        });
+        await connection.commit(); 
+        res.status(201).json({ message: 'Success!', eventId: newEventId, googleEventId });
 
     } catch (error) {
         if (connection) await connection.rollback();
-        console.error('API Error:', error);
-        res.status(500).json({ error: 'Failed to create event' });
+        console.error('DATABASE CRASH DETAILS:', error.message);
+        res.status(500).json({ error: error.message });
     } finally {
         if (connection) connection.release();
     }
-});
-
-// --- ROUTE 1: Send user to Google Login ---
-app.get('/auth/google', (req, res) => {
-    const url = getAuthUrl();
-    res.redirect(url); // Redirects the browser to Google's consent screen
 });
 
 // --- UPDATED GOOGLE CALLBACK LOGIC ---
@@ -126,30 +143,33 @@ app.get('/auth/google/callback', async (req, res) => {
         const email = userInfo.data.email.toLowerCase();
         const name = userInfo.data.name;
 
-        // 1. Check if the user exists by EMAIL (this handles manual signups too)
+        // Check if the user exists
         const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
         let user = rows[0];
 
+        // We convert the tokens object to a JSON string for MySQL
+        const tokenString = JSON.stringify(tokens);
+
         if (user) {
-            // 2. If they exist but don't have a google_id yet, UPDATE them (linking)
-            if (!user.google_id) {
-                await pool.execute('UPDATE users SET google_id = ? WHERE email = ?', [googleId, email]);
-                console.log(`✅ Linked Google ID to existing email: ${email}`);
-            }
-        } else {
-            // 3. If they don't exist at all, INSERT new record
+            // Update existing user: Link Google ID and SAVE TOKENS
             await pool.execute(
-                'INSERT INTO users (name, email, google_id, role) VALUES (?, ?, ?, ?)', 
-                [name, email, googleId, 'user']
+                'UPDATE users SET google_id = ?, google_tokens = ? WHERE email = ?', 
+                [googleId, tokenString, email]
             );
-            console.log(`✅ Created brand new Google user: ${email}`);
+            console.log(`✅ Updated tokens for: ${email}`);
+        } else {
+            // Create new user with tokens
+            await pool.execute(
+                'INSERT INTO users (name, email, google_id, google_tokens, role) VALUES (?, ?, ?, ?, ?)', 
+                [name, email, googleId, tokenString, 'user']
+            );
+            console.log(`✅ Created user and saved tokens: ${email}`);
             
-            // Re-fetch to get the role for the redirect
             const [newRows] = await pool.execute('SELECT role FROM users WHERE email = ?', [email]);
             user = newRows[0];
         }
 
-        // 4. Final Redirect using the database role
+        // Redirect with role
         const finalRole = user ? user.role : 'user';
         res.redirect(`http://localhost:5173/?login=success&role=${finalRole}`);
 
@@ -157,6 +177,26 @@ app.get('/auth/google/callback', async (req, res) => {
         console.error('Error during Google authentication:', error);
         res.status(500).send('Authentication failed');
     }
+});
+
+// --- THE MISSING "ENTRY" ROUTE ---
+app.get('/auth/google', (req, res) => {
+    // 1. Define the permissions (scopes) we need
+    const scopes = [
+        'https://www.googleapis.com/auth/userinfo.profile',
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/calendar' // Needed to create events
+    ];
+
+    // 2. Generate the URL that sends the user to Google
+    const url = oauth2Client.generateAuthUrl({
+        access_type: 'offline', // CRITICAL: Gets a refresh_token so login lasts longer
+        scope: scopes,
+        prompt: 'consent' // Forces Google to show the "Allow" screen for Calendar
+    });
+
+    // 3. Redirect the browser to Google
+    res.redirect(url);
 });
 
 // --- ROUTE: Get All Events with Attendees ---

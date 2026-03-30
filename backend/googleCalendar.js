@@ -21,39 +21,61 @@ function getAuthUrl() {
     });
 }
 
-// 3. Create the Event using the authenticated user's calendar
-async function createGoogleEvent(eventData, attendees) {
+// backend/googleCalendar.js
+
+// backend/googleCalendar.js
+
+async function createGoogleEvent(eventData, attendees, tokens) {
     try {
-        // Pass the OAuth client to the Calendar API
+        if (!tokens) {
+            throw new Error("No Google tokens provided to createGoogleEvent");
+        }
+
+        // 1. Feed the tokens into the client
+        oauth2Client.setCredentials(tokens);
+
         const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
         
+        // 2. Map attendees to the format Google expects
         const attendeeList = attendees.map(person => ({ email: person.email }));
 
+        // 3. Construct the event object
         const event = {
             summary: eventData.title,
             description: eventData.description,
             location: eventData.venue,
             start: {
-                dateTime: `${eventData.event_date}T${eventData.start_time}`,
+                // Use the strings we prepared in server.js
+                dateTime: eventData.startISO, 
                 timeZone: 'Asia/Kolkata', 
             },
             end: {
-                dateTime: `${eventData.event_date}T${eventData.end_time}`,
+                dateTime: eventData.endISO, 
                 timeZone: 'Asia/Kolkata',
             },
             attendees: attendeeList,
+            // Adds a Google Meet link automatically!
+            conferenceData: {
+                createRequest: { requestId: `meet-${Date.now()}` }
+            },
             reminders: { useDefault: true },
         };
 
+        // 4. Send to Google
         const response = await calendar.events.insert({
-            calendarId: 'primary', // 'primary' now means "the calendar of the user who signed in"
+            calendarId: 'primary',
             resource: event,
             sendUpdates: 'all',
+            conferenceDataVersion: 1, // Required to generate the Meet link
         });
 
+        console.log(`✅ Google Event Created: ${response.data.htmlLink}`);
         return response.data.id;
+
     } catch (error) {
-        console.error('Error in Google Calendar OAuth:', error);
+        // If the token is expired, Google returns a 401. 
+        // This is where you would eventually add "refresh token" logic.
+        console.error('Error in Google Calendar API:', error.response?.data || error.message);
         throw error;
     }
 }

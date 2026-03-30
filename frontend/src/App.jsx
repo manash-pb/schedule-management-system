@@ -254,7 +254,7 @@ function App() {
     setIsLoggedIn(false);
   };
 
-  // --- VIEW 1: ADMIN LOGIN / SIGN UP PAGE ---
+  // --- VIEW 1: SIGN UP PAGE ---
   if (!isLoggedIn) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f8fafc', width: '100vw', margin: 0, fontFamily: 'sans-serif' }}>
@@ -266,7 +266,7 @@ function App() {
           
           {/* Headline logic */}
           <h1 style={{ margin: '0 0 10px 0', color: '#0f172a' }}>
-            {isSignUpMode ? 'Sign Up' : 'Admin Login'}
+            {isSignUpMode ? 'Sign Up' : 'Sign In'}
           </h1>
           <p style={{ color: '#64748b', marginBottom: '25px', fontSize: '14px', lineHeight: '1.5' }}>
             {isSignUpMode ? 'Create your account to start scheduling.' : 'Securely manage your schedule.'}
@@ -308,7 +308,7 @@ function App() {
             />
             
             <button type="submit" className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px' }}>
-              {isSignUpMode ? 'Create Account' : 'Secure Login'}
+              {isSignUpMode ? 'Create Account' : 'Sign In'}
             </button>
           </form>
 
@@ -340,95 +340,113 @@ function App() {
     );
   }
 
-  // --- VIEW 2 & 3 (DASHBOARD & PREVIEW) REMAIN UNCHANGED ---
-  if (previewEvent) {
-    return (
-      <div style={{ padding: '40px', fontFamily: 'sans-serif', backgroundColor: '#f8fafc', minHeight: '100vh', width: '100vw', boxSizing: 'border-box', margin: 0 }}>
-        <button onClick={() => setPreviewEvent(null)} className="btn-secondary" style={{ width: 'fit-content', marginBottom: '20px' }}>
-          <ArrowLeft size={16} /> Back to Dashboard
-        </button>
-        <div style={{ background: 'white', padding: '30px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', maxWidth: '900px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px', marginBottom: '30px' }}>
-            <div>
-              <h1 style={{ margin: '0 0 10px 0', color: '#0f172a' }}>{previewEvent.title}</h1>
-              <p style={{ margin: '0', color: '#64748b', fontSize: '16px' }}>
-                📅 {formatDate(previewEvent.event_date)} | 🕒 {formatTime(previewEvent.start_time)} - {formatTime(previewEvent.end_time)}
-              </p>
-            </div>
-            <button onClick={() => downloadExcel(previewEvent)} className="btn-primary" style={{ width: 'auto', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px' }}>
-              <Download size={18} /> Download Excel
-            </button>
-          </div>
-          <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '0 0 20px 0' }} />
-          <h3 style={{ margin: '0 0 15px 0', color: '#334155' }}>Attendee List Preview</h3>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ backgroundColor: '#f8fafc' }}>
-                  <th style={{ padding: '12px', borderBottom: '2px solid #cbd5e1', color: '#475569' }}>Name</th>
-                  <th style={{ padding: '12px', borderBottom: '2px solid #cbd5e1', color: '#475569' }}>Email Address</th>
-                </tr>
-              </thead>
-              <tbody>
-                {previewEvent.attendees && previewEvent.attendees.length > 0 ? (
-                  previewEvent.attendees.map((a, index) => (
-                    <tr key={index} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '12px', color: '#0f172a' }}>{a.name || 'Guest'}</td>
-                      <td style={{ padding: '12px', color: '#0f172a' }}>{a.email}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="2" style={{ padding: '20px', textAlign: 'center', color: '#94a3b8' }}>No attendees.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+  // --- VIEW 3: THE DASHBOARD ---
   return (
     <div style={{ display: 'flex', flexDirection: 'column', padding: '40px', gap: '20px', fontFamily: 'sans-serif', backgroundColor: '#f8fafc', minHeight: '100vh', width: '100vw', boxSizing: 'border-box', margin: 0 }}>
+      
+      {/* Header with Logout Button */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
         <button onClick={handleLogout} className="btn-secondary" style={{ color: '#ef4444', backgroundColor: '#fee2e2' }}>
           <LogOut size={16} /> Logout
         </button>
       </div>
+
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '40px' }}>
+        {/* Form Section */}
         <div style={{ flex: '1 1 320px', background: 'white', padding: '30px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: 'fit-content' }}>
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 0, marginBottom: '20px' }}><PlusCircle /> Create Event</h2>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 0, marginBottom: '20px' }}>
+            <PlusCircle /> Create Event
+          </h2>
+
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
             <input type="text" placeholder="Event Title" className="custom-input" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required />
             <input type="text" placeholder="Venue or Zoom Link" className="custom-input" value={formData.venue} onChange={e => setFormData({...formData, venue: e.target.value})} required />
             <input type="date" className="custom-input" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} required />
+            
             <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <div style={{ flex: 1 }}><label style={{ fontSize: '12px', color: '#64748b' }}>Start Time</label><CustomTimeInput value={formData.start_time} onChange={(t) => setFormData({...formData, start_time: t})} /></div>
-              <div style={{ flex: 1 }}><label style={{ fontSize: '12px', color: '#64748b' }}>End Time</label><CustomTimeInput value={formData.end_time} onChange={(t) => setFormData({...formData, end_time: t})} /></div>
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                <label style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Start Time</label>
+                <CustomTimeInput 
+                  value={formData.start_time}
+                  onChange={(newTime) => setFormData(prev => ({ ...prev, start_time: newTime }))}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                <label style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>End Time</label>
+                <CustomTimeInput 
+                  value={formData.end_time} 
+                  onChange={(newTime) => setFormData(prev => ({ ...prev, end_time: newTime }))} 
+                />
+              </div>
             </div>
-            <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0' }} />
-            <label style={{ fontWeight: 'bold', fontSize: '14px', color: '#475569' }}>Invite Attendees</label>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <input type="text" placeholder="Name" className="custom-input" value={currentAttendee.name} onChange={e => setCurrentAttendee({...currentAttendee, name: e.target.value})} />
-              <input type="email" placeholder="Email" className="custom-input" value={currentAttendee.email} onChange={e => setCurrentAttendee({...currentAttendee, email: e.target.value})} />
-              <button type="button" className="btn-secondary" onClick={handleAddAttendee}><UserPlus size={16} /></button>
+
+            <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '10px 0' }} />
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <label style={{ fontWeight: 'bold', fontSize: '14px', color: '#475569' }}>Invite Attendees</label>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <input type="text" placeholder="Name" className="custom-input" value={currentAttendee.name} onChange={e => setCurrentAttendee({...currentAttendee, name: e.target.value})} style={{flex: '1 1 100px'}} />
+                <input type="email" placeholder="Email" className="custom-input" value={currentAttendee.email} onChange={e => setCurrentAttendee({...currentAttendee, email: e.target.value})} style={{flex: '2 1 150px'}} />
+                <button 
+                  type="button" 
+                  className="btn-secondary" 
+                  onClick={handleAddAttendee}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 15px' }}
+                >
+                  <UserPlus size={16} /> Add
+                </button>
+              </div>
+
+              {/* --- ADDED THIS SECTION: VISUAL LIST OF ATTENDEES --- */}
+              {attendees.length > 0 && (
+                <div style={{ backgroundColor: '#f1f5f9', padding: '10px', borderRadius: '6px', fontSize: '14px', marginTop: '10px' }}>
+                  <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#475569', fontSize: '12px' }}>Invited List:</p>
+                  {attendees.map((person, index) => (
+                    <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px', backgroundColor: 'white', padding: '6px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                      <span style={{ wordBreak: 'break-all', paddingRight: '10px' }}>👤 {person.name || 'Guest'} ({person.email})</span>
+                      <button type="button" onClick={() => handleRemoveAttendee(index)} style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer' }}>
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <button type="submit" className="btn-primary">Schedule & Send Invites</button>
+
+            <button type="submit" className="btn-primary" style={{ marginTop: '10px' }}>
+              Schedule & Send Invites
+            </button>
           </form>
         </div>
+
+        {/* List Section */}
         <div style={{ flex: '2 1 400px', width: '100%' }}>
-          <h2><Calendar /> Upcoming Schedule</h2>
-          {events.map(event => (
-            <div key={event.event_id} className="event-card">
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 0 }}><Calendar /> Upcoming Schedule</h2>
+          {events.length === 0 ? <p style={{ color: '#64748b' }}>No upcoming events found.</p> : null}
+          
+          {events.map((event, index) => (
+            <div key={event.event_id || index} className="event-card">
               <div style={{ width: '100%' }}>
-                <h3>{event.title}</h3>
-                <p style={{ fontSize: '14px', color: '#64748b' }}>📅 {formatDate(event.event_date)} | 🕒 {formatTime(event.start_time)} - {formatTime(event.end_time)}</p>
+                <h3 style={{ margin: '0 0 8px 0' }}>{event.title}</h3>
+                <p style={{ margin: '4px 0', fontSize: '14px', color: '#64748b' }}>
+                  📅 {formatDate(event.event_date)} | 🕒 {formatTime(event.start_time)} - {formatTime(event.end_time)}
+                </p>
+                <p style={{ margin: '4px 0', fontSize: '14px', color: '#64748b', wordBreak: 'break-all' }}>
+                  📍 {event.venue && event.venue.startsWith('http') ? (
+                    <a href={event.venue} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', textDecoration: 'underline' }}>Join Meeting Link</a>
+                  ) : (
+                    event.venue
+                  )}
+                </p>
               </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={() => setPreviewEvent(event)} className="btn-icon excel"><FileSpreadsheet /></button>
-                <button onClick={() => deleteEvent(event.event_id)} className="btn-icon delete"><Trash2 /></button>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button onClick={() => setPreviewEvent(event)} className="btn-icon excel" title="Preview Data">
+                  <FileSpreadsheet />
+                </button>
+                <button onClick={() => deleteEvent(event.event_id)} className="btn-icon delete" title="Delete Event">
+                  <Trash2 />
+                </button>
               </div>
             </div>
           ))}
