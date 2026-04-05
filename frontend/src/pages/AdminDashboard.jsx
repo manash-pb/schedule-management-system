@@ -135,7 +135,7 @@ const CustomTimeInput = ({ value, onChange }) => {
 
 // ... then your Dashboard component starts below ...
 
-const Dashboard = () => {
+const AdminDashboard = () => {
     const [events, setEvents] = useState([]);
     const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', start_time: '', end_time: '' });
     const [attendees, setAttendees] = useState([]);
@@ -144,7 +144,7 @@ const Dashboard = () => {
 
     const fetchEvents = async () => {
         try {
-            const res = await axios.get('/api/events');
+            const res = await axios.get('/api/events', { params: { role: 'admin' } });
             setEvents(res.data);
         } catch (e) { console.error(e); }
     };
@@ -291,4 +291,4 @@ const Dashboard = () => {
     );
 };
 
-export default Dashboard;
+export default AdminDashboard;

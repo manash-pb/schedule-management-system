@@ -1,29 +1,27 @@
 import React from 'react';
-import './App.css'; // This looks for App.css in the same folder as App.jsx
+import './App.css';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './Login';
-import Dashboard from './Dashboard';
+import AdminDashboard from './AdminDashboard';
+import UserDashboard from './UserDashboard';
 
-// You can move CustomTimeInput into its own file, or keep it here and pass it
-const CustomTimeInput = ({ value, onChange }) => {
-    // ... Copy your CustomTimeInput component code here ...
+// Reads localStorage fresh on every navigation — not frozen in state
+const ProtectedRoute = ({ children, adminOnly = false }) => {
+  const isAuthenticated = localStorage.getItem('isAdminLoggedIn') === 'true';
+  const isAdmin = localStorage.getItem('userRole') === 'admin';
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  if (adminOnly && !isAdmin) return <Navigate to="/" replace />;
+  return children;
 };
 
 function App() {
-  const isAuthenticated = () => localStorage.getItem('isAdminLoggedIn') === 'true';
-
   return (
     <Router>
       <Routes>
         <Route path="/" element={<Login />} />
-        
-        {/* Protected Route Logic */}
-        <Route 
-          path="/dashboard" 
-          element={isAuthenticated() ? <Dashboard CustomTimeInput={CustomTimeInput} /> : <Navigate to="/" />} 
-        />
-
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="/admin-dashboard" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
+        <Route path="/user-dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

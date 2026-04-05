@@ -43,6 +43,43 @@ h1, h2, h3 {
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); 
 }
 
+/* --- LOGIN TABS --- */
+.tab-container {
+  display: flex;
+  background-color: #f1f5f9;
+  border-radius: 12px;
+  padding: 6px;
+  margin-bottom: 24px;
+  border: 1px solid #e2e8f0;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px 0;
+  border: none;
+  background: transparent;
+  font-weight: 600;
+  font-size: 14px;
+  color: #64748b;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.tab-btn:hover {
+  color: #0f172a;
+}
+
+.tab-btn.active {
+  background: #ffffff;
+  color: #2563eb;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
 textarea.custom-input {
   line-height: 1.5;
   padding: 12px;

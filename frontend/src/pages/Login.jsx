@@ -1,42 +1,72 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, ExternalLink } from 'lucide-react';
+import { Calendar, ExternalLink, ShieldCheck, User } from 'lucide-react';
 
 const Login = () => {
+  const [activeTab, setActiveTab] = useState('user'); // 'user' or 'admin'
   const [isSignUpMode, setIsSignUpMode] = useState(false);
   const [manualName, setManualName] = useState('');
   const [manualEmail, setManualEmail] = useState('');
   const [manualPassword, setManualPassword] = useState('');
   const navigate = useNavigate();
 
-  // Check if we just returned from Google Login
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const loginStatus = urlParams.get('login');
     const userRole = urlParams.get('role');
+    const userEmail = urlParams.get('email');
+    const userName = urlParams.get('name');
 
-    if (loginStatus === 'success') {
+    if (loginStatus === 'success' && userRole) {
       localStorage.setItem('isAdminLoggedIn', 'true');
       localStorage.setItem('userRole', userRole);
-      navigate('/dashboard');
+      if (userEmail) localStorage.setItem('userEmail', userEmail);
+      if (userName) localStorage.setItem('userName', userName);
+
+      if (userRole === 'admin') {
+        navigate('/admin-dashboard', { replace: true });
+      } else {
+        navigate('/user-dashboard', { replace: true });
+      }
     }
   }, [navigate]);
 
   const handleManualLogin = async (e) => {
     e.preventDefault();
     const endpoint = isSignUpMode ? '/api/auth/signup' : '/api/auth/manual';
+    
+    // Force 'user' role for sign-ups. Otherwise, use the selected tab.
+    const payloadRole = isSignUpMode ? 'user' : activeTab;
+
     try {
       const res = await axios.post(endpoint, { 
         name: isSignUpMode ? manualName : undefined,
         email: manualEmail,
-        password: manualPassword 
+        password: manualPassword,
+        role: payloadRole 
       });
+      
       if (res.data.success) {
+        // 1. Determine the actual role (from backend or the tab they clicked)
+        const finalRole = res.data.role || payloadRole;
+
+        // 2. Save all necessary data to localStorage
         localStorage.setItem('isAdminLoggedIn', 'true');
-        localStorage.setItem('userRole', res.data.role);
-        navigate('/dashboard');
+        localStorage.setItem('userRole', finalRole);
+        
+        // CRITICAL: Save the email so the UserDashboard knows who to ask the backend for!
+        if (res.data.email) localStorage.setItem('userEmail', res.data.email); 
+        if (res.data.name) localStorage.setItem('userName', res.data.name);
+
+        // 3. Conditional Redirect
+        if (finalRole === 'admin') {
+            navigate('/admin-dashboard');      // Send Admins to the management page
+        } else {
+            navigate('/user-dashboard'); // Send normal users to their private schedule
+        }
       }
+
     } catch (error) {
       alert(isSignUpMode ? 'Sign up failed.' : 'Incorrect email or password.');
     }
@@ -45,25 +75,66 @@ const Login = () => {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f8fafc' }}>
       <div style={{ background: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '400px', width: '90%' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', color: '#2563eb' }}><Calendar size={48} /></div>
-        <h1 style={{ margin: '0 0 10px 0', color: '#0f172a' }}>{isSignUpMode ? 'Sign Up' : 'Sign In'}</h1>
-        <p style={{ color: '#64748b', marginBottom: '25px', fontSize: '14px' }}>{isSignUpMode ? 'Create your account.' : 'Securely manage your schedule.'}</p>
+        
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', color: '#2563eb' }}>
+          <Calendar size={48} />
+        </div>
+
+        {/* --- ROLE TABS (Hidden during Sign Up) --- */}
+        {!isSignUpMode && (
+          <div className="tab-container">
+            <button 
+              type="button"
+              className={`tab-btn ${activeTab === 'user' ? 'active' : ''}`}
+              onClick={() => setActiveTab('user')}
+            >
+              <User size={16} /> User
+            </button>
+            <button 
+              type="button"
+              className={`tab-btn ${activeTab === 'admin' ? 'active' : ''}`}
+              onClick={() => setActiveTab('admin')}
+            >
+              <ShieldCheck size={16} /> Admin
+            </button>
+          </div>
+        )}
+
+        <h1 style={{ margin: '0 0 10px 0', color: '#0f172a' }}>
+          {isSignUpMode ? 'Sign Up' : `${activeTab === 'admin' ? 'Admin' : 'User'} Sign In`}
+        </h1>
+        <p style={{ color: '#64748b', marginBottom: '25px', fontSize: '14px' }}>
+          {isSignUpMode ? 'Create your user account.' : 'Securely manage your schedule.'}
+        </p>
 
         <form onSubmit={handleManualLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          {isSignUpMode && <input type="text" placeholder="Full Name" className="custom-input" value={manualName} onChange={e => setManualName(e.target.value)} required style={{ textAlign: 'center' }} />}
+          {isSignUpMode && (
+            <input type="text" placeholder="Full Name" className="custom-input" value={manualName} onChange={e => setManualName(e.target.value)} required style={{ textAlign: 'center' }} />
+          )}
           <input type="email" placeholder="Email Address" className="custom-input" value={manualEmail} onChange={e => setManualEmail(e.target.value)} required style={{ textAlign: 'center' }} />
           <input type="password" placeholder="Password" className="custom-input" value={manualPassword} onChange={e => setManualPassword(e.target.value)} required style={{ textAlign: 'center' }} />
-          <button type="submit" className="btn-primary" style={{ width: '100%' }}>{isSignUpMode ? 'Create Account' : 'Sign In'}</button>
+          <button type="submit" className="btn-primary" style={{ width: '100%' }}>
+            {isSignUpMode ? 'Create Account' : 'Sign In'}
+          </button>
         </form>
 
         <p style={{ fontSize: '14px', color: '#64748b', marginTop: '15px' }}>
-          {isSignUpMode ? "Already have an account? " : "New User? "}
-          <span onClick={() => setIsSignUpMode(!isSignUpMode)} style={{ color: '#2563eb', cursor: 'pointer', fontWeight: 'bold' }}>{isSignUpMode ? 'Login Here' : 'Sign Up Here'}</span>
+          {isSignUpMode ? "Already have an account? " : "New here? "}
+          <span onClick={() => {
+            setIsSignUpMode(!isSignUpMode);
+            if (isSignUpMode) setActiveTab('user'); // Reset to User tab when returning to Login
+          }} style={{ color: '#2563eb', cursor: 'pointer', fontWeight: 'bold' }}>
+            {isSignUpMode ? 'Login Here' : 'Sign Up Here'}
+          </span>
         </p>
 
-        <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0', color: '#94a3b8' }}><hr style={{ flex: 1 }} /> OR <hr style={{ flex: 1 }} /></div>
-        <a href="http://localhost:3000/auth/google" className="google-btn" style={{ textDecoration: 'none', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
-          <ExternalLink size={18} /> Sign In with Google
+        <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0', color: '#94a3b8' }}>
+          <hr style={{ flex: 1, borderColor: '#e2e8f0' }} /> <span style={{ padding: '0 10px', fontSize: '12px', fontWeight: '600' }}>OR</span> <hr style={{ flex: 1, borderColor: '#e2e8f0' }} />
+        </div>
+        
+        {/* Pass 'user' automatically if signing up, otherwise pass the active tab */}
+        <a href={`http://localhost:3000/auth/google?role=${isSignUpMode ? 'user' : activeTab}`} className="btn-secondary" style={{ textDecoration: 'none', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', width: '100%', boxSizing: 'border-box' }}>
+          <ExternalLink size={18} color="#2563eb" /> Sign In with Google
         </a>
       </div>
     </div>

@@ -134,6 +134,9 @@ app.post('/api/events', async (req, res) => {
 app.get('/auth/google/callback', async (req, res) => {
     try {
         const { tokens } = await oauth2Client.getToken(req.query.code);
+        // Grab the role we passed in the previous step
+        const intendedRole = req.query.state || 'user';
+
         oauth2Client.setCredentials(tokens);
 
         const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
@@ -147,21 +150,40 @@ app.get('/auth/google/callback', async (req, res) => {
         const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
         let user = rows[0];
 
-        // We convert the tokens object to a JSON string for MySQL
-        const tokenString = JSON.stringify(tokens);
-
+        // If the DB says they are an Admin but they used the User login link:
+        // - If they already have tokens (calendar access), just log them in as admin
+        // - If they don't have tokens yet, bounce through Google once more with admin scopes
+        if (user && user.role === 'admin' && intendedRole !== 'admin') {
+            if (user.google_tokens) {
+                console.log(`✅ Admin ${email} used User login but already has tokens. Logging in as admin.`);
+                const name = userInfo.data.name;
+                return res.redirect(`http://localhost:5173/?login=success&role=admin&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`);
+            } else {
+                console.log(`⚠️ Admin ${email} has no tokens. Re-requesting with admin scopes.`);
+                return res.redirect('/auth/google?role=admin');
+            }
+        }
+        
         if (user) {
-            // Update existing user: Link Google ID and SAVE TOKENS
-            await pool.execute(
-                'UPDATE users SET google_id = ?, google_tokens = ? WHERE email = ?', 
-                [googleId, tokenString, email]
-            );
-            console.log(`✅ Updated tokens for: ${email}`);
+            // Only update tokens for admins, and only when Google sends a fresh refresh_token
+            if (user.role === 'admin' && tokens.refresh_token) {
+                await pool.execute(
+                    'UPDATE users SET google_id = ?, google_tokens = ? WHERE email = ?',
+                    [googleId, JSON.stringify(tokens), email]
+                );
+                console.log(`✅ Updated admin tokens for: ${email}`);
+            } else {
+                // For regular users, just link the Google ID if not already set
+                await pool.execute(
+                    'UPDATE users SET google_id = ? WHERE email = ? AND google_id IS NULL',
+                    [googleId, email]
+                );
+            }
         } else {
             // Create new user with tokens
             await pool.execute(
                 'INSERT INTO users (name, email, google_id, google_tokens, role) VALUES (?, ?, ?, ?, ?)', 
-                [name, email, googleId, tokenString, 'user']
+                [name, email, googleId, tokenString, intendedRole]
             );
             console.log(`✅ Created user and saved tokens: ${email}`);
             
@@ -170,8 +192,10 @@ app.get('/auth/google/callback', async (req, res) => {
         }
 
         // Redirect with role
-        const finalRole = user ? user.role : 'user';
-        res.redirect(`http://localhost:5173/?login=success&role=${finalRole}`);
+        const finalRole = user ? user.role : intendedRole;
+
+        // Pass the extra data in the URL query string
+        res.redirect(`http://localhost:5173/?login=success&role=${finalRole}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`);
 
     } catch (error) {
         console.error('Error during Google authentication:', error);
@@ -181,18 +205,26 @@ app.get('/auth/google/callback', async (req, res) => {
 
 // --- THE MISSING "ENTRY" ROUTE ---
 app.get('/auth/google', (req, res) => {
-    // 1. Define the permissions (scopes) we need
+    const requestedRole = req.query.role || 'user'; // Defaults to user
+
+    // 1. Base scopes that EVERYONE needs (No Google verification required)
     const scopes = [
         'https://www.googleapis.com/auth/userinfo.profile',
-        'https://www.googleapis.com/auth/userinfo.email',
-        'https://www.googleapis.com/auth/calendar' // Needed to create events
+        'https://www.googleapis.com/auth/userinfo.email'
     ];
 
-    // 2. Generate the URL that sends the user to Google
+    // 2. Only add the Sensitive Calendar scope if an ADMIN is logging in
+    if (requestedRole === 'admin') {
+        scopes.push('https://www.googleapis.com/auth/calendar');
+    }
+
+    // 3. Generate the URL that sends the user to Google
     const url = oauth2Client.generateAuthUrl({
-        access_type: 'offline', // CRITICAL: Gets a refresh_token so login lasts longer
+        access_type: 'offline', 
         scope: scopes,
-        prompt: 'consent' // Forces Google to show the "Allow" screen for Calendar
+        prompt: 'consent', 
+        // Pass the role through the 'state' variable so we remember it after Google redirects back
+        state: requestedRole 
     });
 
     // 3. Redirect the browser to Google
@@ -201,37 +233,52 @@ app.get('/auth/google', (req, res) => {
 
 // --- ROUTE: Get All Events with Attendees ---
 app.get('/api/events', async (req, res) => {
-    try {
-        // 1. Fetch all events, ordered by date and time
-        const [events] = await pool.execute(
-            `SELECT * FROM Events ORDER BY event_date ASC, start_time ASC`
-        );
+    const role = req.query.role || 'admin';
+    const email = req.query.email || null;
 
-        // 2. Fetch all attendees and their associated event_ids
+    try {
+        let eventsQuery;
+        let params = [];
+
+        if (role === 'admin' || !email) {
+            eventsQuery = `SELECT * FROM Events ORDER BY event_date ASC, start_time ASC`;
+        } else {
+            // Users only see events where they are listed as an attendee
+            eventsQuery = `
+                SELECT e.* FROM Events e
+                JOIN Event_Attendees ea ON e.event_id = ea.event_id
+                JOIN Attendees a ON ea.attendee_id = a.attendee_id
+                WHERE a.email = ?
+                ORDER BY e.event_date ASC, e.start_time ASC`;
+            params = [email];
+        }
+
+        const [events] = await pool.execute(eventsQuery, params);
+
+        // 2. Fetch attendees associated with the retrieved events
+        // This ensures we only get attendee data for events the user is allowed to see
         const [attendees] = await pool.execute(`
             SELECT ea.event_id, a.name, a.email 
             FROM Event_Attendees ea
             JOIN Attendees a ON ea.attendee_id = a.attendee_id
         `);
 
-        // 3. Attach the attendees to their respective events using JavaScript
+        // 3. Attach attendees to their respective events
         const eventsWithAttendees = events.map(event => {
-            // Filter out only the attendees that belong to this specific event
             const eventAttendees = attendees
                 .filter(a => a.event_id === event.event_id)
-                .map(a => ({ name: a.name, email: a.email })); // Clean up the output
+                .map(a => ({ name: a.name, email: a.email }));
 
             return {
-                ...event, // Spread all event details (title, venue, etc.)
-                attendees: eventAttendees // Add the attendees array
+                ...event,
+                attendees: eventAttendees
             };
         });
 
-        // 4. Send the perfectly formatted data back to the user/frontend
         res.status(200).json(eventsWithAttendees);
 
     } catch (error) {
-        console.error('Error fetching events:', error);
+        console.error('Error fetching filtered events:', error);
         res.status(500).json({ error: 'Failed to fetch events' });
     }
 });
