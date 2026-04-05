@@ -157,11 +157,21 @@ const Dashboard = () => {
     };
 
     const handleDelete = async (id) => {
+        console.log("Attempting to delete event with ID:", id);
+
+        if (!id) {
+            alert("Error: Event ID is undefined. Check your MySQL column names!");
+            return; 
+        }
+
         if (window.confirm("Delete this event?")) {
             try {
                 await axios.delete(`/api/events/${id}`);
                 fetchEvents();
-            } catch (e) { alert("Delete failed."); }
+            } catch (e) { 
+                console.error("Delete Error:", e);
+                alert("Delete failed on the server. Check backend console."); 
+            }
         }
     };
 
@@ -265,7 +275,12 @@ const Dashboard = () => {
                                 <div className="empty-state-card">No meetings scheduled yet...</div>
                             ) : (
                                 events.map((item) => (
-                                    <EventCard key={item.event_id} event={item} onDelete={handleDelete} onDownload={handleDownload} />
+                                    <EventCard 
+                                        key={item.event_id} 
+                                        event={item} 
+                                        onDelete={handleDelete} 
+                                        onDownload={handleDownload} 
+                                    />
                                 ))
                             )}
                         </div>

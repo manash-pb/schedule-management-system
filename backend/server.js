@@ -275,7 +275,6 @@ app.delete('/api/events', async (req, res) => {
     }
 });
 
-// --- ROUTE: DELETE an Event ---
 app.delete('/api/events/:id', async (req, res) => {
     const eventId = req.params.id; // Grabs the ID from the URL
 
@@ -294,10 +293,24 @@ app.delete('/api/events/:id', async (req, res) => {
             await deleteGoogleEvent(googleEventId);
         }
 
-        // 3. Delete from MySQL (Attendees link will auto-delete due to ON DELETE CASCADE)
+        // 3. Delete from MySQL 
+        // (Attendees link in the junction table will auto-delete due to ON DELETE CASCADE)
         await pool.execute(`DELETE FROM Events WHERE event_id = ?`, [eventId]);
 
-        res.status(200).json({ message: 'Event deleted successfully!' });
+        // 4. Clean up Orphaned Attendees
+        // (Finds any attendees that no longer have a matching row in the junction table)
+        const deleteOrphansQuery = `
+            DELETE Attendees 
+            FROM Attendees 
+            LEFT JOIN Event_Attendees ON Attendees.attendee_id = Event_Attendees.attendee_id 
+            WHERE Event_Attendees.event_id IS NULL;
+        `;
+        
+        // Note: Please double-check that 'Attendees' and 'Event_Attendees' match your actual table names
+        const [orphanResult] = await pool.execute(deleteOrphansQuery);
+        console.log(`Cleaned up ${orphanResult.affectedRows || 0} orphaned attendees.`);
+
+        res.status(200).json({ message: 'Event and orphaned attendees deleted successfully!' });
     } catch (error) {
         console.error('Error deleting event:', error);
         res.status(500).json({ error: 'Failed to delete event' });
