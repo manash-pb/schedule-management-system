@@ -271,7 +271,7 @@ app.get('/api/events', async (req, res) => {
 
             return {
                 ...event,
-                attendees: eventAttendees
+                attendees: role === 'admin' ? eventAttendees : []
             };
         });
 

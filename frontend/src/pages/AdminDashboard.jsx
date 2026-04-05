@@ -1,52 +1,105 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
-import { Calendar, Trash2, PlusCircle, UserPlus, X, FileSpreadsheet, LogOut, Clock, MapPin } from 'lucide-react';
+import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, LogOut, Clock, MapPin } from 'lucide-react';
+
+const ClosedEyeIcon = ({ size = 20, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 8 Q12 16 20 8" stroke={color} strokeWidth="2" strokeLinecap="round" fill="none"/>
+    <line x1="7.5" y1="11.5" x2="6.5" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+    <line x1="10.5" y1="13" x2="10" y2="15.5" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+    <line x1="13.5" y1="13" x2="14" y2="15.5" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+    <line x1="16.5" y1="11.5" x2="17.5" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
 import { useNavigate } from 'react-router-dom';
 
-const EventCard = ({ event, onDelete, onDownload }) => {
-    // Helper to format time for display (e.g., 14:00:00 -> 02:00 PM)
-    const formatTime = (timeStr) => {
-        if (!timeStr) return "";
-        const [hours, minutes] = timeStr.split(':');
-        let h = parseInt(hours);
-        const ampm = h >= 12 ? 'PM' : 'AM';
-        h = h % 12 || 12;
-        return `${String(h).padStart(2, '0')}:${minutes} ${ampm}`;
-    };
+const formatTime = (timeStr) => {
+    if (!timeStr) return "";
+    const [hours, minutes] = timeStr.split(':');
+    let h = parseInt(hours);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${String(h).padStart(2, '0')}:${minutes} ${ampm}`;
+};
 
-    return (
-        <div className="event-card">
-            <div className="event-info">
-                <span className="status-badge">Confirmed</span>
-                <h3 className="event-title">{event.title}</h3>
-                {event.description && <p className="event-description">{event.description}</p>}
-                <div className="event-meta">
-                    <div className="meta-item">
-                        <Calendar size={14} className="text-blue" />
-                        <span>{new Date(event.event_date).toLocaleDateString()}</span>
+const PreviewModal = ({ event, onClose, onDownload }) => (
+    <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-card" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+                <div>
+                    <span className="status-badge">Confirmed</span>
+                    <h2 className="event-title" style={{ marginBottom: 4 }}>{event.title}</h2>
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <div className="tooltip-wrap">
+                        <button className="btn-icon excel" onClick={() => onDownload(event)}>
+                            <Download size={20} />
+                        </button>
+                        <span className="tooltip-text">Download Excel</span>
                     </div>
-                    <div className="meta-item">
-                        <Clock size={14} className="text-blue" />
-                        <span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
-                    </div>
-                    <div className="meta-item venue">
-                        <MapPin size={14} />
-                        <span>{event.venue}</span>
-                    </div>
+                    <button className="btn-icon" onClick={onClose}><X size={20} /></button>
                 </div>
             </div>
-            <div className="event-actions">
-                <button onClick={() => onDownload(event)} className="btn-icon excel" title="Download Attendees">
-                    <FileSpreadsheet size={20} />
-                </button>
-                <button onClick={() => onDelete(event.event_id)} className="btn-icon delete" title="Delete Event">
-                    <Trash2 size={20} />
-                </button>
+
+            <div className="event-meta" style={{ marginBottom: 16 }}>
+                <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString()}</span></div>
+                <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
+                <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
+            </div>
+
+            {event.description && (
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 14px' }}>
+                    <p style={{ margin: 0, fontSize: 14, color: '#475569', lineHeight: 1.6 }}>{event.description}</p>
+                </div>
+            )}
+
+            <div className="modal-attendees">
+                <p className="modal-attendees-title">Attendees ({(event.attendees || []).length})</p>
+                {(event.attendees || []).length === 0 ? (
+                    <p style={{ color: '#94a3b8', fontSize: 13 }}>No attendees added.</p>
+                ) : (
+                    <div className="modal-attendees-list">
+                        {event.attendees.map((a, i) => (
+                            <div key={i} className="modal-attendee-row">
+                                <div className="attendee-avatar">{a.name?.[0]?.toUpperCase() || '?'}</div>
+                                <div>
+                                    <div style={{ fontWeight: 600, fontSize: 13 }}>{a.name}</div>
+                                    <div style={{ fontSize: 12, color: '#64748b' }}>{a.email}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
-    );
-};
+    </div>
+);
+
+const EventCard = ({ event, onDelete, onPreview }) => (
+    <div className="event-card">
+        <div className="event-info">
+            <span className="status-badge">Confirmed</span>
+            <h3 className="event-title">{event.title}</h3>
+            {event.description && <p className="event-description">{event.description}</p>}
+            <div className="event-meta">
+                <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString()}</span></div>
+                <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
+                <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
+            </div>
+        </div>
+        <div className="event-actions">
+            <div className="tooltip-wrap">
+                <button onClick={() => onPreview(event)} className="btn-icon preview"><ClosedEyeIcon size={20} /></button>
+                <span className="tooltip-text">Preview</span>
+            </div>
+            <div className="tooltip-wrap">
+                <button onClick={() => onDelete(event.event_id)} className="btn-icon delete"><Trash2 size={20} /></button>
+                <span className="tooltip-text">Delete</span>
+            </div>
+        </div>
+    </div>
+);
 
 const CustomTimeInput = ({ value, onChange }) => {
   const parseTime = (val) => {
@@ -137,6 +190,7 @@ const CustomTimeInput = ({ value, onChange }) => {
 
 const AdminDashboard = () => {
     const [events, setEvents] = useState([]);
+    const [previewEvent, setPreviewEvent] = useState(null);
     const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', start_time: '', end_time: '' });
     const [attendees, setAttendees] = useState([]);
     const [currentAttendee, setCurrentAttendee] = useState({ name: '', email: '' });
@@ -204,6 +258,7 @@ const AdminDashboard = () => {
 
     return (
         <div className="dashboard-container">
+            {previewEvent && <PreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} onDownload={handleDownload} />}
             <div className="dashboard-wrapper">
                 <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 0', marginBottom: '5px', width: '100%' }}>
                     <button onClick={handleLogout} className="btn-secondary"><LogOut size={16} /> Logout</button>
@@ -278,8 +333,8 @@ const AdminDashboard = () => {
                                     <EventCard 
                                         key={item.event_id} 
                                         event={item} 
-                                        onDelete={handleDelete} 
-                                        onDownload={handleDownload} 
+                                        onDelete={handleDelete}
+                                        onPreview={setPreviewEvent}
                                     />
                                 ))
                             )}
