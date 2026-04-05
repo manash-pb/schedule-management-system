@@ -17,6 +17,16 @@ pool.getConnection()
     })
     .catch(err => console.error('❌ Database connection error:', err));
 
+const nodemailer = require('nodemailer');
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+    },
+});
+
 let currentUserTokens = null; // This will hold the "fuel" for the Google Calendar car
 const app = express();
 app.use(cors());
@@ -118,7 +128,106 @@ app.post('/api/events', async (req, res) => {
             [googleEventId, newEventId]
         );
 
-        await connection.commit(); 
+        await connection.commit();
+
+        // Send invite emails via SMTP (not Google)
+        if (attendees && attendees.length > 0) {
+            const isVideoLink = venue && /^https?:\/\//i.test(venue.trim());
+
+            const formatTime12 = (t) => {
+                if (!t) return '';
+                const [h, m] = t.split(':').map(Number);
+                const ampm = h >= 12 ? 'PM' : 'AM';
+                const h12 = h % 12 || 12;
+                return `${String(h12).padStart(2,'0')}:${String(m).padStart(2,'0')} ${ampm}`;
+            };
+
+            const formattedDate = new Date(event_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            const formattedStart = formatTime12(mysqlStart);
+            const formattedEnd   = formatTime12(mysqlEnd);
+
+            const venueRow = isVideoLink
+                ? `<tr><td style="padding:8px 0;color:#64748b;font-size:14px;">📹 <strong>Link</strong></td><td style="padding:8px 0;"><a href="${venue}" style="color:#2563eb;">${venue}</a></td></tr>`
+                : `<tr><td style="padding:8px 0;color:#64748b;font-size:14px;">📍 <strong>Venue</strong></td><td style="padding:8px 0;font-size:14px;color:#0f172a;">${venue}</td></tr>`;
+
+            const descriptionBlock = description
+                ? `<div style="margin:20px 0;padding:14px 16px;background:#f8fafc;border-left:4px solid #2563eb;border-radius:6px;font-size:14px;color:#475569;line-height:1.6;">${description}</div>`
+                : '';
+
+            for (const person of attendees) {
+                const html = `
+<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:32px 36px;">
+            <p style="margin:0 0 4px 0;font-size:13px;color:#bfdbfe;letter-spacing:0.08em;text-transform:uppercase;">You're Invited</p>
+            <h1 style="margin:0;font-size:24px;color:#ffffff;font-weight:700;">${title}</h1>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:32px 36px;">
+            <p style="margin:0 0 6px 0;font-size:15px;color:#0f172a;">Hi <strong>${person.name}</strong>,</p>
+            <p style="margin:0 0 24px 0;font-size:14px;color:#64748b;">You have been invited to the following event. Please find the details below.</p>
+
+            ${descriptionBlock}
+
+            <!-- Event Detail Card -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin-top:8px;">
+              <tr>
+                <td style="padding:8px 0;color:#64748b;font-size:14px;width:110px;">📅 <strong>Date</strong></td>
+                <td style="padding:8px 0;font-size:14px;color:#0f172a;">${formattedDate}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;color:#64748b;font-size:14px;">🕐 <strong>Time</strong></td>
+                <td style="padding:8px 0;font-size:14px;color:#0f172a;">${formattedStart} – ${formattedEnd}</td>
+              </tr>
+              ${venueRow}
+            </table>
+
+            ${isVideoLink ? `
+            <!-- Join Button -->
+            <div style="text-align:center;margin-top:28px;">
+              <a href="${venue}" style="display:inline-block;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-size:15px;font-weight:600;">Join Meeting</a>
+            </div>` : ''}
+
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 36px;text-align:center;">
+            <p style="margin:0;font-size:12px;color:#94a3b8;">This invite was sent by <strong>Schedule Manager</strong>. Please do not reply to this email.</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+                try {
+                    await transporter.sendMail({
+                        from: `"Schedule Manager" <${process.env.SMTP_USER}>`,
+                        to: person.email,
+                        subject: `You're invited: ${title}`,
+                        html,
+                    });
+                    console.log(`✅ Invite sent to ${person.email}`);
+                } catch (mailErr) {
+                    console.error(`❌ Failed to send invite to ${person.email}:`, mailErr.message);
+                }
+            }
+        }
+
         res.status(201).json({ message: 'Success!', eventId: newEventId, googleEventId });
 
     } catch (error) {
@@ -294,14 +403,17 @@ app.delete('/api/events', async (req, res) => {
             return res.status(200).json({ message: 'No events found to delete.' });
         }
 
+        const [adminRows] = await pool.execute('SELECT google_tokens FROM users WHERE role = "admin" LIMIT 1');
+        const adminTokens = (adminRows.length && adminRows[0].google_tokens)
+            ? (typeof adminRows[0].google_tokens === 'string' ? JSON.parse(adminRows[0].google_tokens) : adminRows[0].google_tokens)
+            : null;
+
         console.log(`Attempting to delete ${events.length} events from Google Calendar...`);
 
-        // 2. Loop through and delete them from Google Calendar one by one
         for (let event of events) {
             try {
-                await deleteGoogleEvent(event.google_event_id);
+                if (adminTokens) await deleteGoogleEvent(event.google_event_id, adminTokens);
             } catch (gcalError) {
-                // If one fails (e.g., already deleted manually on Google), we log it but KEEP GOING
                 console.warn(`Could not delete Google event ${event.google_event_id}. Moving to next...`);
             }
         }
@@ -323,39 +435,120 @@ app.delete('/api/events', async (req, res) => {
 });
 
 app.delete('/api/events/:id', async (req, res) => {
-    const eventId = req.params.id; // Grabs the ID from the URL
+    const eventId = req.params.id;
 
     try {
-        // 1. Fetch the google_event_id from the database first
-        const [eventRows] = await pool.execute(`SELECT google_event_id FROM Events WHERE event_id = ?`, [eventId]);
-        
-        if (eventRows.length === 0) {
-            return res.status(404).json({ error: 'Event not found' });
-        }
+        const [eventRows] = await pool.execute(
+            `SELECT e.*, GROUP_CONCAT(a.name SEPARATOR '||') AS attendee_names, GROUP_CONCAT(a.email SEPARATOR '||') AS attendee_emails
+             FROM Events e
+             LEFT JOIN Event_Attendees ea ON e.event_id = ea.event_id
+             LEFT JOIN Attendees a ON ea.attendee_id = a.attendee_id
+             WHERE e.event_id = ?
+             GROUP BY e.event_id`, [eventId]
+        );
 
-        const googleEventId = eventRows[0].google_event_id;
+        if (eventRows.length === 0) return res.status(404).json({ error: 'Event not found' });
 
-        // 2. Delete from Google Calendar
+        const event = eventRows[0];
+        const googleEventId = event.google_event_id;
+
         if (googleEventId) {
-            await deleteGoogleEvent(googleEventId);
+            const [adminRows] = await pool.execute('SELECT google_tokens FROM users WHERE role = "admin" LIMIT 1');
+            if (adminRows.length && adminRows[0].google_tokens) {
+                const tokens = typeof adminRows[0].google_tokens === 'string' ? JSON.parse(adminRows[0].google_tokens) : adminRows[0].google_tokens;
+                await deleteGoogleEvent(googleEventId, tokens);
+            }
         }
 
-        // 3. Delete from MySQL 
-        // (Attendees link in the junction table will auto-delete due to ON DELETE CASCADE)
         await pool.execute(`DELETE FROM Events WHERE event_id = ?`, [eventId]);
 
-        // 4. Clean up Orphaned Attendees
-        // (Finds any attendees that no longer have a matching row in the junction table)
-        const deleteOrphansQuery = `
-            DELETE Attendees 
-            FROM Attendees 
-            LEFT JOIN Event_Attendees ON Attendees.attendee_id = Event_Attendees.attendee_id 
-            WHERE Event_Attendees.event_id IS NULL;
-        `;
-        
-        // Note: Please double-check that 'Attendees' and 'Event_Attendees' match your actual table names
-        const [orphanResult] = await pool.execute(deleteOrphansQuery);
-        console.log(`Cleaned up ${orphanResult.affectedRows || 0} orphaned attendees.`);
+        await pool.execute(`
+            DELETE Attendees FROM Attendees
+            LEFT JOIN Event_Attendees ON Attendees.attendee_id = Event_Attendees.attendee_id
+            WHERE Event_Attendees.event_id IS NULL
+        `);
+
+        // Send cancellation emails via SMTP
+        if (event.attendee_emails) {
+            const names  = event.attendee_names.split('||');
+            const emails = event.attendee_emails.split('||');
+
+            const formattedDate = new Date(event.event_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+            const formatTime12 = (t) => {
+                if (!t) return '';
+                const [h, m] = t.split(':').map(Number);
+                const ampm = h >= 12 ? 'PM' : 'AM';
+                return `${String(h % 12 || 12).padStart(2,'0')}:${String(m).padStart(2,'0')} ${ampm}`;
+            };
+
+            for (let i = 0; i < emails.length; i++) {
+                const html = `
+<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:32px 36px;">
+            <p style="margin:0 0 4px 0;font-size:13px;color:#fecaca;letter-spacing:0.08em;text-transform:uppercase;">Event Cancelled</p>
+            <h1 style="margin:0;font-size:24px;color:#ffffff;font-weight:700;">${event.title}</h1>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:32px 36px;">
+            <p style="margin:0 0 6px 0;font-size:15px;color:#0f172a;">Hi <strong>${names[i]}</strong>,</p>
+            <p style="margin:0 0 24px 0;font-size:14px;color:#64748b;">We're sorry to inform you that the following event has been <strong style="color:#ef4444;">cancelled</strong>.</p>
+
+            <!-- Event Detail Card -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;">
+              <tr>
+                <td style="padding:8px 0;color:#64748b;font-size:14px;width:110px;">📅 <strong>Date</strong></td>
+                <td style="padding:8px 0;font-size:14px;color:#0f172a;">${formattedDate}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;color:#64748b;font-size:14px;">🕐 <strong>Time</strong></td>
+                <td style="padding:8px 0;font-size:14px;color:#0f172a;">${formatTime12(event.start_time)} – ${formatTime12(event.end_time)}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;color:#64748b;font-size:14px;">📍 <strong>Venue</strong></td>
+                <td style="padding:8px 0;font-size:14px;color:#0f172a;">${event.venue}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 36px;text-align:center;">
+            <p style="margin:0;font-size:12px;color:#94a3b8;">This notice was sent by <strong>Schedule Manager</strong>. Please do not reply to this email.</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+                try {
+                    await transporter.sendMail({
+                        from: `"Schedule Manager" <${process.env.SMTP_USER}>`,
+                        to: emails[i],
+                        subject: `Event Cancelled: ${event.title}`,
+                        html,
+                    });
+                    console.log(`✅ Cancellation sent to ${emails[i]}`);
+                } catch (mailErr) {
+                    console.error(`❌ Failed to send cancellation to ${emails[i]}:`, mailErr.message);
+                }
+            }
+        }
 
         res.status(200).json({ message: 'Event and orphaned attendees deleted successfully!' });
     } catch (error) {

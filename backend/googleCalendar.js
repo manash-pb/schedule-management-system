@@ -31,50 +31,41 @@ async function createGoogleEvent(eventData, attendees, tokens) {
             throw new Error("No Google tokens provided to createGoogleEvent");
         }
 
-        // 1. Feed the tokens into the client
         oauth2Client.setCredentials(tokens);
-
         const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-        
-        // 2. Map attendees to the format Google expects
+
         const attendeeList = attendees.map(person => ({ email: person.email }));
 
-        // 3. Construct the event object
+        // Only add a Meet link if the venue looks like a video/meet link
+        const isVideoLink = eventData.venue && /^https?:\/\//i.test(eventData.venue.trim());
+
         const event = {
             summary: eventData.title,
             description: eventData.description,
             location: eventData.venue,
-            start: {
-                // Use the strings we prepared in server.js
-                dateTime: eventData.startISO, 
-                timeZone: 'Asia/Kolkata', 
-            },
-            end: {
-                dateTime: eventData.endISO, 
-                timeZone: 'Asia/Kolkata',
-            },
+            start: { dateTime: eventData.startISO, timeZone: 'Asia/Kolkata' },
+            end:   { dateTime: eventData.endISO,   timeZone: 'Asia/Kolkata' },
             attendees: attendeeList,
-            // Adds a Google Meet link automatically!
-            conferenceData: {
-                createRequest: { requestId: `meet-${Date.now()}` }
-            },
             reminders: { useDefault: true },
         };
 
-        // 4. Send to Google
-        const response = await calendar.events.insert({
+        // Only attach conferenceData when venue is a URL
+        const insertParams = {
             calendarId: 'primary',
             resource: event,
-            sendUpdates: 'all',
-            conferenceDataVersion: 1, // Required to generate the Meet link
-        });
+            sendUpdates: 'none', // We send our own emails via SMTP
+        };
 
+        if (isVideoLink) {
+            event.conferenceData = { createRequest: { requestId: `meet-${Date.now()}` } };
+            insertParams.conferenceDataVersion = 1;
+        }
+
+        const response = await calendar.events.insert(insertParams);
         console.log(`✅ Google Event Created: ${response.data.htmlLink}`);
         return response.data.id;
 
     } catch (error) {
-        // If the token is expired, Google returns a 401. 
-        // This is where you would eventually add "refresh token" logic.
         console.error('Error in Google Calendar API:', error.response?.data || error.message);
         throw error;
     }
@@ -112,13 +103,14 @@ async function updateGoogleEvent(googleEventId, updates) {
 }
 
 // --- Function to DELETE an existing event ---
-async function deleteGoogleEvent(googleEventId) {
+async function deleteGoogleEvent(googleEventId, tokens) {
     try {
+        oauth2Client.setCredentials(tokens);
         const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
         await calendar.events.delete({
             calendarId: 'primary',
             eventId: googleEventId,
-            sendUpdates: 'all' // Sends a "Canceled Event" email to attendees!
+            sendUpdates: 'none',
         });
     } catch (error) {
         console.error('Error deleting Google Event:', error);

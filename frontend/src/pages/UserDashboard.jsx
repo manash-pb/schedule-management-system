@@ -99,7 +99,6 @@ const UserDashboard = () => {
                                         <div className="event-info">
                                             <span className="status-badge">Confirmed</span>
                                             <h3 className="event-title">{event.title}</h3>
-                                            {event.description && <p className="event-description">{event.description}</p>}
                                             <div className="event-meta">
                                                 <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString()}</span></div>
                                                 <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
