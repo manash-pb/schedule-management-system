@@ -292,7 +292,41 @@ textarea.custom-input {
   color: #2563eb;
 }
 
-/* --- TOOLTIP --- */
+/* --- GOOGLE CALENDAR CONNECT BANNER --- */
+.calendar-connect-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  color: #92400e;
+  font-weight: 500;
+}
+
+.btn-connect-calendar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #2563eb;
+  color: #fff;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.btn-connect-calendar:hover {
+  background: #1d4ed8;
+}
 .tooltip-wrap {
   position: relative;
   display: inline-flex;

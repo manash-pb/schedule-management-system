@@ -104,9 +104,10 @@ app.post('/api/events', async (req, res) => {
         // --- ATTENDEE LOOP (Keep your existing loop here) ---
         if (attendees && attendees.length > 0) {
             for (let person of attendees) {
-                const attendeeName = person.name || 'Guest'; 
-                await connection.execute(`INSERT IGNORE INTO Attendees (name, email) VALUES (?, ?)`, [attendeeName, person.email]);
-                const [attendeeRecord] = await connection.execute(`SELECT attendee_id FROM Attendees WHERE email = ?`, [person.email]);
+                const attendeeName = person.name || 'Guest';
+                const attendeeEmail = person.email.toLowerCase().trim();
+                await connection.execute(`INSERT IGNORE INTO Attendees (name, email) VALUES (?, ?)`, [attendeeName, attendeeEmail]);
+                const [attendeeRecord] = await connection.execute(`SELECT attendee_id FROM Attendees WHERE email = ?`, [attendeeEmail]);
                 const attendeeId = attendeeRecord[0].attendee_id;
                 await connection.execute(`INSERT INTO Event_Attendees (event_id, attendee_id) VALUES (?, ?)`, [newEventId, attendeeId]);
             }
@@ -274,37 +275,31 @@ app.get('/auth/google/callback', async (req, res) => {
         }
         
         if (user) {
-            // Only update tokens for admins, and only when Google sends a fresh refresh_token
             if (user.role === 'admin' && tokens.refresh_token) {
                 await pool.execute(
-                    'UPDATE users SET google_id = ?, google_tokens = ? WHERE email = ?',
-                    [googleId, JSON.stringify(tokens), email]
+                    'UPDATE users SET google_tokens = ? WHERE email = ?',
+                    [JSON.stringify(tokens), email]
                 );
                 console.log(`✅ Updated admin tokens for: ${email}`);
-            } else {
-                // For regular users, just link the Google ID if not already set
-                await pool.execute(
-                    'UPDATE users SET google_id = ? WHERE email = ? AND google_id IS NULL',
-                    [googleId, email]
-                );
             }
+            // For regular users, nothing to update — name and email already in DB
         } else {
-            // Create new user with tokens
+            // New user — save name, email, role. Only save tokens if admin.
+            const tokenString = (intendedRole === 'admin') ? JSON.stringify(tokens) : null;
             await pool.execute(
-                'INSERT INTO users (name, email, google_id, google_tokens, role) VALUES (?, ?, ?, ?, ?)', 
-                [name, email, googleId, tokenString, intendedRole]
+                'INSERT INTO users (name, email, google_tokens, role) VALUES (?, ?, ?, ?)',
+                [name, email, tokenString, intendedRole]
             );
-            console.log(`✅ Created user and saved tokens: ${email}`);
-            
+            console.log(`✅ Created user: ${email} as ${intendedRole}`);
             const [newRows] = await pool.execute('SELECT role FROM users WHERE email = ?', [email]);
             user = newRows[0];
         }
 
         // Redirect with role
         const finalRole = user ? user.role : intendedRole;
-
-        // Pass the extra data in the URL query string
-        res.redirect(`http://localhost:5173/?login=success&role=${finalRole}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`);
+        // If already logged in (reconnect flow), go straight to admin dashboard
+        const redirectBase = finalRole === 'admin' ? 'http://localhost:5173/admin-dashboard' : 'http://localhost:5173/';
+        res.redirect(`${redirectBase}?login=success&role=${finalRole}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`);
 
     } catch (error) {
         console.error('Error during Google authentication:', error);
@@ -608,6 +603,19 @@ app.patch('/api/events/:id', async (req, res) => {
     }
 });
 
+// --- ROUTE: Check if admin has Google tokens ---
+app.get('/api/auth/check-calendar', async (req, res) => {
+    const { email } = req.query;
+    if (!email) return res.json({ connected: false });
+    try {
+        const [rows] = await pool.execute('SELECT google_tokens FROM users WHERE email = ? AND role = "admin"', [email]);
+        const connected = rows.length > 0 && !!rows[0].google_tokens;
+        res.json({ connected });
+    } catch (e) {
+        res.json({ connected: false });
+    }
+});
+
 // --- DATABASE-POWERED MANUAL LOGIN ---
 app.post('/api/auth/manual', async (req, res) => {
     const { email, password } = req.body;
@@ -624,7 +632,7 @@ app.post('/api/auth/manual', async (req, res) => {
         // If user exists AND the password matches
         if (user && user.password === password) {
             console.log(`Manual login success: ${email} as ${user.role}`);
-            return res.json({ success: true, role: user.role });
+            return res.json({ success: true, role: user.role, name: user.name, email: user.email });
         }
 
         // If wrong email or wrong password
@@ -657,7 +665,7 @@ app.post('/api/auth/signup', async (req, res) => {
         );
 
         console.log(`✅ New user registered: ${name} (${email})`);
-        res.json({ success: true, role: 'user' });
+        res.json({ success: true, role: 'user', name, email: email.toLowerCase() });
 
     } catch (error) {
         console.error('❌ SIGNUP ERROR:', error);

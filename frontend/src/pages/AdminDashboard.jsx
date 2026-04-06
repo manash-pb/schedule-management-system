@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
-import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, LogOut, Clock, MapPin } from 'lucide-react';
+import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, LogOut, Clock, MapPin, AlertTriangle } from 'lucide-react';
 
 const ClosedEyeIcon = ({ size = 20, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -190,10 +190,12 @@ const CustomTimeInput = ({ value, onChange }) => {
 const AdminDashboard = () => {
     const [events, setEvents] = useState([]);
     const [previewEvent, setPreviewEvent] = useState(null);
+    const [calendarConnected, setCalendarConnected] = useState(true);
     const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', start_time: '', end_time: '' });
     const [attendees, setAttendees] = useState([]);
     const [currentAttendee, setCurrentAttendee] = useState({ name: '', email: '' });
     const navigate = useNavigate();
+    const adminEmail = localStorage.getItem('userEmail');
 
     const fetchEvents = async () => {
         try {
@@ -202,7 +204,21 @@ const AdminDashboard = () => {
         } catch (e) { console.error(e); }
     };
 
-    useEffect(() => { fetchEvents(); }, []);
+    useEffect(() => {
+        fetchEvents();
+        // Check if Google Calendar is connected
+        if (adminEmail) {
+            axios.get('/api/auth/check-calendar', { params: { email: adminEmail } })
+                .then(res => setCalendarConnected(res.data.connected))
+                .catch(() => setCalendarConnected(false));
+        }
+        // Handle return from Google OAuth (calendar connect)
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('login') === 'success') {
+            setCalendarConnected(true);
+            window.history.replaceState({}, '', '/admin-dashboard');
+        }
+    }, []);
 
     const handleLogout = () => {
         localStorage.removeItem('isAdminLoggedIn');
@@ -255,6 +271,37 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleExcelImport = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const wb = XLSX.read(evt.target.result, { type: 'binary' });
+            const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+            const parsed = rows
+                .map(r => ({
+                    name: String(r.name || r.Name || r.NAME || '').trim(),
+                    email: String(r.email || r.Email || r.EMAIL || '').trim().toLowerCase(),
+                }))
+                .filter(r => r.name && r.email && /^[^@]+@[^@]+\.[^@]+$/.test(r.email));
+
+            if (parsed.length === 0) {
+                alert('No valid rows found. Make sure the sheet has "name" and "email" columns.');
+                e.target.value = '';
+                return;
+            }
+
+            // Merge, skipping duplicates by email
+            setAttendees(prev => {
+                const existing = new Set(prev.map(a => a.email));
+                const newOnes = parsed.filter(a => !existing.has(a.email));
+                return [...prev, ...newOnes];
+            });
+            e.target.value = '';
+        };
+        reader.readAsBinaryString(file);
+    };
+
     return (
         <div className="dashboard-container">
             {previewEvent && <PreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} onDownload={handleDownload} />}
@@ -262,6 +309,18 @@ const AdminDashboard = () => {
                 <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 0', marginBottom: '5px', width: '100%' }}>
                     <button onClick={handleLogout} className="btn-secondary"><LogOut size={16} /> Logout</button>
                 </div>
+
+                {!calendarConnected && (
+                    <div className="calendar-connect-banner">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <AlertTriangle size={18} color="#b45309" />
+                            <span>Google Calendar is not connected. Events won't sync until you connect.</span>
+                        </div>
+                        <a href={`http://localhost:3000/auth/google?role=admin`} className="btn-connect-calendar">
+                            Connect Google Calendar
+                        </a>
+                    </div>
+                )}
 
                 <div className="main-content">
                     <div className="form-container">
@@ -297,7 +356,22 @@ const AdminDashboard = () => {
                                 <hr style={{ border: 'none', borderTop: '1px solid #f1f5f9', margin: '5px 0' }} />
 
                                 <div className="attendee-logic">
-                                    <label style={{ fontWeight: '600', fontSize: '13px', color: '#475569', display: 'block', marginBottom: '8px' }}>Invite Guests</label>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                        <label style={{ fontWeight: '600', fontSize: '13px', color: '#475569' }}>Invite Guests</label>
+                                        <div className="tooltip-wrap">
+                                            <label className="btn-secondary" style={{ cursor: 'pointer', padding: '6px 12px', fontSize: '12px' }}>
+                                                <FileSpreadsheet size={14} />
+                                                Import Excel
+                                                <input
+                                                    type="file"
+                                                    accept=".xlsx,.xls"
+                                                    style={{ display: 'none' }}
+                                                    onChange={handleExcelImport}
+                                                />
+                                            </label>
+                                            <span className="tooltip-text">Columns: name, email</span>
+                                        </div>
+                                    </div>
                                     <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
                                         <div className="attendee-input-row">
                                             <input type="text" placeholder="Guest Name" className="custom-input" style={{ flex: 1 }} value={currentAttendee.name} onChange={e => setCurrentAttendee({ ...currentAttendee, name: e.target.value })} />
@@ -307,7 +381,11 @@ const AdminDashboard = () => {
                                     </div>
 
                                     {attendees.length > 0 && (
-                                        <div style={{ marginTop: '10px', maxHeight: '100px', overflowY: 'auto', backgroundColor: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                        <div style={{ marginTop: '10px', maxHeight: '120px', overflowY: 'auto', backgroundColor: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{attendees.length} guest{attendees.length > 1 ? 's' : ''}</span>
+                                                <span onClick={() => setAttendees([])} style={{ fontSize: '11px', color: '#ef4444', cursor: 'pointer', fontWeight: 600 }}>Clear all</span>
+                                            </div>
                                             {attendees.map((p, i) => (
                                                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', marginBottom: '4px' }}>
                                                     <span style={{ color: '#64748b' }}>{p.name} ({p.email})</span>

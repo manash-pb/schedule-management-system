@@ -48,22 +48,20 @@ const Login = () => {
       });
       
       if (res.data.success) {
-        // 1. Determine the actual role (from backend or the tab they clicked)
         const finalRole = res.data.role || payloadRole;
 
-        // 2. Save all necessary data to localStorage
+        // Clear any stale session data from a previous login (e.g. old Google name)
+        localStorage.clear();
+
         localStorage.setItem('isAdminLoggedIn', 'true');
         localStorage.setItem('userRole', finalRole);
-        
-        // CRITICAL: Save the email so the UserDashboard knows who to ask the backend for!
-        if (res.data.email) localStorage.setItem('userEmail', res.data.email); 
-        if (res.data.name) localStorage.setItem('userName', res.data.name);
+        localStorage.setItem('userEmail', res.data.email || manualEmail);
+        localStorage.setItem('userName', res.data.name || manualName || 'User');
 
-        // 3. Conditional Redirect
         if (finalRole === 'admin') {
-            navigate('/admin-dashboard');      // Send Admins to the management page
+            navigate('/admin-dashboard', { replace: true });
         } else {
-            navigate('/user-dashboard'); // Send normal users to their private schedule
+            navigate('/user-dashboard', { replace: true });
         }
       }
 
