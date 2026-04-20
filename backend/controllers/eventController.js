@@ -1,0 +1,231 @@
+const pool = require('../db');
+const { createGoogleEvent, deleteGoogleEvent, updateGoogleEvent } = require('../googleCalendar');
+const { sendInviteEmail, sendCancellationEmail } = require('../utils/mailer');
+
+const getAdminTokens = async (adminEmail) => {
+    if (adminEmail) {
+        const [rows] = await pool.execute(
+            'SELECT google_tokens FROM users WHERE email = ? AND role = "admin" LIMIT 1',
+            [adminEmail]
+        );
+        if (rows.length && rows[0].google_tokens) {
+            return typeof rows[0].google_tokens === 'string'
+                ? JSON.parse(rows[0].google_tokens)
+                : rows[0].google_tokens;
+        }
+    }
+    // Fallback to any admin with tokens
+    const [fallback] = await pool.execute(
+        'SELECT google_tokens FROM users WHERE role = "admin" AND google_tokens IS NOT NULL LIMIT 1'
+    );
+    if (!fallback.length || !fallback[0].google_tokens) return null;
+    return typeof fallback[0].google_tokens === 'string'
+        ? JSON.parse(fallback[0].google_tokens)
+        : fallback[0].google_tokens;
+};
+
+const cleanTime = (t) => {
+    if (!t) return null;
+    return t.split(':').length === 2 ? `${t}:00` : t;
+};
+
+exports.createEvent = async (req, res) => {
+    let { title = null, description = null, venue = null, event_date = null,
+          start_time = null, end_time = null, attendees = [], adminEmail = null } = req.body;
+
+    const mysqlStart = cleanTime(start_time);
+    const mysqlEnd   = cleanTime(end_time);
+    const googleStart = (event_date && mysqlStart) ? `${event_date}T${mysqlStart}` : null;
+    const googleEnd   = (event_date && mysqlEnd)   ? `${event_date}T${mysqlEnd}`   : null;
+
+    if (!googleStart || !googleEnd) {
+        return res.status(400).json({ error: 'Missing date or time fields' });
+    }
+
+    const tokens = await getAdminTokens(adminEmail);
+    if (!tokens) return res.status(401).json({ error: 'No Google connection found. Please connect Google Calendar.' });
+
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+
+        const [eventResult] = await connection.execute(
+            `INSERT INTO events (title, description, venue, event_date, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?)`,
+            [title, description, venue, event_date, mysqlStart, mysqlEnd]
+        );
+        const newEventId = eventResult.insertId;
+
+        for (const person of attendees) {
+            const attendeeEmail = person.email.toLowerCase().trim();
+            await connection.execute(`INSERT IGNORE INTO Attendees (name, email) VALUES (?, ?)`, [person.name || 'Guest', attendeeEmail]);
+            const [rec] = await connection.execute(`SELECT attendee_id FROM Attendees WHERE email = ?`, [attendeeEmail]);
+            await connection.execute(`INSERT INTO Event_Attendees (event_id, attendee_id) VALUES (?, ?)`, [newEventId, rec[0].attendee_id]);
+        }
+
+        const googleEventId = await createGoogleEvent({ title, description, venue, startISO: googleStart, endISO: googleEnd }, attendees, tokens);
+        await connection.execute(`UPDATE events SET google_event_id = ? WHERE event_id = ?`, [googleEventId, newEventId]);
+        await connection.commit();
+
+        // Send invite emails
+        for (const person of attendees) {
+            try {
+                await sendInviteEmail({ person, title, description, venue, event_date, mysqlStart, mysqlEnd, newEventId });
+                console.log(`✅ Invite sent to ${person.email}`);
+            } catch (e) {
+                console.error(`❌ Failed to send invite to ${person.email}:`, e.message);
+            }
+        }
+
+        res.status(201).json({ message: 'Success!', eventId: newEventId, googleEventId });
+    } catch (error) {
+        if (connection) await connection.rollback();
+        console.error('Event creation error:', error.message);
+        res.status(500).json({ error: error.message });
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
+exports.getEvents = async (req, res) => {
+    const role  = req.query.role  || 'admin';
+    const email = req.query.email || null;
+
+    try {
+        let eventsQuery, params = [];
+        if (role === 'admin' || !email) {
+            eventsQuery = `SELECT * FROM Events ORDER BY event_date ASC, start_time ASC`;
+        } else {
+            eventsQuery = `
+                SELECT e.* FROM Events e
+                JOIN Event_Attendees ea ON e.event_id = ea.event_id
+                JOIN Attendees a ON ea.attendee_id = a.attendee_id
+                WHERE a.email = ?
+                ORDER BY e.event_date ASC, e.start_time ASC`;
+            params = [email];
+        }
+
+        const [events] = await pool.execute(eventsQuery, params);
+        const [attendees] = await pool.execute(`
+            SELECT ea.event_id, a.name, a.email
+            FROM Event_Attendees ea
+            JOIN Attendees a ON ea.attendee_id = a.attendee_id
+        `);
+
+        const result = events.map(event => ({
+            ...event,
+            attendees: role === 'admin'
+                ? attendees.filter(a => a.event_id === event.event_id).map(a => ({ name: a.name, email: a.email }))
+                : [],
+        }));
+
+        res.status(200).json(result);
+    } catch (error) {
+        console.error('Error fetching events:', error);
+        res.status(500).json({ error: 'Failed to fetch events' });
+    }
+};
+
+exports.deleteEvent = async (req, res) => {
+    const eventId = req.params.id;
+    try {
+        const [eventRows] = await pool.execute(
+            `SELECT e.*, GROUP_CONCAT(a.name SEPARATOR '||') AS attendee_names,
+                    GROUP_CONCAT(a.email SEPARATOR '||') AS attendee_emails
+             FROM Events e
+             LEFT JOIN Event_Attendees ea ON e.event_id = ea.event_id
+             LEFT JOIN Attendees a ON ea.attendee_id = a.attendee_id
+             WHERE e.event_id = ? GROUP BY e.event_id`,
+            [eventId]
+        );
+
+        if (!eventRows.length) return res.status(404).json({ error: 'Event not found' });
+
+        const event = eventRows[0];
+
+        if (event.google_event_id) {
+            const tokens = await getAdminTokens(null);
+            if (tokens) await deleteGoogleEvent(event.google_event_id, tokens);
+        }
+
+        await pool.execute(`DELETE FROM Events WHERE event_id = ?`, [eventId]);
+        await pool.execute(`
+            DELETE Attendees FROM Attendees
+            LEFT JOIN Event_Attendees ON Attendees.attendee_id = Event_Attendees.attendee_id
+            WHERE Event_Attendees.event_id IS NULL
+        `);
+
+        if (event.attendee_emails) {
+            const names  = event.attendee_names.split('||');
+            const emails = event.attendee_emails.split('||');
+            for (let i = 0; i < emails.length; i++) {
+                try {
+                    await sendCancellationEmail({ name: names[i], email: emails[i], event });
+                    console.log(`✅ Cancellation sent to ${emails[i]}`);
+                } catch (e) {
+                    console.error(`❌ Failed to send cancellation to ${emails[i]}:`, e.message);
+                }
+            }
+        }
+
+        res.status(200).json({ message: 'Event deleted successfully!' });
+    } catch (error) {
+        console.error('Error deleting event:', error);
+        res.status(500).json({ error: 'Failed to delete event' });
+    }
+};
+
+exports.deleteAllEvents = async (req, res) => {
+    try {
+        const [events] = await pool.execute(`SELECT google_event_id FROM Events WHERE google_event_id IS NOT NULL`);
+        if (!events.length) return res.status(200).json({ message: 'No events to delete.' });
+
+        const tokens = await getAdminTokens(null);
+        for (const event of events) {
+            try {
+                if (tokens) await deleteGoogleEvent(event.google_event_id, tokens);
+            } catch (e) {
+                console.warn(`Could not delete Google event ${event.google_event_id}`);
+            }
+        }
+
+        await pool.execute(`DELETE FROM Events`);
+        await pool.execute(`ALTER TABLE Events AUTO_INCREMENT = 1`);
+        res.status(200).json({ message: `Deleted ${events.length} events.` });
+    } catch (error) {
+        console.error('Bulk delete error:', error);
+        res.status(500).json({ error: 'Failed to delete all events' });
+    }
+};
+
+exports.updateEvent = async (req, res) => {
+    const eventId = req.params.id;
+    const updates = req.body;
+    if (!Object.keys(updates).length) return res.status(400).json({ error: 'No data provided' });
+
+    try {
+        const [eventRows] = await pool.execute(`SELECT * FROM Events WHERE event_id = ?`, [eventId]);
+        if (!eventRows.length) return res.status(404).json({ error: 'Event not found' });
+
+        const fields = [], values = [];
+        for (const [key, value] of Object.entries(updates)) {
+            if (['title', 'description', 'venue', 'event_date', 'start_time', 'end_time'].includes(key)) {
+                fields.push(`${key} = ?`);
+                values.push(value);
+            }
+        }
+        if (fields.length) {
+            values.push(eventId);
+            await pool.execute(`UPDATE Events SET ${fields.join(', ')} WHERE event_id = ?`, values);
+        }
+
+        if (eventRows[0].google_event_id) {
+            await updateGoogleEvent(eventRows[0].google_event_id, { ...eventRows[0], ...updates });
+        }
+
+        res.status(200).json({ message: 'Event updated successfully!' });
+    } catch (error) {
+        console.error('Error updating event:', error);
+        res.status(500).json({ error: 'Failed to update event' });
+    }
+};

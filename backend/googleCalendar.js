@@ -34,7 +34,9 @@ async function createGoogleEvent(eventData, attendees, tokens) {
         oauth2Client.setCredentials(tokens);
         const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
-        const attendeeList = attendees.map(person => ({ email: person.email }));
+        // Map attendees for the .ics but don't add them to the Google event
+        // (avoids Google sending its own notification emails)
+        const attendeeList = [];
 
         // Only add a Meet link if the venue looks like a video/meet link
         const isVideoLink = eventData.venue && /^https?:\/\//i.test(eventData.venue.trim());
