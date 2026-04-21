@@ -87,32 +87,54 @@ const UserDashboard = () => {
 
                 <div className="main-content" style={{ gridTemplateColumns: '1fr' }}>
                     <div className="list-container">
-                        <h2 style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '20px 0' }}>
-                            <Calendar size={24} color="#2563eb" /> Your Upcoming Schedule
-                        </h2>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '20px 0', flexWrap: 'wrap', gap: '10px' }}>
+                            <h2 style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
+                                <Calendar size={24} color="#2563eb" /> Upcoming Events
+                            </h2>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button onClick={() => navigate('/live-events')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', color: '#16a34a', borderColor: '#bbf7d0' }}>🔴 Live Events</button>
+                                <button onClick={() => navigate('/past-events')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px' }}>Past Events</button>
+                            </div>
+                        </div>
                         <div className="schedule-list">
-                            {events.length === 0 ? (
-                                <div className="empty-state-card">No meetings assigned to you yet.</div>
+                            {events.filter(e => {
+                                const eventDate = e.event_date.slice(0,10);
+                                const [endH, endM] = e.end_time.split(':');
+                                const end = new Date(eventDate);
+                                end.setHours(endH, endM, 0, 0);
+                                const isUpcoming = end >= new Date();
+                                console.log('🔍 UserDashboard Upcoming:', { title: e.title, end: end.toString(), now: new Date().toString(), isUpcoming });
+                                return isUpcoming;
+                            }).length === 0 ? (
+                                <div className="empty-state-card">No upcoming events assigned to you.</div>
                             ) : (
-                                events.map((event) => (
-                                    <div className="event-card" key={event.id || event.event_id}>
-                                        <div className="event-info">
-                                            <span className="status-badge">Confirmed</span>
-                                            <h3 className="event-title">{event.title}</h3>
-                                            <div className="event-meta">
-                                                <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString()}</span></div>
-                                                <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
-                                                <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
+                                events
+                                    .filter(e => {
+                                        const eventDate = e.event_date.slice(0,10);
+                                        const [endH, endM] = e.end_time.split(':');
+                                        const end = new Date(eventDate);
+                                        end.setHours(endH, endM, 0, 0);
+                                        return end >= new Date();
+                                    })
+                                    .map((event) => (
+                                        <div className="event-card" key={event.id || event.event_id}>
+                                            <div className="event-info">
+                                                <span className="status-badge">Confirmed</span>
+                                                <h3 className="event-title">{event.title}</h3>
+                                                <div className="event-meta">
+                                                    <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString()}</span></div>
+                                                    <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
+                                                    <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
+                                                </div>
+                                            </div>
+                                            <div className="event-actions">
+                                                <div className="tooltip-wrap">
+                                                    <button onClick={() => setPreviewEvent(event)} className="btn-icon preview"><ClosedEyeIcon size={20} /></button>
+                                                    <span className="tooltip-text">Preview</span>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="event-actions">
-                                            <div className="tooltip-wrap">
-                                                <button onClick={() => setPreviewEvent(event)} className="btn-icon preview"><ClosedEyeIcon size={20} /></button>
-                                                <span className="tooltip-text">Preview</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
+                                    ))
                             )}
                         </div>
                     </div>

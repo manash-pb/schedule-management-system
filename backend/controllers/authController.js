@@ -28,7 +28,7 @@ exports.googleCallback = async (req, res) => {
         }
 
         if (user) {
-            if (user.role === 'admin' && tokens.refresh_token) {
+            if (user.role === 'admin') {
                 await pool.execute('UPDATE users SET google_tokens = ? WHERE email = ?', [JSON.stringify(tokens), email]);
                 console.log(`✅ Updated admin tokens for: ${email}`);
             }
@@ -44,9 +44,7 @@ exports.googleCallback = async (req, res) => {
 
         const finalRole = user ? user.role : intendedRole;
         const alreadyHadTokens = user && user.google_tokens;
-        const redirectBase = (finalRole === 'admin' && alreadyHadTokens)
-            ? 'http://localhost:5173/admin-dashboard'
-            : 'http://localhost:5173/';
+        const redirectBase = 'http://localhost:5173/';
         res.redirect(`${redirectBase}?login=success&role=${finalRole}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`);
 
     } catch (error) {

@@ -401,19 +401,44 @@ const AdminDashboard = () => {
                     </div>
 
                     <div className="list-container">
-                        <h2 style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '0 0 24px 0' }}><Calendar size={24} color="#2563eb" /> Upcoming Schedule</h2>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '10px' }}>
+                            <h2 style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}><Calendar size={24} color="#2563eb" /> Upcoming Events</h2>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button onClick={() => navigate('/live-events')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', color: '#16a34a', borderColor: '#bbf7d0' }}>🔴 Live Events</button>
+                                <button onClick={() => navigate('/past-events')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px' }}>Past Events</button>
+                            </div>
+                        </div>
                         <div className="schedule-list">
-                            {events.length === 0 ? (
-                                <div className="empty-state-card">No meetings scheduled yet...</div>
+                            {events.filter(e => {
+                                // 1. Create a Date object for the event
+                                const start = new Date(e.event_date);
+                                
+                                // 2. Parse the start time (HH:mm:ss)
+                                const [startH, startM] = e.start_time.split(':');
+                                
+                                // 3. Set the hours/minutes to the start time
+                                start.setHours(parseInt(startH), parseInt(startM), 0, 0);
+                                
+                                // 4. Upcoming: Current Time < Start Time
+                                return new Date() < start;
+                            }).length === 0 ? (
+                                <div className="empty-state-card">No upcoming events.</div>
                             ) : (
-                                events.map((item) => (
-                                    <EventCard 
-                                        key={item.event_id} 
-                                        event={item} 
-                                        onDelete={handleDelete}
-                                        onPreview={setPreviewEvent}
-                                    />
-                                ))
+                                events
+                                    .filter(e => {
+                                        const start = new Date(e.event_date);
+                                        const [startH, startM] = e.start_time.split(':');
+                                        start.setHours(parseInt(startH), parseInt(startM), 0, 0);
+                                        return new Date() < start;
+                                    })
+                                    .map((item) => (
+                                        <EventCard
+                                            key={item.event_id}
+                                            event={item}
+                                            onDelete={handleDelete}
+                                            onPreview={setPreviewEvent}
+                                        />
+                                    ))
                             )}
                         </div>
                     </div>
