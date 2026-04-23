@@ -120,7 +120,13 @@ const PastEvents = () => {
                     {events.length === 0 ? (
                         <div className="empty-state-card">No past events found.</div>
                     ) : (
-                        events.map(event => (
+                        events
+                            .sort((a, b) => {
+                                const dateA = new Date(a.event_date + 'T' + a.start_time);
+                                const dateB = new Date(b.event_date + 'T' + b.start_time);
+                                return dateB - dateA;
+                            })
+                            .map(event => (
                             <div className="event-card" key={event.event_id} style={{ opacity: 0.75 }}>
                                 <div className="event-info">
                                     <span className="status-badge" style={{ background: '#f1f5f9', color: '#64748b' }}>Past</span>

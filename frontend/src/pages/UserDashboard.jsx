@@ -116,6 +116,11 @@ const UserDashboard = () => {
                                         end.setHours(endH, endM, 0, 0);
                                         return end >= new Date();
                                     })
+                                    .sort((a, b) => {
+                                        const dateA = new Date(a.event_date + 'T' + a.start_time);
+                                        const dateB = new Date(b.event_date + 'T' + b.start_time);
+                                        return dateA - dateB;
+                                    })
                                     .map((event) => (
                                         <div className="event-card" key={event.id || event.event_id}>
                                             <div className="event-info">
