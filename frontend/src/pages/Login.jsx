@@ -72,7 +72,7 @@ const Login = () => {
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f8fafc' }}>
-      <div style={{ background: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '400px', width: '90%' }}>
+      <div style={{ background: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '520px', width: '90%' }}>
         
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', color: '#2563eb' }}>
           <Calendar size={48} />
@@ -85,20 +85,22 @@ const Login = () => {
               type="button"
               className={`tab-btn ${activeTab === 'user' ? 'active' : ''}`}
               onClick={() => setActiveTab('user')}
+              style={{ fontSize: '16px' }}
             >
-              <User size={16} /> User
+              <User size={18} /> User
             </button>
             <button 
               type="button"
               className={`tab-btn ${activeTab === 'admin' ? 'active' : ''}`}
               onClick={() => setActiveTab('admin')}
+              style={{ fontSize: '16px' }}
             >
-              <ShieldCheck size={16} /> Admin
+              <ShieldCheck size={18} /> Admin
             </button>
           </div>
         )}
 
-        <h1 style={{ margin: '0 0 10px 0', color: '#0f172a' }}>
+        <h1 style={{ margin: '0 0 10px 0', color: '#0f172a', fontSize: '2rem' }}>
           {isSignUpMode ? 'Sign Up' : `${activeTab === 'admin' ? 'Admin' : 'User'} Sign In`}
         </h1>
         <p style={{ color: '#64748b', marginBottom: '25px', fontSize: '14px' }}>
