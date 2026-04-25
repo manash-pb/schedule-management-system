@@ -2,10 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 @layer base {
 
   /* --- GLOBAL BASICS --- */
-  /* App-wide font, line height, and default text/bg colors */
   :root {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     line-height: 1.6;
@@ -13,7 +21,6 @@
     color: #1e293b;
   }
 
-  /* Full-height page reset with slate background */
   html, body {
     margin: 0;
     padding: 0;
@@ -26,16 +33,13 @@
     display: block;
   }
 
-  /* Headings use Poppins with tight letter spacing */
   h1, h2, h3 {
     font-family: 'Poppins', sans-serif;
     letter-spacing: -0.02em;
     color: #0f172a;
   }
 
-  /* --- TIME ROW RESPONSIVE --- */
-  /* 480px breakpoint: time row switches to horizontal, divider becomes visible.
-     Kept here because Tailwind's smallest breakpoint (sm) starts at 640px. */
+  /* --- TIME ROW RESPONSIVE (480px breakpoint not in Tailwind default) --- */
   @media (min-width: 480px) {
     .time-row {
       flex-direction: row;
@@ -52,7 +56,6 @@
   }
 
   /* --- SCROLLBAR (attendee section) --- */
-  /* Thin 4px scrollbar with rounded slate thumb inside attendee list */
   .attendee-section div::-webkit-scrollbar {
     width: 4px;
   }
@@ -60,6 +63,7 @@
     background: #cbd5e1;
     border-radius: 10px;
   }
+
 
 }
 
@@ -122,13 +126,13 @@
   }
 
   /* --- TIME ROW WRAPPER --- */
-  /* Stacked column layout on mobile, slate bg, rounded border box */
+  /* Side-by-side start/end time layout, slate bg, rounded border box */
   .time-row {
-    @apply flex flex-col gap-3 bg-slate-50 border border-slate-200 rounded-[14px] px-4 py-[14px];
+    @apply flex flex-row items-end gap-4 bg-slate-50 border border-slate-200 rounded-[14px] px-4 py-[14px];
   }
-  /* Divider between start/end time hidden on mobile (shown at 480px via App.css media query) */
+  /* Divider arrow between start and end time pickers */
   .time-row-divider {
-    @apply hidden;
+    @apply block text-[13px] font-semibold text-slate-300 pb-[22px] shrink-0;
   }
   /* Each time field takes equal space and won't overflow */
   .time-field {
@@ -270,9 +274,9 @@
   }
 
   /* --- FLOATING FORM CARD --- */
-  /* White card with layered shadow that lifts further on hover */
+  /* White card with layered shadow that lifts further on hover, h-full so both columns match height */
   .floating-card {
-    @apply bg-white border border-slate-200/80 rounded-[20px] p-5 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.05),0_20px_25px_-5px_rgba(0,0,0,0.1)] transition-[transform,box-shadow] duration-300 ease-in-out w-full box-border sm:p-[30px];
+    @apply bg-white border border-slate-200/80 rounded-[20px] p-5 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.05),0_20px_25px_-5px_rgba(0,0,0,0.1)] transition-[transform,box-shadow] duration-300 ease-in-out w-full box-border h-full sm:p-[30px];
   }
   /* Card floats up and shadow deepens on hover */
   .floating-card:hover {
@@ -288,9 +292,9 @@
   .dashboard-wrapper {
     @apply w-full max-w-[1400px] p-4 box-border md:p-6 lg:p-10;
   }
-  /* Single column on mobile, switches to [480px form | flexible list] on desktop */
+  /* Single column on mobile, switches to [480px form | flexible list] on desktop, stretch makes both cards equal height */
   .main-content {
-    @apply grid grid-cols-1 gap-6 mt-[10px] items-start lg:grid-cols-[480px_1fr] lg:gap-[60px];
+    @apply grid grid-cols-1 gap-6 mt-[10px] items-stretch lg:grid-cols-[480px_1fr] lg:gap-[60px];
   }
   /* Form column: full width on mobile, sticky at top on desktop */
   .form-container {
@@ -320,9 +324,9 @@
   .event-info {
     @apply flex-1 min-w-0;
   }
-  /* Blue border highlight + shadow + horizontal slide on tablet+ hover */
+  /* Blue border highlight + shadow on hover, no translate to avoid horizontal scroll */
   .event-card:hover {
-    @apply border-blue-400 shadow-[0_10px_15px_-3px_rgba(59,130,246,0.1)] md:translate-x-[6px];
+    @apply border-blue-400 shadow-[0_10px_15px_-3px_rgba(59,130,246,0.1)];
   }
   /* Event name: Poppins font, semi-bold, dark slate */
   .event-title {

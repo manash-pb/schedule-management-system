@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, LogOut, Clock, MapPin, AlertTriangle } from 'lucide-react';
@@ -76,10 +76,12 @@ const PreviewModal = ({ event, onClose, onDownload }) => (
     </div>
 );
 
-const EventCard = ({ event, onDelete, onPreview }) => (
+const EventCard = ({ event, onDelete, onPreview, tab }) => (
     <div className="event-card">
         <div className="event-info">
-            <span className="status-badge">Confirmed</span>
+            <span className="status-badge" style={tab === 'past' ? { background: '#f1f5f9', color: '#64748b' } : tab === 'live' ? { background: '#dcfce7', color: '#16a34a' } : {}}>
+                {tab === 'past' ? 'Past' : tab === 'live' ? '🔴 Live' : 'Confirmed'}
+            </span>
             <h3 className="event-title">{event.title}</h3>
             <div className="event-meta">
                 <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString()}</span></div>
@@ -92,10 +94,12 @@ const EventCard = ({ event, onDelete, onPreview }) => (
                 <button onClick={() => onPreview(event)} className="btn-icon preview"><ClosedEyeIcon size={20} /></button>
                 <span className="tooltip-text">Preview</span>
             </div>
-            <div className="tooltip-wrap">
-                <button onClick={() => onDelete(event.event_id)} className="btn-icon delete"><Trash2 size={20} /></button>
-                <span className="tooltip-text">Delete</span>
-            </div>
+            {onDelete && (
+                <div className="tooltip-wrap">
+                    <button onClick={() => onDelete(event.event_id)} className="btn-icon delete"><Trash2 size={20} /></button>
+                    <span className="tooltip-text">Delete</span>
+                </div>
+            )}
         </div>
     </div>
 );
@@ -110,11 +114,11 @@ const CustomTimeInput = ({ value, onChange }) => {
   };
 
   const { h, m, p } = parseTime(value);
-  // Local state to allow empty strings while typing
   const [displayH, setDisplayH] = useState(String(h).padStart(2, '0'));
   const [displayM, setDisplayM] = useState(String(m).padStart(2, '0'));
+  const mRef = useRef(null);
+  const ampmRef = useRef(null);
 
-  // Sync local state when external value changes (like arrow clicks)
   useEffect(() => {
     setDisplayH(String(h).padStart(2, '0'));
     setDisplayM(String(m).padStart(2, '0'));
@@ -122,8 +126,7 @@ const CustomTimeInput = ({ value, onChange }) => {
 
   const update = (newH, newM, newP) => {
     let finalH = newP === 'PM' ? (newH % 12) + 12 : newH % 12;
-    const timeStr = `${String(finalH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
-    onChange(timeStr);
+    onChange(`${String(finalH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`);
   };
 
   const handleArrow = (type, direction) => {
@@ -132,53 +135,106 @@ const CustomTimeInput = ({ value, onChange }) => {
     else if (type === 'p') update(h, m, p === 'AM' ? 'PM' : 'AM');
   };
 
-  // 1. Allow user to type ANYTHING (including backspace/empty)
-  const onTextChange = (type, val) => {
-    if (val === '' || /^\d+$/.test(val)) {
-      if (type === 'h') setDisplayH(val);
-      else setDisplayM(val);
+  const commitH = (raw) => {
+    let num = parseInt(raw);
+    if (isNaN(num) || num < 1) num = 1;
+    if (num > 12) num = 12;
+    setDisplayH(String(num).padStart(2, '0'));
+    update(num, m, p);
+  };
+
+  const commitM = (raw) => {
+    let num = parseInt(raw);
+    if (isNaN(num)) num = 0;
+    if (num > 59) num = 59;
+    setDisplayM(String(num).padStart(2, '0'));
+    update(h, num, p);
+  };
+
+  const handleHInput = (e) => {
+    const raw = e.target.value.replace(/\D/g, '').slice(-2);
+    setDisplayH(raw);
+    // auto-advance: 2 digits entered, or first digit > 1 (can't be valid start of 12-hr hour)
+    if (raw.length === 2 || (raw.length === 1 && parseInt(raw) > 1)) {
+      let num = parseInt(raw);
+      if (isNaN(num) || num < 1) num = 1;
+      if (num > 12) num = 12;
+      update(num, m, p);
+      mRef.current?.focus();
+      mRef.current?.select();
     }
   };
 
-  // 2. Validate ONLY when user clicks away or finishes (Blur)
-  const onBlurValidation = (type) => {
-    if (type === 'h') {
-      let num = parseInt(displayH) || 12;
-      let validH = Math.min(12, Math.max(1, num));
-      update(validH, m, p);
-    } else {
-      let num = parseInt(displayM) || 0;
-      let validM = Math.min(59, Math.max(0, num));
-      update(h, validM, p);
+  const handleMInput = (e) => {
+    const raw = e.target.value.replace(/\D/g, '').slice(-2);
+    setDisplayM(raw);
+    // auto-advance: 2 digits, or first digit > 5 (minutes max is 59)
+    if (raw.length === 2 || (raw.length === 1 && parseInt(raw) > 5)) {
+      let num = parseInt(raw);
+      if (isNaN(num)) num = 0;
+      if (num > 59) num = 59;
+      update(h, num, p);
+      ampmRef.current?.focus();
     }
   };
-
-  const InputField = ({ type, label, displayVal }) => (
-    <div className="time-column">
-        <button type="button" onClick={() => handleArrow(type, 'up')} className="arrow-btn">▲</button>
-        <input
-        type="text"
-        className="time-type-input"
-        value={displayVal}
-        onChange={(e) => onTextChange(type, e.target.value)}
-        onBlur={() => onBlurValidation(type)}
-        onFocus={(e) => e.target.select()}
-        placeholder="00"
-        />
-        <button type="button" onClick={() => handleArrow(type, 'down')} className="arrow-btn">▼</button>
-        <span className="input-label-sm">{label}</span>
-    </div>
-);
 
   return (
     <div className="hybrid-time-picker">
-      <InputField type="h" label="HRS" displayVal={displayH} />
-      <span className="time-separator">:</span>
-      <InputField type="m" label="MIN" displayVal={displayM} />
       <div className="time-column">
-        <button type="button" onClick={() => handleArrow('p', 'up')} className="arrow-btn">▲</button>
-        <div className="time-type-input ampm" onClick={() => handleArrow('p', 'up')}>{p}</div>
-        <button type="button" onClick={() => handleArrow('p', 'down')} className="arrow-btn">▼</button>
+        <button type="button" onClick={() => handleArrow('h', 'down')} className="arrow-btn">▲</button>
+        <input
+          type="text"
+          className="time-type-input"
+          value={displayH}
+          inputMode="numeric"
+          maxLength={2}
+          style={{ caretColor: 'currentColor' }}
+          onFocus={e => e.target.select()}
+          onChange={handleHInput}
+          onBlur={(e) => commitH(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'ArrowUp')   { e.preventDefault(); handleArrow('h', 'down'); }
+            if (e.key === 'ArrowDown') { e.preventDefault(); handleArrow('h', 'up'); }
+          }}
+        />
+        <button type="button" onClick={() => handleArrow('h', 'up')} className="arrow-btn">▼</button>
+        <span className="input-label-sm">HRS</span>
+      </div>
+
+      <span className="time-separator">:</span>
+
+      <div className="time-column">
+        <button type="button" onClick={() => handleArrow('m', 'down')} className="arrow-btn">▲</button>
+        <input
+          ref={mRef}
+          type="text"
+          className="time-type-input"
+          value={displayM}
+          inputMode="numeric"
+          maxLength={2}
+          style={{ caretColor: 'currentColor' }}
+          onFocus={e => e.target.select()}
+          onChange={handleMInput}
+          onBlur={(e) => commitM(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'ArrowUp')   { e.preventDefault(); handleArrow('m', 'down'); }
+            if (e.key === 'ArrowDown') { e.preventDefault(); handleArrow('m', 'up'); }
+          }}
+        />
+        <button type="button" onClick={() => handleArrow('m', 'up')} className="arrow-btn">▼</button>
+        <span className="input-label-sm">MIN</span>
+      </div>
+
+      <div className="time-column">
+        <button type="button" onClick={() => handleArrow('p', 'down')} className="arrow-btn">▲</button>
+        <div
+          ref={ampmRef}
+          className="time-type-input ampm"
+          tabIndex={0}
+          onClick={() => handleArrow('p', 'down')}
+          onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') handleArrow('p', 'down'); }}
+        >{p}</div>
+        <button type="button" onClick={() => handleArrow('p', 'up')} className="arrow-btn">▼</button>
         <span className="input-label-sm">AM/PM</span>
       </div>
     </div>
@@ -190,6 +246,9 @@ const CustomTimeInput = ({ value, onChange }) => {
 const AdminDashboard = () => {
     const [events, setEvents] = useState([]);
     const [previewEvent, setPreviewEvent] = useState(null);
+    const [activeTab, setActiveTab] = useState('upcoming');
+    const [submitting, setSubmitting] = useState(false);
+    const [toast, setToast] = useState(null);
     const [calendarConnected, setCalendarConnected] = useState(true);
     const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', start_time: '', end_time: '' });
     const [attendees, setAttendees] = useState([]);
@@ -251,15 +310,22 @@ const AdminDashboard = () => {
         XLSX.writeFile(wb, `${event.title}_Attendees.xlsx`);
     };
 
+    const showToast = (msg, type = 'success') => {
+        setToast({ msg, type });
+        setTimeout(() => setToast(null), 3000);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setSubmitting(true);
         try {
             await axios.post('/api/events', { ...formData, attendees });
-            alert('Event scheduled!');
             setFormData({ title: '', description: '', venue: '', event_date: '', start_time: '', end_time: '' });
             setAttendees([]);
             fetchEvents();
-        } catch (e) { alert('Failed to schedule.'); }
+            showToast('Event created successfully!');
+        } catch (e) { showToast('Failed to schedule.', 'error'); }
+        finally { setSubmitting(false); }
     };
 
     const handleAddAttendee = () => {
@@ -305,6 +371,25 @@ const AdminDashboard = () => {
     return (
         <div className="dashboard-container">
             {previewEvent && <PreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} onDownload={handleDownload} />}
+
+            {/* Toast notification */}
+            {toast && (
+                <div style={{
+                    position: 'fixed', top: 32, left: '50%', transform: 'translateX(-50%)', zIndex: 9999,
+                    display: 'flex', alignItems: 'center', gap: 14,
+                    background: toast.type === 'error' ? '#fef2f2' : '#f0fdf4',
+                    border: `1.5px solid ${toast.type === 'error' ? '#fca5a5' : '#86efac'}`,
+                    color: toast.type === 'error' ? '#dc2626' : '#16a34a',
+                    padding: '18px 36px', borderRadius: 16,
+                    fontWeight: 700, fontSize: 18,
+                    boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
+                    animation: 'slideIn 0.25s ease',
+                    whiteSpace: 'nowrap'
+                }}>
+                    <span style={{ fontSize: 22 }}>{toast.type === 'error' ? '✕' : '✓'}</span>
+                    {toast.msg}
+                </div>
+            )}
             <div className="dashboard-wrapper">
                 <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 0', marginBottom: '5px', width: '100%' }}>
                     <button onClick={handleLogout} className="btn-secondary"><LogOut size={16} /> Logout</button>
@@ -395,51 +480,76 @@ const AdminDashboard = () => {
                                         </div>
                                     )}
                                 </div>
-                                <button type="submit" className="btn-primary">Schedule & Send Invites</button>
+                                <button type="submit" className="btn-primary" disabled={submitting} style={{ opacity: submitting ? 0.8 : 1, cursor: submitting ? 'not-allowed' : 'pointer' }}>
+                                    {submitting ? (
+                                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}>
+                                                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                                            </svg>
+                                            Creating...
+                                        </span>
+                                    ) : 'Schedule & Send Invites'}
+                                </button>
                             </form>
                         </div>
                     </div>
 
                     <div className="list-container">
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '10px' }}>
-                            <h2 style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}><Calendar size={24} color="#2563eb" /> Upcoming Events</h2>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <button onClick={() => navigate('/live-events')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', color: '#16a34a', borderColor: '#bbf7d0' }}>🔴 Live Events</button>
-                                <button onClick={() => navigate('/past-events')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px' }}>Past Events</button>
+                        <div className="floating-card">
+                            {/* Header: title + tab buttons */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+                                <h2 style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
+                                    <Calendar size={24} color="#2563eb" />
+                                    {activeTab === 'upcoming' ? 'Upcoming Events' : activeTab === 'live' ? '🔴 Live Events' : 'Past Events'}
+                                </h2>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button
+                                        onClick={() => setActiveTab('upcoming')}
+                                        className="btn-secondary"
+                                        style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'upcoming' ? { background: '#eff6ff', color: '#2563eb', borderColor: '#bfdbfe' } : {}) }}
+                                    >Upcoming</button>
+                                    <button
+                                        onClick={() => setActiveTab('live')}
+                                        className="btn-secondary"
+                                        style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'live' ? { background: '#dcfce7', color: '#16a34a', borderColor: '#bbf7d0' } : { color: '#16a34a', borderColor: '#bbf7d0' }) }}
+                                    >🔴 Live</button>
+                                    <button
+                                        onClick={() => setActiveTab('past')}
+                                        className="btn-secondary"
+                                        style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'past' ? { background: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' } : {}) }}
+                                    >Past</button>
+                                </div>
                             </div>
-                        </div>
-                        <div className="schedule-list">
-                            {events.filter(e => {
-                                // 1. Create a Date object for the event
-                                const start = new Date(e.event_date);
-                                
-                                // 2. Parse the start time (HH:mm:ss)
-                                const [startH, startM] = e.start_time.split(':');
-                                
-                                // 3. Set the hours/minutes to the start time
-                                start.setHours(parseInt(startH), parseInt(startM), 0, 0);
-                                
-                                // 4. Upcoming: Current Time < Start Time
-                                return new Date() < start;
-                            }).length === 0 ? (
-                                <div className="empty-state-card">No upcoming events.</div>
-                            ) : (
-                                events
-                                    .filter(e => {
-                                        const start = new Date(e.event_date);
-                                        const [startH, startM] = e.start_time.split(':');
-                                        start.setHours(parseInt(startH), parseInt(startM), 0, 0);
-                                        return new Date() < start;
-                                    })
-                                    .map((item) => (
+
+                            {/* Event list */}
+                            <div className="schedule-list" style={{ maxHeight: '78vh', overflowY: 'auto', paddingRight: '4px' }}>
+                                {(() => {
+                                    const now = new Date();
+                                    const filtered = events.filter(e => {
+                                        const date = e.event_date.slice(0, 10);
+                                        const [sH, sM] = e.start_time.split(':');
+                                        const [eH, eM] = e.end_time.split(':');
+                                        const start = new Date(date); start.setHours(+sH, +sM, 0, 0);
+                                        const end   = new Date(date); end.setHours(+eH, +eM, 0, 0);
+                                        if (activeTab === 'upcoming') return now < start;
+                                        if (activeTab === 'live')     return now >= start && now <= end;
+                                        if (activeTab === 'past')     return end < now;
+                                    });
+
+                                    if (filtered.length === 0)
+                                        return <div className="empty-state-card">No {activeTab} events.</div>;
+
+                                    return filtered.map(item => (
                                         <EventCard
                                             key={item.event_id}
                                             event={item}
-                                            onDelete={handleDelete}
+                                            onDelete={activeTab !== 'live' ? handleDelete : null}
                                             onPreview={setPreviewEvent}
+                                            tab={activeTab}
                                         />
-                                    ))
-                            )}
+                                    ));
+                                })()}
+                            </div>
                         </div>
                     </div>
                 </div>
