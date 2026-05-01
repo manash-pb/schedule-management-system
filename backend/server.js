@@ -8,7 +8,11 @@ const eventRoutes = require('./routes/events');
 const authRoutes  = require('./routes/auth');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    credentials: true,
+}));
 app.use(express.json());
 
 // Verify DB connection on startup

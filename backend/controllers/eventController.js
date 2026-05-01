@@ -31,7 +31,7 @@ const cleanTime = (t) => {
 
 exports.createEvent = async (req, res) => {
     let { title = null, description = null, venue = null, event_date = null,
-          start_time = null, end_time = null, attendees = [], adminEmail = null } = req.body;
+          start_time = null, end_time = null, attendees = [], adminEmail = null, category = 'General' } = req.body;
 
     const mysqlStart = cleanTime(start_time);
     const mysqlEnd   = cleanTime(end_time);
@@ -51,8 +51,8 @@ exports.createEvent = async (req, res) => {
         await connection.beginTransaction();
 
         const [eventResult] = await connection.execute(
-            `INSERT INTO events (title, description, venue, event_date, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?)`,
-            [title, description, venue, event_date, mysqlStart, mysqlEnd]
+            `INSERT INTO events (title, description, venue, event_date, start_time, end_time, category) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [title, description, venue, event_date, mysqlStart, mysqlEnd, category]
         );
         const newEventId = eventResult.insertId;
 
@@ -107,7 +107,7 @@ exports.getEvents = async (req, res) => {
 
         const [events] = await pool.execute(eventsQuery, params);
         const [attendees] = await pool.execute(`
-            SELECT ea.event_id, a.name, a.email
+            SELECT ea.event_id, a.name, a.email, ea.rsvp_status
             FROM Event_Attendees ea
             JOIN Attendees a ON ea.attendee_id = a.attendee_id
         `);
@@ -115,8 +115,8 @@ exports.getEvents = async (req, res) => {
         const result = events.map(event => ({
             ...event,
             attendees: role === 'admin'
-                ? attendees.filter(a => a.event_id === event.event_id).map(a => ({ name: a.name, email: a.email }))
-                : [],
+                ? attendees.filter(a => a.event_id === event.event_id).map(a => ({ name: a.name, email: a.email, rsvp_status: a.rsvp_status }))
+                : attendees.filter(a => a.event_id === event.event_id && a.email === email).map(a => ({ rsvp_status: a.rsvp_status })),
         }));
 
         res.status(200).json(result);
@@ -198,6 +198,92 @@ exports.deleteAllEvents = async (req, res) => {
     }
 };
 
+exports.addAttendee = async (req, res) => {
+    const eventId = req.params.id;
+    const { name, email } = req.body;
+    if (!name || !email) return res.status(400).json({ error: 'Name and email required' });
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+        const attendeeEmail = email.toLowerCase().trim();
+        await connection.execute(`INSERT IGNORE INTO Attendees (name, email) VALUES (?, ?)`, [name, attendeeEmail]);
+        const [rec] = await connection.execute(`SELECT attendee_id FROM Attendees WHERE email = ?`, [attendeeEmail]);
+        const [existing] = await connection.execute(`SELECT 1 FROM Event_Attendees WHERE event_id = ? AND attendee_id = ?`, [eventId, rec[0].attendee_id]);
+        if (existing.length) {
+            await connection.rollback();
+            return res.status(409).json({ error: 'Attendee already added to this event' });
+        }
+        await connection.execute(`INSERT INTO Event_Attendees (event_id, attendee_id) VALUES (?, ?)`, [eventId, rec[0].attendee_id]);
+        await connection.commit();
+        res.status(201).json({ message: 'Attendee added' });
+    } catch (error) {
+        if (connection) await connection.rollback();
+        console.error('Add attendee error:', error);
+        res.status(500).json({ error: 'Failed to add attendee' });
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
+exports.removeAttendee = async (req, res) => {
+    const { id: eventId, email } = req.params;
+    try {
+        const [rec] = await pool.execute(`SELECT attendee_id FROM Attendees WHERE email = ?`, [decodeURIComponent(email)]);
+        if (!rec.length) return res.status(404).json({ error: 'Attendee not found' });
+        await pool.execute(`DELETE FROM Event_Attendees WHERE event_id = ? AND attendee_id = ?`, [eventId, rec[0].attendee_id]);
+        res.json({ message: 'Attendee removed' });
+    } catch (error) {
+        console.error('Remove attendee error:', error);
+        res.status(500).json({ error: 'Failed to remove attendee' });
+    }
+};
+
+exports.rsvpEvent = async (req, res) => {
+    const eventId = req.params.id;
+    // Support both GET (email link) and PATCH (dashboard button)
+    const email = req.body?.email || req.query?.email;
+    const status = req.body?.status || req.query?.status;
+    const isEmailLink = req.method === 'GET';
+
+    if (!email || !['accepted', 'declined'].includes(status))
+        return isEmailLink
+            ? res.status(400).send('<h2>Invalid RSVP link.</h2>')
+            : res.status(400).json({ error: 'Valid email and status (accepted/declined) required' });
+    try {
+        const [result] = await pool.execute(
+            `UPDATE Event_Attendees ea
+             JOIN Attendees a ON ea.attendee_id = a.attendee_id
+             SET ea.rsvp_status = ?
+             WHERE ea.event_id = ? AND a.email = ?`,
+            [status, eventId, email.toLowerCase()]
+        );
+        if (result.affectedRows === 0)
+            return isEmailLink
+                ? res.status(404).send('<h2>You are not registered for this event.</h2>')
+                : res.status(404).json({ error: 'Attendee not found for this event' });
+
+        if (isEmailLink) {
+            const color = status === 'accepted' ? '#16a34a' : '#dc2626';
+            const emoji = status === 'accepted' ? '✅' : '❌';
+            return res.send(`
+                <!DOCTYPE html><html><body style="font-family:'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f1f5f9;margin:0;">
+                <div style="background:white;padding:48px;border-radius:16px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:400px;">
+                    <div style="font-size:48px;margin-bottom:16px;">${emoji}</div>
+                    <h2 style="color:${color};margin:0 0 8px;">RSVP ${status.charAt(0).toUpperCase() + status.slice(1)}!</h2>
+                    <p style="color:#64748b;margin:0;">Your response has been recorded. You can close this tab.</p>
+                </div></body></html>
+            `);
+        }
+        res.json({ message: `RSVP updated to ${status}` });
+    } catch (error) {
+        console.error('RSVP error:', error);
+        isEmailLink
+            ? res.status(500).send('<h2>Something went wrong. Please try again.</h2>')
+            : res.status(500).json({ error: 'Failed to update RSVP' });
+    }
+};
+
 exports.updateEvent = async (req, res) => {
     const eventId = req.params.id;
     const updates = req.body;
@@ -209,7 +295,7 @@ exports.updateEvent = async (req, res) => {
 
         const fields = [], values = [];
         for (const [key, value] of Object.entries(updates)) {
-            if (['title', 'description', 'venue', 'event_date', 'start_time', 'end_time'].includes(key)) {
+            if (['title', 'description', 'venue', 'event_date', 'start_time', 'end_time', 'category'].includes(key)) {
                 fields.push(`${key} = ?`);
                 values.push(value);
             }

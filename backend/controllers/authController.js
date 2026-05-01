@@ -106,6 +106,27 @@ exports.signup = async (req, res) => {
     }
 };
 
+exports.updateProfile = async (req, res) => {
+    const { email, name, currentPassword, newPassword } = req.body;
+    if (!email) return res.status(400).json({ success: false, message: 'Email required' });
+    try {
+        const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email.toLowerCase()]);
+        if (!rows.length) return res.status(404).json({ success: false, message: 'User not found' });
+        const user = rows[0];
+        if (newPassword) {
+            if (user.password !== currentPassword)
+                return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+            await pool.execute('UPDATE users SET name = ?, password = ? WHERE email = ?', [name || user.name, newPassword, email.toLowerCase()]);
+        } else {
+            await pool.execute('UPDATE users SET name = ? WHERE email = ?', [name || user.name, email.toLowerCase()]);
+        }
+        res.json({ success: true, name: name || user.name });
+    } catch (error) {
+        console.error('Profile update error:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
 exports.checkCalendar = async (req, res) => {
     const { email } = req.query;
     if (!email) return res.json({ connected: false });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Calendar, LogOut, Clock, MapPin, X } from 'lucide-react';
+import { Calendar, LogOut, Clock, MapPin, X, Check, XCircle, User, Sun, Moon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const ClosedEyeIcon = ({ size = 20, color = 'currentColor' }) => (
@@ -51,7 +51,13 @@ const PreviewModal = ({ event, onClose }) => (
 const UserDashboard = () => {
     const [events, setEvents] = useState([]);
     const [previewEvent, setPreviewEvent] = useState(null);
+    const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
     const navigate = useNavigate();
+
+    useEffect(() => {
+        document.documentElement.classList.toggle('dark', darkMode);
+        localStorage.setItem('darkMode', darkMode);
+    }, [darkMode]);
 
     const userEmail = localStorage.getItem('userEmail');
     const userRole = localStorage.getItem('userRole');
@@ -63,6 +69,15 @@ const UserDashboard = () => {
             setEvents(res.data);
         } catch (e) {
             console.error("Failed to fetch your specific schedule:", e);
+        }
+    };
+
+    const handleRsvp = async (eventId, status) => {
+        try {
+            await axios.patch(`/api/events/${eventId}/rsvp`, { email: userEmail, status });
+            fetchEvents();
+        } catch (e) {
+            console.error('RSVP failed:', e);
         }
     };
 
@@ -82,7 +97,11 @@ const UserDashboard = () => {
             <div className="dashboard-wrapper">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', width: '100%' }}>
                     <h2 style={{ margin: 0 }}>Welcome, {userName}</h2>
-                    <button onClick={handleLogout} className="btn-secondary"><LogOut size={16} /> Logout</button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => setDarkMode(d => !d)} className="btn-secondary">{darkMode ? <Sun size={16} /> : <Moon size={16} />}{darkMode ? 'Light' : 'Dark'}</button>
+                        <button onClick={() => navigate('/profile')} className="btn-secondary"><User size={16} /> Profile</button>
+                        <button onClick={handleLogout} className="btn-secondary"><LogOut size={16} /> Logout</button>
+                    </div>
                 </div>
 
                 <div className="main-content" style={{ gridTemplateColumns: '1fr' }}>
@@ -132,11 +151,28 @@ const UserDashboard = () => {
                                                     <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
                                                 </div>
                                             </div>
-                                            <div className="event-actions">
-                                                <div className="tooltip-wrap">
-                                                    <button onClick={() => setPreviewEvent(event)} className="btn-icon preview"><ClosedEyeIcon size={20} /></button>
-                                                    <span className="tooltip-text">Preview</span>
+                                            <div className="event-actions" style={{ flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                                                <div style={{ display: 'flex', gap: 8 }}>
+                                                    <div className="tooltip-wrap">
+                                                        <button onClick={() => setPreviewEvent(event)} className="btn-icon preview"><ClosedEyeIcon size={20} /></button>
+                                                        <span className="tooltip-text">Preview</span>
+                                                    </div>
                                                 </div>
+                                                {(() => {
+                                                    const rsvp = (event.attendees || [])[0]?.rsvp_status || 'pending';
+                                                    return (
+                                                        <div style={{ display: 'flex', gap: 6 }}>
+                                                            <button
+                                                                onClick={() => handleRsvp(event.event_id, 'accepted')}
+                                                                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: rsvp === 'accepted' ? '#dcfce7' : '#f1f5f9', color: rsvp === 'accepted' ? '#16a34a' : '#64748b' }}
+                                                            ><Check size={13} /> Accept</button>
+                                                            <button
+                                                                onClick={() => handleRsvp(event.event_id, 'declined')}
+                                                                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: rsvp === 'declined' ? '#fee2e2' : '#f1f5f9', color: rsvp === 'declined' ? '#dc2626' : '#64748b' }}
+                                                            ><XCircle size={13} /> Decline</button>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                     ))

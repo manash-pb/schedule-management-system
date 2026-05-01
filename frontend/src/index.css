@@ -13,12 +13,37 @@
 
 @layer base {
 
-  /* --- GLOBAL BASICS --- */
   :root {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    --bg-page:        #f6f8fa;
+    --bg-card:        #ffffff;
+    --bg-input:       #ffffff;
+    --bg-muted:       #f6f8fa;
+    --bg-hover:       #f3f4f6;
+    --border:         #d0d7de;
+    --border-muted:   rgba(208,215,222,0.8);
+    --text-primary:   #1f2328;
+    --text-secondary: #656d76;
+    --text-muted:     #9198a1;
+    --text-meta:      #656d76;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
     line-height: 1.6;
-    background-color: #f8fafc;
-    color: #1e293b;
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+  }
+
+  /* GitHub Dark: https://github.com/primer/primitives */
+  html.dark {
+    --bg-page:        #0d1117;
+    --bg-card:        #161b22;
+    --bg-input:       #0d1117;
+    --bg-muted:       #161b22;
+    --bg-hover:       #21262d;
+    --border:         #30363d;
+    --border-muted:   #21262d;
+    --text-primary:   #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted:     #484f58;
+    --text-meta:      #8b949e;
   }
 
   html, body {
@@ -26,344 +51,157 @@
     padding: 0;
     min-height: 100vh;
     width: 100%;
-    background-color: #f1f5f9;
+    background-color: var(--bg-page);
   }
 
-  body {
-    display: block;
-  }
+  body { display: block; }
 
   h1, h2, h3 {
     font-family: 'Poppins', sans-serif;
     letter-spacing: -0.02em;
-    color: #0f172a;
+    color: var(--text-primary);
   }
 
-  /* --- TIME ROW RESPONSIVE (480px breakpoint not in Tailwind default) --- */
   @media (min-width: 480px) {
-    .time-row {
-      flex-direction: row;
-      align-items: flex-end;
-    }
-    .time-row-divider {
-      display: block;
-      font-size: 13px;
-      font-weight: 600;
-      color: #cbd5e1;
-      padding-bottom: 22px;
-      flex-shrink: 0;
-    }
+    .time-row { flex-direction: row; align-items: flex-end; }
+    .time-row-divider { display: block; font-size: 13px; font-weight: 600; padding-bottom: 22px; flex-shrink: 0; color: var(--border); }
   }
 
-  /* --- SCROLLBAR (attendee section) --- */
-  .attendee-section div::-webkit-scrollbar {
-    width: 4px;
-  }
-  .attendee-section div::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 10px;
-  }
-
-
+  .attendee-section div::-webkit-scrollbar { width: 4px; }
+  .attendee-section div::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
 }
 
 @layer components {
 
-  /* --- CUSTOM INPUT --- */
-  /* Base style for all text inputs: full width, padded, white bg, rounded, smooth border transition */
+  /* --- INPUTS --- */
   .custom-input {
-    @apply w-full box-border px-10 py-2 text-sm bg-white border border-slate-200 rounded-xl outline-none transition-all duration-200 ease-in-out;
+    @apply w-full box-border px-10 py-2 text-sm rounded-xl outline-none transition-all duration-200 ease-in-out;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
   }
-  /* Blue border + soft ring glow when input is focused */
-  .custom-input:focus {
-    @apply border-blue-500 ring-4 ring-blue-100;
-  }
-  /* Textarea variant: relaxed line height, no resize handle, constrained width */
-  textarea.custom-input {
-    @apply leading-relaxed resize-none max-w-full;
-  }
-  /* Row wrapper for attendee email inputs: horizontal flex with wrapping */
-  .attendee-input-row {
-    @apply flex gap-2 flex-wrap;
-  }
-  /* Each attendee input grows to fill available space, min width to prevent collapse */
-  .attendee-input-row .custom-input {
-    @apply flex-1 min-w-[120px];
-  }
+  .custom-input::placeholder { color: var(--text-muted); }
+  .custom-input:focus { border-color: #0969da; box-shadow: 0 0 0 3px rgba(9,105,218,0.12); }
+  html.dark .custom-input:focus { border-color: #388bfd; box-shadow: 0 0 0 3px rgba(56,139,253,0.12); }
+  textarea.custom-input { @apply leading-relaxed resize-none max-w-full; }
+  .attendee-input-row { @apply flex gap-2 flex-wrap; }
+  .attendee-input-row .custom-input { @apply flex-1 min-w-[120px]; }
 
   /* --- LOGIN --- */
-  /* Centered login card: max 450px wide, auto margins, responsive padding */
-  .login-container {
-    @apply w-full max-w-[450px] mx-auto my-8 p-8 box-border sm:p-10;
-  }
+  .login-container { @apply w-full max-w-[450px] mx-auto my-8 p-8 box-border sm:p-10; }
 
-  /* --- LOGIN TABS --- */
-  /* Pill-shaped tab strip container: slate bg, rounded, padded, subtle border */
-  .tab-container {
-    @apply flex bg-slate-100 rounded-xl p-[6px] mb-6 border border-slate-200;
-  }
-  /* Individual tab button: grows equally, centered content, transparent bg, smooth cubic transition */
-  .tab-btn {
-    @apply flex flex-1 items-center justify-center gap-2 px-0 py-[10px] bg-transparent border-none rounded-lg text-sm font-semibold text-slate-500 cursor-pointer transition-all duration-[250ms] ease-[cubic-bezier(0.4,0,0.2,1)];
-  }
-  /* Darken text on hover to signal interactivity */
-  .tab-btn:hover {
-    @apply text-slate-900;
-  }
-  /* Active tab: white bg, blue text, subtle drop shadow to lift it above the strip */
-  .tab-btn.active {
-    @apply bg-white text-blue-600 shadow-[0_2px_6px_rgba(0,0,0,0.05)];
-  }
+  /* --- TABS --- */
+  .tab-container { @apply flex rounded-xl p-[6px] mb-6; background: var(--bg-muted); border: 1px solid var(--border); }
+  .tab-btn { @apply flex flex-1 items-center justify-center gap-2 px-0 py-[10px] bg-transparent border-none rounded-lg text-sm font-semibold cursor-pointer transition-all duration-[250ms]; color: var(--text-muted); }
+  .tab-btn:hover { color: var(--text-primary); }
+  .tab-btn.active { background: var(--bg-card); color: #0969da; box-shadow: 0 1px 3px rgba(31,35,40,0.12); border: 1px solid var(--border); }
+  html.dark .tab-btn.active { background: #21262d; color: #388bfd; box-shadow: 0 1px 3px rgba(0,0,0,0.4); border: 1px solid #30363d; }
 
-  /* --- TIME FIELD LABEL --- */
-  /* Small all-caps label above time inputs: slate color, wide letter spacing */
-  .input-label {
-    @apply block text-[11px] font-bold text-slate-400 tracking-[0.06em] uppercase mb-2;
-  }
-  /* Even smaller sub-label used beneath time input spinners */
-  .input-label-sm {
-    @apply text-[10px] font-bold text-slate-400 mt-[2px];
-  }
+  /* --- LABELS --- */
+  .input-label { @apply block text-[11px] font-bold tracking-[0.06em] uppercase mb-2; color: var(--text-muted); }
+  .input-label-sm { @apply text-[10px] font-bold mt-[2px]; color: var(--text-muted); }
 
-  /* --- TIME ROW WRAPPER --- */
-  /* Side-by-side start/end time layout, slate bg, rounded border box */
-  .time-row {
-    @apply flex flex-row items-end gap-4 bg-slate-50 border border-slate-200 rounded-[14px] px-4 py-[14px];
-  }
-  /* Divider arrow between start and end time pickers */
-  .time-row-divider {
-    @apply block text-[13px] font-semibold text-slate-300 pb-[22px] shrink-0;
-  }
-  /* Each time field takes equal space and won't overflow */
-  .time-field {
-    @apply flex-1 min-w-0;
-  }
+  /* --- TIME ROW --- */
+  .time-row { @apply flex flex-row items-end gap-4 rounded-[14px] px-4 py-[14px]; background: var(--bg-muted); border: 1px solid var(--border); }
+  .time-row-divider { @apply block text-[13px] font-semibold pb-[22px] shrink-0; color: var(--text-muted); }
+  .time-field { @apply flex-1 min-w-0; }
 
-  /* --- HYBRID 12H TIME PICKER --- */
-  /* Outer picker shell: white bg, rounded, bordered, subtle shadow, transitions on border+shadow */
-  .hybrid-time-picker {
-    @apply flex items-center gap-2 bg-white px-3 py-[10px] rounded-[10px] border border-slate-200 w-full box-border shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[border-color,box-shadow] duration-200;
-  }
-  /* Blue border + ring when any child input is focused */
-  .hybrid-time-picker:focus-within {
-    @apply border-blue-500 shadow-[0_0_0_3px_rgba(59,130,246,0.1)];
-  }
-  /* Column holding up/down arrows + the number input */
-  .time-column {
-    @apply flex flex-col items-center gap-1;
-  }
-  /* Hour/minute number box: fixed size, centered text, bordered, no outline */
-  .time-type-input {
-    @apply w-[38px] h-9 text-center border border-slate-300 rounded-lg font-semibold text-base text-slate-800 outline-none bg-white transition-all duration-200 p-0;
-  }
-  /* Blue border + ring on direct focus of the number input */
-  .time-type-input:focus {
-    @apply border-blue-500 shadow-[0_0_0_3px_rgba(59,130,246,0.1)];
-  }
-  /* AM/PM toggle: wider, blue tinted bg, bold blue text, pointer cursor, non-selectable */
-  .time-type-input.ampm {
-    @apply cursor-pointer bg-blue-50 text-blue-600 font-bold flex items-center justify-center select-none w-12 border-blue-200;
-  }
-  /* Colon separator between hours and minutes, pulled up to align with inputs */
-  .time-separator {
-    @apply font-bold text-slate-500 text-xl -mt-[15px];
-  }
-  /* Up/down arrow buttons inside the time picker: ghost style, small text */
-  .arrow-btn {
-    @apply bg-transparent border-none text-slate-400 text-xs cursor-pointer transition-all duration-200 px-[10px] py-[2px];
-  }
-  /* Arrow turns blue and scales up on hover */
-  .arrow-btn:hover {
-    @apply text-blue-500 scale-125;
-  }
+  /* --- TIME PICKER --- */
+  .hybrid-time-picker { @apply flex items-center gap-2 px-3 py-[10px] rounded-[10px] w-full box-border transition-[border-color,box-shadow] duration-200; background: var(--bg-card); border: 1px solid var(--border); }
+  .hybrid-time-picker:focus-within { border-color: #0969da; box-shadow: 0 0 0 3px rgba(9,105,218,0.12); }
+  html.dark .hybrid-time-picker:focus-within { border-color: #388bfd; box-shadow: 0 0 0 3px rgba(56,139,253,0.12); }
+  .time-column { @apply flex flex-col items-center gap-1; }
+  .time-type-input { @apply w-[38px] h-9 text-center rounded-lg font-semibold text-base outline-none transition-all duration-200 p-0; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); }
+  .time-type-input:focus { border-color: #0969da; box-shadow: 0 0 0 3px rgba(9,105,218,0.12); }
+  html.dark .time-type-input:focus { border-color: #388bfd; box-shadow: 0 0 0 3px rgba(56,139,253,0.12); }
+  .time-type-input.ampm { @apply cursor-pointer font-bold flex items-center justify-center select-none w-12; background: #ddf4ff; color: #0969da; border-color: #54aeff; }
+  html.dark .time-type-input.ampm { background: #121d2f; color: #388bfd; border-color: #1f3a5f; }
+  .time-separator { @apply font-bold text-xl -mt-[15px]; color: var(--text-secondary); }
+  .arrow-btn { @apply bg-transparent border-none text-xs cursor-pointer transition-all duration-200 px-[10px] py-[2px]; color: var(--text-muted); }
+  .arrow-btn:hover { color: #0969da; transform: scale(1.25); }
+  html.dark .arrow-btn:hover { color: #388bfd; }
 
   /* --- BUTTONS --- */
-  /* Primary CTA: full-width, blue gradient, rounded, shadow, lifts on hover */
-  .btn-primary {
-    @apply p-[14px] bg-gradient-to-br from-blue-600 to-blue-700 text-white border-none rounded-[10px] font-semibold cursor-pointer w-full mt-[10px] shadow-[0_4px_6px_-1px_rgba(37,99,235,0.2)] transition-all duration-200 ease-in-out;
-  }
-  /* Lifts up, deepens shadow, brightens on hover */
-  .btn-primary:hover {
-    @apply -translate-y-0.5 shadow-[0_10px_15px_-3px_rgba(37,99,235,0.3)] brightness-110;
-  }
-  /* Secondary action button: slate bg, bordered, flex row with icon gap */
-  .btn-secondary {
-    @apply px-4 py-[10px] bg-slate-100 text-slate-600 border border-slate-200 rounded-lg font-medium cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out;
-  }
-  /* Slightly darker bg + darker text on hover */
-  .btn-secondary:hover {
-    @apply bg-slate-200 text-slate-900;
-  }
-  /* Square icon-only button: fixed 42px, rounded corners, slate bg */
-  .btn-icon {
-    @apply w-[42px] h-[42px] rounded-xl flex items-center justify-center border-none cursor-pointer bg-slate-100 transition-all duration-200;
-  }
-  /* Delete icon button: red tint on hover */
-  .btn-icon.delete:hover {
-    @apply bg-red-100 text-red-500;
-  }
-  /* Excel export icon button: green tint on hover */
-  .btn-icon.excel:hover {
-    @apply bg-green-100 text-green-600;
-  }
-  /* Preview icon button: blue tint on hover */
-  .btn-icon.preview:hover {
-    @apply bg-blue-50 text-blue-600;
-  }
+  .btn-primary { @apply p-[14px] text-white border-none rounded-[10px] font-semibold cursor-pointer w-full mt-[10px] transition-all duration-200 ease-in-out; background: #0969da; box-shadow: 0 1px 0 rgba(31,35,40,0.1); }
+  .btn-primary:hover { background: #0860ca; }
+  html.dark .btn-primary { background: #388bfd; color: #0d1117; box-shadow: 0 1px 0 rgba(240,246,252,0.1); border: 1px solid rgba(240,246,252,0.1); }
+  html.dark .btn-primary:hover { background: #58a6ff; }
 
-  /* --- GOOGLE CALENDAR CONNECT BANNER --- */
-  /* Amber warning strip shown when Google Calendar is not connected */
-  .calendar-connect-banner {
-    @apply flex justify-between items-center flex-wrap gap-3 bg-amber-50 border border-yellow-300 rounded-xl px-[18px] py-[14px] mb-5 text-sm text-amber-800 font-medium;
-  }
-  /* Blue pill link/button inside the banner to trigger OAuth connect */
-  .btn-connect-calendar {
-    @apply inline-flex items-center gap-2 bg-blue-600 text-white no-underline px-4 py-2 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-colors duration-200;
-  }
-  /* Darker blue on hover */
-  .btn-connect-calendar:hover {
-    @apply bg-blue-700;
-  }
+  .btn-secondary { @apply px-4 py-[10px] rounded-lg font-medium cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out; background: var(--bg-hover); color: var(--text-secondary); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--bg-muted); color: var(--text-primary); border-color: var(--text-muted); }
+  html.dark .btn-secondary:hover { background: #30363d; color: #e6edf3; border-color: #8b949e; }
+
+  .btn-icon { @apply w-[42px] h-[42px] rounded-xl flex items-center justify-center border-none cursor-pointer transition-all duration-200; background: var(--bg-hover); color: var(--text-secondary); }
+  .btn-icon.delete:hover { background: #ffebe9; color: #cf222e; }
+  html.dark .btn-icon.delete:hover { background: rgba(248,81,73,0.15); color: #f85149; }
+  .btn-icon.excel:hover { background: #dafbe1; color: #1a7f37; }
+  html.dark .btn-icon.excel:hover { background: rgba(46,160,67,0.15); color: #3fb950; }
+  .btn-icon.preview:hover { background: #ddf4ff; color: #0969da; }
+  html.dark .btn-icon.preview:hover { background: rgba(56,139,253,0.15); color: #388bfd; }
+
+  /* --- CALENDAR BANNER --- */
+  .calendar-connect-banner { @apply flex justify-between items-center flex-wrap gap-3 rounded-xl px-[18px] py-[14px] mb-5 text-sm font-medium; background: #fff8c5; border: 1px solid #d4a72c; color: #7d4e00; }
+  html.dark .calendar-connect-banner { background: #272115; border-color: #9e6a03; color: #d29922; }
+  .btn-connect-calendar { @apply inline-flex items-center gap-2 text-white no-underline px-4 py-2 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-colors duration-200; background: #0969da; }
+  .btn-connect-calendar:hover { background: #0860ca; }
+  html.dark .btn-connect-calendar { background: #388bfd; color: #0d1117; }
+  html.dark .btn-connect-calendar:hover { background: #58a6ff; }
 
   /* --- TOOLTIP --- */
-  /* Wrapper that establishes positioning context for the floating tooltip */
-  .tooltip-wrap {
-    @apply relative inline-flex;
-  }
-  /* Tooltip bubble: dark bg, white text, centered above trigger, hidden by default */
-  .tooltip-text {
-    @apply absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[11px] font-semibold px-2 py-1 rounded-md whitespace-nowrap pointer-events-none opacity-0 transition-opacity duration-150 ease-in-out;
-  }
-  /* Fade tooltip in when parent is hovered */
-  .tooltip-wrap:hover .tooltip-text {
-    @apply opacity-100;
-  }
+  .tooltip-wrap { @apply relative inline-flex; }
+  .tooltip-text { @apply absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 text-white text-[11px] font-semibold px-2 py-1 rounded-md whitespace-nowrap pointer-events-none opacity-0 transition-opacity duration-150 ease-in-out; background: #1f2328; }
+  html.dark .tooltip-text { background: #30363d; border: 1px solid #484f58; }
+  .tooltip-wrap:hover .tooltip-text { @apply opacity-100; }
 
-  /* --- PREVIEW MODAL --- */
-  /* Full-screen dimmed overlay with blur backdrop, centers the modal card */
-  .modal-overlay {
-    @apply fixed inset-0 bg-[rgba(15,23,42,0.5)] backdrop-blur-sm flex items-center justify-center z-[1000] p-4;
-  }
-  /* White modal card: max 520px, large shadow, scrollable if content overflows */
-  .modal-card {
-    @apply bg-white rounded-[20px] p-7 w-full max-w-[520px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] max-h-[90vh] overflow-y-auto;
-  }
-  /* Modal top row: title on left, close button on right */
-  .modal-header {
-    @apply flex justify-between items-start mb-4 gap-3;
-  }
-  /* Attendee list section inside modal: slate bg, bordered, rounded */
-  .modal-attendees {
-    @apply bg-slate-50 border border-slate-200 rounded-xl p-[14px] mt-4;
-  }
-  /* All-caps section label above the attendee list */
-  .modal-attendees-title {
-    @apply text-xs font-bold text-slate-400 uppercase tracking-[0.06em] m-0 mb-[10px];
-  }
-  /* Scrollable list of attendee rows, capped at 220px height */
-  .modal-attendees-list {
-    @apply flex flex-col gap-[10px] max-h-[220px] overflow-y-auto;
-  }
-  /* Single attendee row: avatar + name/email side by side */
-  .modal-attendee-row {
-    @apply flex items-center gap-[10px];
-  }
-  /* Circular avatar with blue-to-violet gradient, shows initials */
-  .attendee-avatar {
-    @apply w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-violet-600 text-white text-[13px] font-bold flex items-center justify-center shrink-0;
-  }
+  /* --- MODALS --- */
+  .modal-overlay { @apply fixed inset-0 flex items-center justify-center z-[1000] p-4; background: rgba(31,35,40,0.5); backdrop-filter: blur(4px); }
+  html.dark .modal-overlay { background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); }
+  .modal-card { @apply rounded-[20px] p-7 w-full max-w-[520px] max-h-[90vh] overflow-y-auto; background: var(--bg-card); border: 1px solid var(--border); box-shadow: 0 8px 24px rgba(140,149,159,0.2); }
+  html.dark .modal-card { box-shadow: 0 8px 24px rgba(0,0,0,0.4); border-color: #30363d; }
+  .modal-header { @apply flex justify-between items-start mb-4 gap-3; }
+  .modal-attendees { @apply rounded-xl p-[14px] mt-4; background: var(--bg-muted); border: 1px solid var(--border); }
+  .modal-attendees-title { @apply text-xs font-bold uppercase tracking-[0.06em] m-0 mb-[10px]; color: var(--text-muted); }
+  .modal-attendees-list { @apply flex flex-col gap-[10px] max-h-[220px] overflow-y-auto; }
+  .modal-attendee-row { @apply flex items-center gap-[10px]; }
+  .attendee-avatar { @apply w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-violet-600 text-white text-[13px] font-bold flex items-center justify-center shrink-0; }
 
-  /* --- FLOATING FORM CARD --- */
-  /* White card with layered shadow that lifts further on hover, h-full so both columns match height */
-  .floating-card {
-    @apply bg-white border border-slate-200/80 rounded-[20px] p-5 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.05),0_20px_25px_-5px_rgba(0,0,0,0.1)] transition-[transform,box-shadow] duration-300 ease-in-out w-full box-border h-full sm:p-[30px];
-  }
-  /* Card floats up and shadow deepens on hover */
-  .floating-card:hover {
-    @apply -translate-y-1 shadow-[0_25px_30px_-5px_rgba(0,0,0,0.08),0_40px_60px_-15px_rgba(0,0,0,0.12)];
-  }
+  /* --- CARDS --- */
+  .floating-card { @apply rounded-[20px] p-5 transition-[transform,box-shadow,border-color] duration-300 ease-in-out w-full box-border h-full sm:p-[30px]; background: var(--bg-card); border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(31,35,40,0.06); }
+  .floating-card:hover { @apply -translate-y-1; box-shadow: 0 8px 24px rgba(140,149,159,0.15); border-color: var(--text-muted); }
+  html.dark .floating-card { box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+  html.dark .floating-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.4); border-color: #484f58; }
 
-  /* --- RESPONSIVE LAYOUT CONTAINERS --- */
-  /* Full-page slate bg wrapper, stacks children vertically and centers them */
-  .dashboard-container {
-    @apply bg-slate-100 min-h-screen w-full flex flex-col items-center;
-  }
-  /* Inner max-width wrapper with responsive padding: 16px → 24px → 40px */
-  .dashboard-wrapper {
-    @apply w-full max-w-[1400px] p-4 box-border md:p-6 lg:p-10;
-  }
-  /* Single column on mobile, switches to [480px form | flexible list] on desktop, stretch makes both cards equal height */
-  .main-content {
-    @apply grid grid-cols-1 gap-6 mt-[10px] items-stretch lg:grid-cols-[480px_1fr] lg:gap-[60px];
-  }
-  /* Form column: full width on mobile, sticky at top on desktop */
-  .form-container {
-    @apply w-full lg:sticky lg:top-8;
-  }
-  /* List column: full width, prevents overflow blowout */
-  .list-container {
-    @apply w-full min-w-0;
-  }
-  /* Sidebar section wrapper used inside the form column */
-  .form-section-wrapper {
-    @apply flex-1 min-w-[320px];
-  }
+  /* --- LAYOUT --- */
+  .dashboard-container { @apply min-h-screen w-full flex flex-col items-center; background: var(--bg-page); }
+  .dashboard-wrapper { @apply w-full max-w-[1400px] p-4 box-border md:p-6 lg:p-10; }
+  .main-content { @apply grid grid-cols-1 gap-6 mt-[10px] items-stretch lg:grid-cols-[480px_1fr] lg:gap-[60px]; }
+  .form-container { @apply w-full lg:sticky lg:top-8; }
+  .list-container { @apply w-full min-w-0; }
+  .form-section-wrapper { @apply flex-1 min-w-[320px]; }
 
   /* --- EMPTY STATE --- */
-  /* Dashed placeholder card shown when no events exist yet */
-  .empty-state-card {
-    @apply w-full bg-white border-2 border-dashed border-slate-200 rounded-2xl py-20 px-5 text-center text-slate-400 font-medium box-border;
-  }
+  .empty-state-card { @apply w-full border-2 border-dashed rounded-2xl py-20 px-5 text-center font-medium box-border; background: var(--bg-card); border-color: var(--border); color: var(--text-muted); }
 
   /* --- EVENT CARDS --- */
-  /* Individual event card: stacked on mobile, side-by-side on sm+, slides right on md+ hover */
-  .event-card {
-    @apply bg-white p-6 rounded-2xl mb-5 border border-slate-200/80 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05)] flex flex-col gap-4 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] sm:flex-row sm:items-center sm:justify-between sm:gap-0;
-  }
-  /* Event info grows to fill available space, pushing actions to the far right */
-  .event-info {
-    @apply flex-1 min-w-0;
-  }
-  /* Blue border highlight + shadow on hover, no translate to avoid horizontal scroll */
-  .event-card:hover {
-    @apply border-blue-400 shadow-[0_10px_15px_-3px_rgba(59,130,246,0.1)];
-  }
-  /* Event name: Poppins font, semi-bold, dark slate */
-  .event-title {
-    @apply font-[Poppins,sans-serif] text-[1.2rem] font-semibold text-slate-900 my-2;
-  }
-  /* Short description text below the title */
-  .event-description {
-    @apply text-sm text-slate-500 mb-3 leading-[1.4];
-  }
-  /* Horizontal wrapping row of meta pill badges */
-  .event-meta {
-    @apply flex flex-wrap gap-4 mt-[10px];
-  }
-  /* Action buttons row (edit, delete, preview) aligned to the right */
-  .event-actions {
-    @apply flex gap-[10px];
-  }
+  .event-card { @apply p-6 rounded-2xl mb-5 flex flex-col gap-4 transition-all duration-200 sm:flex-row sm:items-center sm:justify-between sm:gap-0; background: var(--bg-card); border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(31,35,40,0.06); }
+  .event-info { @apply flex-1 min-w-0; }
+  .event-card:hover { border-color: #0969da; box-shadow: 0 3px 12px rgba(9,105,218,0.08); }
+  html.dark .event-card { box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+  html.dark .event-card:hover { border-color: #388bfd; box-shadow: 0 3px 12px rgba(56,139,253,0.1); }
+  .event-title { @apply font-[Poppins,sans-serif] text-[1.2rem] font-semibold my-2; color: var(--text-primary); }
+  .event-description { @apply text-sm mb-3 leading-[1.4]; color: var(--text-secondary); }
+  .event-meta { @apply flex flex-wrap gap-4 mt-[10px]; }
+  .event-actions { @apply flex gap-[10px]; }
 
-  /* --- META ITEM --- */
-  /* Pill badge for date, time, location etc: slate bg, rounded-full */
-  .meta-item {
-    @apply flex items-center gap-[6px] text-[13px] text-slate-600 bg-slate-50 px-3 py-[6px] rounded-[20px] border border-slate-100;
-  }
-  /* Venue badge variant: blue tinted to visually distinguish location */
-  .meta-item.venue {
-    @apply bg-blue-50 text-blue-600 font-medium;
-  }
+  /* --- META ITEMS --- */
+  .meta-item { @apply flex items-center gap-[6px] text-[13px] px-3 py-[6px] rounded-[20px]; background: var(--bg-muted); border: 1px solid var(--border); color: var(--text-meta); }
+  .meta-item.venue { background: #ddf4ff; color: #0969da; border-color: #54aeff; font-weight: 500; }
+  html.dark .meta-item.venue { background: #121d2f; color: #388bfd; border-color: #1f3a5f; }
 
-  /* --- STATUS BADGE --- */
-  /* Small green pill label e.g. "Today" or "Upcoming" shown on event cards */
-  .status-badge {
-    @apply text-[10px] font-bold uppercase px-2 py-[2px] rounded bg-green-100 text-green-600 tracking-[0.5px];
-  }
-
-  /* --- TEXT UTILITY --- */
-  /* Reusable blue text color helper */
-  .text-blue {
-    @apply text-blue-600;
-  }
+  /* --- BADGES --- */
+  .status-badge { @apply text-[10px] font-bold uppercase px-2 py-[2px] rounded tracking-[0.5px]; background: #dafbe1; color: #1a7f37; }
+  html.dark .status-badge { background: rgba(46,160,67,0.15); color: #3fb950; }
+  .category-badge { @apply text-[10px] font-bold uppercase px-2 py-[2px] rounded tracking-[0.5px] ml-2; }
+  .text-blue { color: #0969da; }
+  html.dark .text-blue { color: #388bfd; }
 }

@@ -5,6 +5,7 @@ import AdminDashboard from './AdminDashboard';
 import UserDashboard from './UserDashboard';
 import PastEvents from './PastEvents';
 import LiveEvents from './LiveEvents';
+import UserProfile from './UserProfile';
 
 const ProtectedRoute = ({ children, adminOnly = false }) => {
   const isAuthenticated = localStorage.getItem('isAdminLoggedIn') === 'true';
@@ -23,6 +24,7 @@ function App() {
         <Route path="/user-dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
         <Route path="/past-events" element={<ProtectedRoute><PastEvents /></ProtectedRoute>} />
         <Route path="/live-events" element={<ProtectedRoute><LiveEvents /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

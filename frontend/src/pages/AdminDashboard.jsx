@@ -1,7 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
-import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, LogOut, Clock, MapPin, AlertTriangle } from 'lucide-react';
+import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, LogOut, Clock, MapPin, AlertTriangle, Pencil, Search, User, Sun, Moon, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
+
+const CATEGORIES = ['General', 'Meeting', 'Workshop', 'Holiday', 'Training', 'Social'];
+const CATEGORY_COLORS = {
+    General:  { bg: '#eff6ff', color: '#2563eb' },
+    Meeting:  { bg: '#fef3c7', color: '#d97706' },
+    Workshop: { bg: '#f0fdf4', color: '#16a34a' },
+    Holiday:  { bg: '#fce7f3', color: '#db2777' },
+    Training: { bg: '#f5f3ff', color: '#7c3aed' },
+    Social:   { bg: '#fff7ed', color: '#ea580c' },
+};
 
 const ClosedEyeIcon = ({ size = 20, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -23,12 +34,39 @@ const formatTime = (timeStr) => {
     return `${String(h).padStart(2, '0')}:${minutes} ${ampm}`;
 };
 
-const PreviewModal = ({ event, onClose, onDownload }) => (
+const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange }) => {
+    const { t } = useTranslation();
+    const [newAttendee, setNewAttendee] = useState({ name: '', email: '' });
+    const [attendees, setAttendees] = useState(event.attendees || []);
+    const [saving, setSaving] = useState(false);
+
+    const handleAdd = async () => {
+        if (!newAttendee.name.trim() || !newAttendee.email.trim()) return;
+        setSaving(true);
+        try {
+            await axios.post(`/api/events/${event.event_id}/attendees`, newAttendee);
+            const updated = [...attendees, { ...newAttendee, rsvp_status: 'pending' }];
+            setAttendees(updated);
+            setNewAttendee({ name: '', email: '' });
+            onAttendeesChange();
+        } catch (e) { alert(e.response?.data?.error || 'Failed to add attendee'); }
+        finally { setSaving(false); }
+    };
+
+    const handleRemove = async (email) => {
+        try {
+            await axios.delete(`/api/events/${event.event_id}/attendees/${encodeURIComponent(email)}`);
+            setAttendees(attendees.filter(a => a.email !== email));
+            onAttendeesChange();
+        } catch { alert('Failed to remove attendee'); }
+    };
+
+    return (
     <div className="modal-overlay" onClick={onClose}>
         <div className="modal-card" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
                 <div>
-                    <span className="status-badge">Confirmed</span>
+                    <span className="status-badge">{t('confirmed')}</span>
                     <h2 className="event-title" style={{ marginBottom: 4 }}>{event.title}</h2>
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -36,7 +74,7 @@ const PreviewModal = ({ event, onClose, onDownload }) => (
                         <button className="btn-icon excel" onClick={() => onDownload(event)}>
                             <Download size={20} />
                         </button>
-                        <span className="tooltip-text">Download Excel</span>
+                        <span className="tooltip-text">{t('downloadExcel')}</span>
                     </div>
                     <button className="btn-icon" onClick={onClose}><X size={20} /></button>
                 </div>
@@ -55,18 +93,29 @@ const PreviewModal = ({ event, onClose, onDownload }) => (
             )}
 
             <div className="modal-attendees">
-                <p className="modal-attendees-title">Attendees ({(event.attendees || []).length})</p>
-                {(event.attendees || []).length === 0 ? (
-                    <p style={{ color: '#94a3b8', fontSize: 13 }}>No attendees added.</p>
+                <p className="modal-attendees-title">{t('attendees')} ({attendees.length})</p>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                    <input className="custom-input" style={{ flex: 1 }} placeholder="Name" value={newAttendee.name} onChange={e => setNewAttendee({ ...newAttendee, name: e.target.value })} />
+                    <input className="custom-input" style={{ flex: 1 }} placeholder="Email" value={newAttendee.email} onChange={e => setNewAttendee({ ...newAttendee, email: e.target.value })} />
+                    <button className="btn-secondary" onClick={handleAdd} disabled={saving}><UserPlus size={16} /></button>
+                </div>
+                {attendees.length === 0 ? (
+                    <p style={{ color: '#94a3b8', fontSize: 13 }}>{t('noAttendees')}</p>
                 ) : (
                     <div className="modal-attendees-list">
-                        {event.attendees.map((a, i) => (
+                        {attendees.map((a, i) => (
                             <div key={i} className="modal-attendee-row">
                                 <div className="attendee-avatar">{a.name?.[0]?.toUpperCase() || '?'}</div>
-                                <div>
+                                <div style={{ flex: 1 }}>
                                     <div style={{ fontWeight: 600, fontSize: 13 }}>{a.name}</div>
                                     <div style={{ fontSize: 12, color: '#64748b' }}>{a.email}</div>
                                 </div>
+                                <span style={{
+                                    fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
+                                    background: a.rsvp_status === 'accepted' ? '#dcfce7' : a.rsvp_status === 'declined' ? '#fee2e2' : '#f1f5f9',
+                                    color: a.rsvp_status === 'accepted' ? '#16a34a' : a.rsvp_status === 'declined' ? '#dc2626' : '#94a3b8'
+                                }}>{a.rsvp_status || 'pending'}</span>
+                                <button onClick={() => handleRemove(a.email)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', marginLeft: 4 }}><X size={14} /></button>
                             </div>
                         ))}
                     </div>
@@ -74,14 +123,22 @@ const PreviewModal = ({ event, onClose, onDownload }) => (
             </div>
         </div>
     </div>
-);
+    );
+};
 
-const EventCard = ({ event, onDelete, onPreview, tab }) => (
+const EventCard = ({ event, onDelete, onPreview, onEdit, tab }) => {
+    const { t } = useTranslation();
+    return (
     <div className="event-card">
         <div className="event-info">
             <span className="status-badge" style={tab === 'past' ? { background: '#f1f5f9', color: '#64748b' } : tab === 'live' ? { background: '#dcfce7', color: '#16a34a' } : {}}>
-                {tab === 'past' ? 'Past' : tab === 'live' ? '🔴 Live' : 'Confirmed'}
+                {tab === 'past' ? t('past') : tab === 'live' ? t('live') : t('confirmed')}
             </span>
+            {event.category && event.category !== 'General' && (
+                <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category]?.color || '#64748b' }}>
+                    {event.category}
+                </span>
+            )}
             <h3 className="event-title">{event.title}</h3>
             <div className="event-meta">
                 <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString()}</span></div>
@@ -92,17 +149,24 @@ const EventCard = ({ event, onDelete, onPreview, tab }) => (
         <div className="event-actions">
             <div className="tooltip-wrap">
                 <button onClick={() => onPreview(event)} className="btn-icon preview"><ClosedEyeIcon size={20} /></button>
-                <span className="tooltip-text">Preview</span>
+                <span className="tooltip-text">{t('preview')}</span>
             </div>
+            {onEdit && (
+                <div className="tooltip-wrap">
+                    <button onClick={() => onEdit(event)} className="btn-icon" style={{ background: '#eff6ff' }}><Pencil size={18} color="#2563eb" /></button>
+                    <span className="tooltip-text">Edit</span>
+                </div>
+            )}
             {onDelete && (
                 <div className="tooltip-wrap">
                     <button onClick={() => onDelete(event.event_id)} className="btn-icon delete"><Trash2 size={20} /></button>
-                    <span className="tooltip-text">Delete</span>
+                    <span className="tooltip-text">{t('delete')}</span>
                 </div>
             )}
         </div>
     </div>
-);
+    );
+};
 
 const CustomTimeInput = ({ value, onChange }) => {
   const parseTime = (val) => {
@@ -241,20 +305,97 @@ const CustomTimeInput = ({ value, onChange }) => {
   );
 };
 
+const EditModal = ({ event, onClose, onSave }) => {
+    const { t } = useTranslation();
+    const [form, setForm] = useState({
+        title: event.title || '',
+        description: event.description || '',
+        venue: event.venue || '',
+        event_date: event.event_date?.slice(0, 10) || '',
+        start_time: event.start_time?.slice(0, 5) || '',
+        end_time: event.end_time?.slice(0, 5) || '',
+        category: event.category || 'General',
+    });
+    const [saving, setSaving] = useState(false);
+
+    const handleSave = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        try {
+            await axios.patch(`/api/events/${event.event_id}`, form);
+            onSave();
+            onClose();
+        } catch { /* handled by parent toast */ }
+        finally { setSaving(false); }
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-card" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h2 style={{ margin: 0, fontSize: 18 }}>Edit Event</h2>
+                    <button className="btn-icon" onClick={onClose}><X size={20} /></button>
+                </div>
+                <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 16 }}>
+                    <input className="custom-input" placeholder={t('eventTitle')} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required />
+                    <textarea className="custom-input" placeholder={t('description')} style={{ minHeight: 80, resize: 'none' }} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+                    <input className="custom-input" placeholder={t('venue')} value={form.venue} onChange={e => setForm({ ...form, venue: e.target.value })} required />
+                    <input type="date" className="custom-input" value={form.event_date} onChange={e => setForm({ ...form, event_date: e.target.value })} required />
+                    <select className="custom-input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
+                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <div className="time-row">
+                        <div className="time-field">
+                            <label className="input-label">{t('startTime')}</label>
+                            <CustomTimeInput value={form.start_time} onChange={v => setForm({ ...form, start_time: v })} />
+                        </div>
+                        <span className="time-row-divider">→</span>
+                        <div className="time-field">
+                            <label className="input-label">{t('endTime')}</label>
+                            <CustomTimeInput value={form.end_time} onChange={v => setForm({ ...form, end_time: v })} />
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                        <button type="button" className="btn-secondary" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
+                        <button type="submit" className="btn-primary" style={{ flex: 2, marginTop: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} disabled={saving}>
+                            {saving ? 'Saving...' : 'Save Changes'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
 // ... then your Dashboard component starts below ...
 
 const AdminDashboard = () => {
+    const { t } = useTranslation();
     const [events, setEvents] = useState([]);
     const [previewEvent, setPreviewEvent] = useState(null);
+    const [editEvent, setEditEvent] = useState(null);
     const [activeTab, setActiveTab] = useState('upcoming');
     const [submitting, setSubmitting] = useState(false);
     const [toast, setToast] = useState(null);
     const [calendarConnected, setCalendarConnected] = useState(true);
-    const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', start_time: '', end_time: '' });
+    const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', start_time: '', end_time: '', category: 'General' });
     const [attendees, setAttendees] = useState([]);
     const [currentAttendee, setCurrentAttendee] = useState({ name: '', email: '' });
+    const [search, setSearch] = useState('');
+    const [filterDate, setFilterDate] = useState('');
+    const [filterCategory, setFilterCategory] = useState('');
+    const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
+    const [page, setPage] = useState(1);
+    const PAGE_SIZE = 5;
     const navigate = useNavigate();
     const adminEmail = localStorage.getItem('userEmail');
+
+    useEffect(() => {
+        document.documentElement.classList.toggle('dark', darkMode);
+        localStorage.setItem('darkMode', darkMode);
+    }, [darkMode]);
+
+    useEffect(() => { setPage(1); }, [search, filterDate, filterCategory, activeTab]);
 
     const fetchEvents = async () => {
         try {
@@ -284,6 +425,11 @@ const AdminDashboard = () => {
         navigate('/');
     };
 
+    const handleEditSave = async () => {
+        fetchEvents();
+        showToast('Event updated successfully!');
+    };
+
     const handleDelete = async (id) => {
         console.log("Attempting to delete event with ID:", id);
 
@@ -304,10 +450,48 @@ const AdminDashboard = () => {
     };
 
     const handleDownload = (event) => {
-        const ws = XLSX.utils.json_to_sheet(event.attendees || []);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Attendees");
-        XLSX.writeFile(wb, `${event.title}_Attendees.xlsx`);
+        const formattedDate = new Date(event.event_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const attendees = event.attendees || [];
+
+        const data = [
+            // Event details block
+            ['Event Title',    event.title],
+            ['Date',           formattedDate],
+            ['Start Time',     formatTime(event.start_time)],
+            ['End Time',       formatTime(event.end_time)],
+            ['Venue',          event.venue || '—'],
+            ['Category',       event.category || 'General'],
+            ['Description',    event.description || '—'],
+            ['Total Attendees', attendees.length],
+            [], // blank separator row
+            // Attendees header
+            ['#', 'Name', 'Email', 'Status'],
+            // Attendee rows
+            ...attendees.map((a, i) => [
+                i + 1,
+                a.name || '—',
+                a.email || '—',
+                a.rsvp_status ? a.rsvp_status.charAt(0).toUpperCase() + a.rsvp_status.slice(1) : 'Pending',
+            ]),
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        ws['!cols'] = [{ wch: 18 }, { wch: 30 }, { wch: 35 }, { wch: 15 }];
+
+        // Bold event detail labels (column A, rows 0–7)
+        for (let r = 0; r < 8; r++) {
+            const cell = ws[XLSX.utils.encode_cell({ r, c: 0 })];
+            if (cell) cell.s = { font: { bold: true } };
+        }
+        // Bold attendees header row (row 9)
+        for (let c = 0; c < 4; c++) {
+            const cell = ws[XLSX.utils.encode_cell({ r: 9, c })];
+            if (cell) cell.s = { font: { bold: true }, fill: { fgColor: { rgb: 'EFF6FF' } } };
+        }
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Event Report');
+        XLSX.writeFile(wb, `${event.title.replace(/[^a-z0-9]/gi, '_')}_Report.xlsx`);
     };
 
     const showToast = (msg, type = 'success') => {
@@ -320,7 +504,7 @@ const AdminDashboard = () => {
         setSubmitting(true);
         try {
             await axios.post('/api/events', { ...formData, attendees });
-            setFormData({ title: '', description: '', venue: '', event_date: '', start_time: '', end_time: '' });
+            setFormData({ title: '', description: '', venue: '', event_date: '', start_time: '', end_time: '', category: 'General' });
             setAttendees([]);
             fetchEvents();
             showToast('Event created successfully!');
@@ -370,7 +554,8 @@ const AdminDashboard = () => {
 
     return (
         <div className="dashboard-container">
-            {previewEvent && <PreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} onDownload={handleDownload} />}
+            {previewEvent && <PreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} onDownload={handleDownload} onAttendeesChange={fetchEvents} />}
+            {editEvent && <EditModal event={editEvent} onClose={() => setEditEvent(null)} onSave={handleEditSave} />}
 
             {/* Toast notification */}
             {toast && (
@@ -391,18 +576,20 @@ const AdminDashboard = () => {
                 </div>
             )}
             <div className="dashboard-wrapper">
-                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 0', marginBottom: '5px', width: '100%' }}>
-                    <button onClick={handleLogout} className="btn-secondary"><LogOut size={16} /> Logout</button>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 0', marginBottom: '5px', width: '100%', gap: 8 }}>
+                    <button onClick={() => setDarkMode(d => !d)} className="btn-secondary">{darkMode ? <Sun size={16} /> : <Moon size={16} />}{darkMode ? 'Light' : 'Dark'}</button>
+                    <button onClick={() => navigate('/profile')} className="btn-secondary"><User size={16} /> Profile</button>
+                    <button onClick={handleLogout} className="btn-secondary"><LogOut size={16} /> {t('logout')}</button>
                 </div>
 
                 {!calendarConnected && (
                     <div className="calendar-connect-banner">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <AlertTriangle size={18} color="#b45309" />
-                            <span>Google Calendar is not connected. Events won't sync until you connect.</span>
+                            <span>{t('calendarWarning')}</span>
                         </div>
                         <a href={`http://localhost:3000/auth/google?role=admin`} className="btn-connect-calendar">
-                            Connect Google Calendar
+                            {t('connectCalendar')}
                         </a>
                     </div>
                 )}
@@ -410,19 +597,25 @@ const AdminDashboard = () => {
                 <div className="main-content">
                     <div className="form-container">
                         <div className="floating-card">
-                            <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 0 }}><PlusCircle color="#2563eb" />Create Event</h2>
+                            <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 0 }}><PlusCircle color="#2563eb" />{t('createEvent')}</h2>
                             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    <input type="text" placeholder="Event Title" className="custom-input" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
-                                    <textarea placeholder="Add a brief description..." className="custom-input" style={{ minHeight: '90px', resize: 'none' }} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+                                    <input type="text" placeholder={t('eventTitle')} className="custom-input" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
+                                    <textarea placeholder={t('description')} className="custom-input" style={{ minHeight: '90px', resize: 'none' }} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
                                 </div>
 
-                                <input type="text" placeholder="Venue or Meeting Link" className="custom-input" value={formData.venue} onChange={e => setFormData({ ...formData, venue: e.target.value })} required />
+                                <input type="text" placeholder={t('venue')} className="custom-input" value={formData.venue} onChange={e => setFormData({ ...formData, venue: e.target.value })} required />
                                 <input type="date" className="custom-input" value={formData.event_date} onChange={e => setFormData({ ...formData, event_date: e.target.value })} required />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <Tag size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                                    <select className="custom-input" style={{ flex: 1 }} value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+                                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
 
                                 <div className="time-row">
                                     <div className="time-field">
-                                        <label className="input-label">Start Time</label>
+                                        <label className="input-label">{t('startTime')}</label>
                                         <CustomTimeInput
                                             value={formData.start_time}
                                             onChange={(value) => setFormData(prev => ({ ...prev, start_time: value }))}
@@ -430,7 +623,7 @@ const AdminDashboard = () => {
                                     </div>
                                     <span className="time-row-divider">→</span>
                                     <div className="time-field">
-                                        <label className="input-label">End Time</label>
+                                        <label className="input-label">{t('endTime')}</label>
                                         <CustomTimeInput
                                             value={formData.end_time}
                                             onChange={(value) => setFormData(prev => ({ ...prev, end_time: value }))}
@@ -442,11 +635,11 @@ const AdminDashboard = () => {
 
                                 <div className="attendee-logic">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                        <label style={{ fontWeight: '600', fontSize: '13px', color: '#475569' }}>Invite Guests</label>
+                                        <label style={{ fontWeight: '600', fontSize: '13px', color: '#475569' }}>{t('inviteGuests')}</label>
                                         <div className="tooltip-wrap">
                                             <label className="btn-secondary" style={{ cursor: 'pointer', padding: '6px 12px', fontSize: '12px' }}>
                                                 <FileSpreadsheet size={14} />
-                                                Import Excel
+                                                {t('importExcel')}
                                                 <input
                                                     type="file"
                                                     accept=".xlsx,.xls"
@@ -454,13 +647,13 @@ const AdminDashboard = () => {
                                                     onChange={handleExcelImport}
                                                 />
                                             </label>
-                                            <span className="tooltip-text">Columns: name, email</span>
+                                            <span className="tooltip-text">{t('columnsHint')}</span>
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
                                         <div className="attendee-input-row">
-                                            <input type="text" placeholder="Guest Name" className="custom-input" style={{ flex: 1 }} value={currentAttendee.name} onChange={e => setCurrentAttendee({ ...currentAttendee, name: e.target.value })} />
-                                            <input type="email" placeholder="Guest Email" className="custom-input" style={{ flex: 1 }} value={currentAttendee.email} onChange={e => setCurrentAttendee({ ...currentAttendee, email: e.target.value })} />
+                                            <input type="text" placeholder={t('guestName')} className="custom-input" style={{ flex: 1 }} value={currentAttendee.name} onChange={e => setCurrentAttendee({ ...currentAttendee, name: e.target.value })} />
+                                            <input type="email" placeholder={t('guestEmail')} className="custom-input" style={{ flex: 1 }} value={currentAttendee.email} onChange={e => setCurrentAttendee({ ...currentAttendee, email: e.target.value })} />
                                             <button type="button" className="btn-secondary" onClick={handleAddAttendee}><UserPlus size={18} /></button>
                                         </div>
                                     </div>
@@ -468,8 +661,8 @@ const AdminDashboard = () => {
                                     {attendees.length > 0 && (
                                         <div style={{ marginTop: '10px', maxHeight: '120px', overflowY: 'auto', backgroundColor: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{attendees.length} guest{attendees.length > 1 ? 's' : ''}</span>
-                                                <span onClick={() => setAttendees([])} style={{ fontSize: '11px', color: '#ef4444', cursor: 'pointer', fontWeight: 600 }}>Clear all</span>
+                                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('guest', { count: attendees.length })}</span>
+                                                <span onClick={() => setAttendees([])} style={{ fontSize: '11px', color: '#ef4444', cursor: 'pointer', fontWeight: 600 }}>{t('clearAll')}</span>
                                             </div>
                                             {attendees.map((p, i) => (
                                                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', marginBottom: '4px' }}>
@@ -486,9 +679,9 @@ const AdminDashboard = () => {
                                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}>
                                                 <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                                             </svg>
-                                            Creating...
+                                            {t('creating')}
                                         </span>
-                                    ) : 'Schedule & Send Invites'}
+                                    ) : t('scheduleAndSend')}
                                 </button>
                             </form>
                         </div>
@@ -500,29 +693,39 @@ const AdminDashboard = () => {
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
                                 <h2 style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
                                     <Calendar size={24} color="#2563eb" />
-                                    {activeTab === 'upcoming' ? 'Upcoming Events' : activeTab === 'live' ? '🔴 Live Events' : 'Past Events'}
+                                    {activeTab === 'upcoming' ? t('upcomingEvents') : activeTab === 'live' ? t('liveEvents') : t('pastEvents')}
                                 </h2>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <button
-                                        onClick={() => setActiveTab('upcoming')}
-                                        className="btn-secondary"
-                                        style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'upcoming' ? { background: '#eff6ff', color: '#2563eb', borderColor: '#bfdbfe' } : {}) }}
-                                    >Upcoming</button>
-                                    <button
-                                        onClick={() => setActiveTab('live')}
-                                        className="btn-secondary"
-                                        style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'live' ? { background: '#dcfce7', color: '#16a34a', borderColor: '#bbf7d0' } : { color: '#16a34a', borderColor: '#bbf7d0' }) }}
-                                    >🔴 Live</button>
-                                    <button
-                                        onClick={() => setActiveTab('past')}
-                                        className="btn-secondary"
-                                        style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'past' ? { background: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' } : {}) }}
-                                    >Past</button>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                    <button onClick={() => setActiveTab('upcoming')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'upcoming' ? { background: '#eff6ff', color: '#2563eb', borderColor: '#bfdbfe' } : {}) }}>{t('upcoming')}</button>
+                                    <button onClick={() => setActiveTab('live')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'live' ? { background: '#dcfce7', color: '#16a34a', borderColor: '#bbf7d0' } : { color: '#16a34a', borderColor: '#bbf7d0' }) }}>{t('live')}</button>
+                                    <button onClick={() => setActiveTab('past')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'past' ? { background: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' } : {}) }}>{t('past')}</button>
                                 </div>
                             </div>
 
+                            {/* Search & Filter */}
+                            <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+                                <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
+                                    <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none', zIndex: 1 }} />
+                                    <input className="custom-input" style={{ paddingLeft: 36, paddingRight: 12, paddingTop: 10, paddingBottom: 10, height: 42 }} placeholder="Search events..." value={search} onChange={e => setSearch(e.target.value)} />
+                                </div>
+                                <div style={{ position: 'relative', flexShrink: 0, width: 160 }}>
+                                    <input type="date" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: '100%', height: '100%', top: 0, left: 0 }} value={filterDate} onChange={e => setFilterDate(e.target.value)} id="filter-date-input" />
+                                    <button type="button" className="btn-secondary" onClick={() => document.getElementById('filter-date-input').showPicker()} style={{ gap: 8, whiteSpace: 'nowrap', width: '100%', justifyContent: 'center', height: 42, boxSizing: 'border-box' }}>
+                                        <Calendar size={15} />
+                                        {filterDate ? new Date(filterDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Filter by Date'}
+                                    </button>
+                                </div>
+                                <select className="custom-input" style={{ width: 140, height: 42, paddingTop: 0, paddingBottom: 0 }} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+                                    <option value="">All Categories</option>
+                                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                                {(search || filterDate || filterCategory) && (
+                                    <button className="btn-secondary" onClick={() => { setSearch(''); setFilterDate(''); setFilterCategory(''); }}>Clear</button>
+                                )}
+                            </div>
+
                             {/* Event list */}
-                            <div className="schedule-list" style={{ maxHeight: '78vh', overflowY: 'auto', paddingRight: '4px' }}>
+                            <div className="schedule-list">
                                 {(() => {
                                     const now = new Date();
                                     const filtered = events.filter(e => {
@@ -531,23 +734,35 @@ const AdminDashboard = () => {
                                         const [eH, eM] = e.end_time.split(':');
                                         const start = new Date(date); start.setHours(+sH, +sM, 0, 0);
                                         const end   = new Date(date); end.setHours(+eH, +eM, 0, 0);
-                                        if (activeTab === 'upcoming') return now < start;
-                                        if (activeTab === 'live')     return now >= start && now <= end;
-                                        if (activeTab === 'past')     return end < now;
+                                        const tabMatch = activeTab === 'upcoming' ? now < start : activeTab === 'live' ? now >= start && now <= end : end < now;
+                                        const searchMatch = !search || e.title.toLowerCase().includes(search.toLowerCase()) || (e.venue || '').toLowerCase().includes(search.toLowerCase());
+                                        const dateMatch = !filterDate || date === filterDate;
+                                        const catMatch = !filterCategory || e.category === filterCategory;
+                                        return tabMatch && searchMatch && dateMatch && catMatch;
                                     });
 
                                     if (filtered.length === 0)
-                                        return <div className="empty-state-card">No {activeTab} events.</div>;
+                                        return <div className="empty-state-card">{t('noEvents', { tab: activeTab })}</div>;
 
-                                    return filtered.map(item => (
-                                        <EventCard
-                                            key={item.event_id}
-                                            event={item}
-                                            onDelete={activeTab !== 'live' ? handleDelete : null}
-                                            onPreview={setPreviewEvent}
-                                            tab={activeTab}
-                                        />
-                                    ));
+                                    const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+                                    const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+                                    return (
+                                        <>
+                                            {paginated.map(item => (
+                                                <EventCard key={item.event_id} event={item} onDelete={activeTab !== 'live' ? handleDelete : null} onEdit={activeTab !== 'live' ? setEditEvent : null} onPreview={setPreviewEvent} tab={activeTab} />
+                                            ))}
+                                            {totalPages > 1 && (
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 }}>
+                                                    <button className="btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}><ChevronLeft size={16} /></button>
+                                                    {Array.from({ length: totalPages }, (_, i) => (
+                                                        <button key={i} className="btn-secondary" style={{ padding: '6px 12px', ...(page === i + 1 ? { background: '#eff6ff', color: '#2563eb', borderColor: '#bfdbfe' } : {}) }} onClick={() => setPage(i + 1)}>{i + 1}</button>
+                                                    ))}
+                                                    <button className="btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}><ChevronRight size={16} /></button>
+                                                </div>
+                                            )}
+                                        </>
+                                    );
                                 })()}
                             </div>
                         </div>
