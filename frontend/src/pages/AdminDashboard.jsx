@@ -528,6 +528,10 @@ const AdminDashboard = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (attendees.length === 0) {
+            showToast('At least one guest must be invited.', 'error');
+            return;
+        }
         setSubmitting(true);
         try {
             await axios.post('/api/events', { ...formData, attendees });
