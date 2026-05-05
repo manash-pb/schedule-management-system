@@ -166,7 +166,7 @@
   .attendee-avatar { @apply w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-violet-600 text-white text-[13px] font-bold flex items-center justify-center shrink-0; }
 
   /* --- CARDS --- */
-  .floating-card { @apply rounded-[20px] p-5 transition-[transform,box-shadow,border-color] duration-300 ease-in-out w-full box-border h-full sm:p-[30px]; background: var(--bg-card); border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(31,35,40,0.06); }
+  .floating-card { @apply rounded-[20px] p-5 transition-[transform,box-shadow,border-color] duration-300 ease-in-out w-full box-border sm:p-[30px]; background: var(--bg-card); border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(31,35,40,0.06); }
   .floating-card:hover { @apply -translate-y-1; box-shadow: 0 8px 24px rgba(140,149,159,0.15); border-color: var(--text-muted); }
   html.dark .floating-card { box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
   html.dark .floating-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.4); border-color: #484f58; }
@@ -174,8 +174,8 @@
   /* --- LAYOUT --- */
   .dashboard-container { @apply min-h-screen w-full flex flex-col items-center; background: var(--bg-page); }
   .dashboard-wrapper { @apply w-full max-w-[1400px] p-4 box-border md:p-6 lg:p-10; }
-  .main-content { @apply grid grid-cols-1 gap-6 mt-[10px] items-stretch lg:grid-cols-[480px_1fr] lg:gap-[60px]; }
-  .form-container { @apply w-full lg:sticky lg:top-8; }
+  .main-content { @apply grid grid-cols-1 gap-6 mt-[10px] items-start lg:grid-cols-[480px_1fr] lg:gap-[60px]; }
+  .form-container { @apply w-full lg:sticky lg:top-8 self-start; }
   .list-container { @apply w-full min-w-0; }
   .form-section-wrapper { @apply flex-1 min-w-[320px]; }
 

@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, ExternalLink, ShieldCheck, User } from 'lucide-react';
+import { Calendar, ExternalLink, ShieldCheck, User, Sun, Moon } from 'lucide-react';
 
 const Login = () => {
-  const [activeTab, setActiveTab] = useState('user'); // 'user' or 'admin'
+  const [activeTab, setActiveTab] = useState('user');
   const [isSignUpMode, setIsSignUpMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('darkMode', darkMode);
+  }, [darkMode]);
   const [manualName, setManualName] = useState('');
   const [manualEmail, setManualEmail] = useState('');
   const [manualPassword, setManualPassword] = useState('');
@@ -71,8 +77,13 @@ const Login = () => {
   };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f8fafc' }}>
-      <div style={{ background: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '520px', width: '90%' }}>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: 'var(--bg-page)' }}>
+      <div style={{ position: 'fixed', top: 16, right: 16 }}>
+        <button onClick={() => setDarkMode(d => !d)} className="btn-secondary">
+          {darkMode ? <Sun size={16} /> : <Moon size={16} />}{darkMode ? 'Light' : 'Dark'}
+        </button>
+      </div>
+      <div style={{ background: 'var(--bg-card)', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '520px', width: '90%', border: '1px solid var(--border)' }}>
         
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', color: '#2563eb' }}>
           <Calendar size={48} />
@@ -100,7 +111,7 @@ const Login = () => {
           </div>
         )}
 
-        <h1 style={{ margin: '0 0 10px 0', color: '#0f172a', fontSize: '2rem' }}>
+        <h1 style={{ margin: '0 0 10px 0', color: 'var(--text-primary)', fontSize: '2rem' }}>
           {isSignUpMode ? 'Sign Up' : `${activeTab === 'admin' ? 'Admin' : 'User'} Sign In`}
         </h1>
         <p style={{ color: '#64748b', marginBottom: '25px', fontSize: '14px' }}>

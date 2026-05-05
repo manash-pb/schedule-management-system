@@ -119,4 +119,23 @@ async function deleteGoogleEvent(googleEventId, tokens) {
     }
 }
 
-module.exports = { oauth2Client, getAuthUrl, createGoogleEvent, updateGoogleEvent, deleteGoogleEvent };
+async function generateMeetLink(tokens) {
+    oauth2Client.setCredentials(tokens);
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+    const response = await calendar.events.insert({
+        calendarId: 'primary',
+        conferenceDataVersion: 1,
+        resource: {
+            summary: 'Meeting',
+            start: { dateTime: new Date().toISOString(), timeZone: 'Asia/Kolkata' },
+            end:   { dateTime: new Date(Date.now() + 3600000).toISOString(), timeZone: 'Asia/Kolkata' },
+            conferenceData: { createRequest: { requestId: `meet-${Date.now()}` } },
+        },
+    });
+    const meetLink = response.data.conferenceData?.entryPoints?.find(e => e.entryPointType === 'video')?.uri;
+    // Delete the placeholder event immediately
+    await calendar.events.delete({ calendarId: 'primary', eventId: response.data.id, sendUpdates: 'none' }).catch(() => {});
+    return meetLink;
+}
+
+module.exports = { oauth2Client, getAuthUrl, createGoogleEvent, updateGoogleEvent, deleteGoogleEvent, generateMeetLink };

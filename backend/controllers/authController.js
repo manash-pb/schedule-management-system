@@ -1,5 +1,5 @@
 const pool = require('../db');
-const { oauth2Client } = require('../googleCalendar');
+const { oauth2Client, generateMeetLink } = require('../googleCalendar');
 const { google } = require('googleapis');
 require('dotenv').config();
 
@@ -135,5 +135,22 @@ exports.checkCalendar = async (req, res) => {
         res.json({ connected: rows.length > 0 && !!rows[0].google_tokens });
     } catch {
         res.json({ connected: false });
+    }
+};
+
+exports.generateMeet = async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email required' });
+    try {
+        const [rows] = await pool.execute('SELECT google_tokens FROM users WHERE email = ? AND role = "admin"', [email.toLowerCase()]);
+        if (!rows.length || !rows[0].google_tokens) return res.status(403).json({ error: 'Google Calendar not connected' });
+        const raw = rows[0].google_tokens;
+        const tokens = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        const meetLink = await generateMeetLink(tokens);
+        if (!meetLink) return res.status(500).json({ error: 'Failed to get Meet link' });
+        res.json({ meetLink });
+    } catch (e) {
+        console.error('generateMeet error:', e);
+        res.status(500).json({ error: 'Failed to generate Meet link' });
     }
 };
