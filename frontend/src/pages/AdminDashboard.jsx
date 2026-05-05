@@ -402,6 +402,8 @@ const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('upcoming');
     const [submitting, setSubmitting] = useState(false);
     const [meetLoading, setMeetLoading] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
     const [toast, setToast] = useState(null);
     const [calendarConnected, setCalendarConnected] = useState(true);
     const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', start_time: '', end_time: '', category: 'General' });
@@ -458,21 +460,23 @@ const AdminDashboard = () => {
     };
 
     const handleDelete = async (id) => {
-        console.log("Attempting to delete event with ID:", id);
+        if (!id) { showToast('Event ID missing.', 'error'); return; }
+        setConfirmDeleteId(id);
+    };
 
-        if (!id) {
-            alert("Error: Event ID is undefined. Check your MySQL column names!");
-            return; 
-        }
-
-        if (window.confirm("Delete this event?")) {
-            try {
-                await axios.delete(`/api/events/${id}`);
-                fetchEvents();
-            } catch (e) { 
-                console.error("Delete Error:", e);
-                alert("Delete failed on the server. Check backend console."); 
-            }
+    const confirmDelete = async () => {
+        const id = confirmDeleteId;
+        setConfirmDeleteId(null);
+        setDeleting(true);
+        try {
+            await axios.delete(`/api/events/${id}`);
+            fetchEvents();
+            showToast('Event deleted successfully!');
+        } catch (e) {
+            console.error('Delete Error:', e);
+            showToast('Delete failed. Please try again.', 'error');
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -585,7 +589,45 @@ const AdminDashboard = () => {
 
     return (
         <div className="dashboard-container">
-            {previewEvent && <PreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} onDownload={handleDownload} onAttendeesChange={fetchEvents} />}
+            {deleting && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 9998,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(3px)'
+                }}>
+                    <div style={{
+                        background: 'var(--bg-card)', borderRadius: 16, padding: '28px 40px',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+                        border: '1px solid var(--border)', boxShadow: '0 8px 30px rgba(0,0,0,0.2)'
+                    }}>
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}>
+                            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                        </svg>
+                        <span style={{ fontWeight: 600, fontSize: 15, color: 'var(--text-primary)' }}>Deleting event...</span>
+                    </div>
+                </div>
+            )}
+            {confirmDeleteId && (
+                <div className="modal-overlay" onClick={() => setConfirmDeleteId(null)}>
+                    <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 420, textAlign: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                            <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Trash2 size={26} color="#ef4444" />
+                            </div>
+                        </div>
+                        <h2 style={{ margin: '0 0 8px', fontSize: 20, color: 'var(--text-primary)' }}>Delete Event?</h2>
+                        <p style={{ margin: '0 0 24px', fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                            This action cannot be undone. The event will be permanently removed along with all its attendees.
+                        </p>
+                        <div style={{ display: 'flex', gap: 10 }}>
+                            <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmDeleteId(null)}>Cancel</button>
+                            <button onClick={confirmDelete} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 0', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 14, background: '#ef4444', color: '#fff' }}>
+                                <Trash2 size={15} /> Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {editEvent && <EditModal event={editEvent} onClose={() => setEditEvent(null)} onSave={handleEditSave} />}
             {showAttendeesModal && (
                 <AttendeesModal

@@ -114,6 +114,10 @@ async function deleteGoogleEvent(googleEventId, tokens) {
             sendUpdates: 'none',
         });
     } catch (error) {
+        if (error.status === 404 || error.code === 404) {
+            console.warn(`Google event ${googleEventId} not found, skipping delete.`);
+            return;
+        }
         console.error('Error deleting Google Event:', error);
         throw error;
     }
