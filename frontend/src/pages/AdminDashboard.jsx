@@ -134,7 +134,7 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab }) => {
             <span className="status-badge" style={tab === 'past' ? { background: '#f1f5f9', color: '#64748b' } : tab === 'live' ? { background: '#dcfce7', color: '#16a34a' } : {}}>
                 {tab === 'past' ? t('past') : tab === 'live' ? t('live') : t('confirmed')}
             </span>
-            {event.category && (
+            {event.category && event.category !== 'General' && (
                 <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category]?.color || '#64748b' }}>
                     {event.category}
                 </span>
@@ -305,38 +305,6 @@ const CustomTimeInput = ({ value, onChange }) => {
   );
 };
 
-const AttendeesModal = ({ attendees, onRemove, onClearAll, onClose }) => (
-    <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
-            <div className="modal-header">
-                <h2 style={{ margin: 0, fontSize: 17 }}>Invited Guests ({attendees.length})</h2>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    {attendees.length > 0 && (
-                        <button className="btn-secondary" style={{ fontSize: 12, padding: '5px 12px', color: '#ef4444', borderColor: '#fca5a5' }} onClick={onClearAll}>Clear All</button>
-                    )}
-                    <button className="btn-icon" onClick={onClose}><X size={20} /></button>
-                </div>
-            </div>
-            {attendees.length === 0 ? (
-                <p style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>No guests added yet.</p>
-            ) : (
-                <div className="modal-attendees-list" style={{ maxHeight: 360 }}>
-                    {attendees.map((p, i) => (
-                        <div key={i} className="modal-attendee-row">
-                            <div className="attendee-avatar">{p.name?.[0]?.toUpperCase() || '?'}</div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</div>
-                                <div style={{ fontSize: 12, color: '#64748b' }}>{p.email}</div>
-                            </div>
-                            <button onClick={() => onRemove(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}><X size={14} /></button>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    </div>
-);
-
 const EditModal = ({ event, onClose, onSave }) => {
     const { t } = useTranslation();
     const [form, setForm] = useState({
@@ -408,13 +376,11 @@ const AdminDashboard = () => {
     const [editEvent, setEditEvent] = useState(null);
     const [activeTab, setActiveTab] = useState('upcoming');
     const [submitting, setSubmitting] = useState(false);
-    const [meetLoading, setMeetLoading] = useState(false);
     const [toast, setToast] = useState(null);
     const [calendarConnected, setCalendarConnected] = useState(true);
     const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', start_time: '', end_time: '', category: 'General' });
     const [attendees, setAttendees] = useState([]);
     const [currentAttendee, setCurrentAttendee] = useState({ name: '', email: '' });
-    const [showAttendeesModal, setShowAttendeesModal] = useState(false);
     const [search, setSearch] = useState('');
     const [filterDate, setFilterDate] = useState('');
     const [filterCategory, setFilterCategory] = useState('');
@@ -590,14 +556,6 @@ const AdminDashboard = () => {
         <div className="dashboard-container">
             {previewEvent && <PreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} onDownload={handleDownload} onAttendeesChange={fetchEvents} />}
             {editEvent && <EditModal event={editEvent} onClose={() => setEditEvent(null)} onSave={handleEditSave} />}
-            {showAttendeesModal && (
-                <AttendeesModal
-                    attendees={attendees}
-                    onRemove={i => setAttendees(attendees.filter((_, idx) => idx !== i))}
-                    onClearAll={() => { setAttendees([]); setShowAttendeesModal(false); }}
-                    onClose={() => setShowAttendeesModal(false)}
-                />
-            )}
 
             {/* Toast notification */}
             {toast && (
@@ -639,28 +597,14 @@ const AdminDashboard = () => {
                 <div className="main-content">
                     <div className="form-container">
                         <div className="floating-card">
-                            <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 0, paddingBottom: '16px' }}><PlusCircle color="#2563eb" />{t('createEvent')}</h2>
+                            <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 0 }}><PlusCircle color="#2563eb" />{t('createEvent')}</h2>
                             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                     <input type="text" placeholder={t('eventTitle')} className="custom-input" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
                                     <textarea placeholder={t('description')} className="custom-input" style={{ minHeight: '90px', resize: 'none' }} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
                                 </div>
 
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                    <input type="text" placeholder="Venue" className="custom-input" style={{ flex: 1, height: '42px', boxSizing: 'border-box' }} value={formData.venue} onChange={e => setFormData({ ...formData, venue: e.target.value })} required />
-                                    <button type="button" onClick={async () => {
-                                        if (!calendarConnected) { showToast('Connect Google Calendar first to generate a Meet link.', 'error'); return; }
-                                        setMeetLoading(true);
-                                        try {
-                                            const res = await axios.post('/api/auth/meet/generate', { email: adminEmail });
-                                            setFormData(prev => ({ ...prev, venue: res.data.meetLink }));
-                                        } catch { showToast('Failed to generate Meet link.', 'error'); }
-                                        finally { setMeetLoading(false); }
-                                    }} className="btn-secondary" disabled={meetLoading} style={{ whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: calendarConnected ? 1 : 0.5, height: '42px', width: '90px', boxSizing: 'border-box' }}>
-                                        {meetLoading ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg> : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>}
-                                        {meetLoading ? 'Loading' : 'Meet'}
-                                    </button>
-                                </div>
+                                <input type="text" placeholder={t('venue')} className="custom-input" value={formData.venue} onChange={e => setFormData({ ...formData, venue: e.target.value })} required />
                                 <input type="date" className="custom-input" value={formData.event_date} onChange={e => setFormData({ ...formData, event_date: e.target.value })} required />
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <Tag size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
@@ -715,9 +659,18 @@ const AdminDashboard = () => {
                                     </div>
 
                                     {attendees.length > 0 && (
-                                        <button type="button" className="btn-secondary" style={{ marginTop: 10, width: '100%', justifyContent: 'center', fontSize: 13 }} onClick={() => setShowAttendeesModal(true)}>
-                                            <UserPlus size={15} /> View {attendees.length} Guest{attendees.length > 1 ? 's' : ''} Added
-                                        </button>
+                                        <div style={{ marginTop: '10px', maxHeight: '120px', overflowY: 'auto', backgroundColor: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('guest', { count: attendees.length })}</span>
+                                                <span onClick={() => setAttendees([])} style={{ fontSize: '11px', color: '#ef4444', cursor: 'pointer', fontWeight: 600 }}>{t('clearAll')}</span>
+                                            </div>
+                                            {attendees.map((p, i) => (
+                                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', marginBottom: '4px' }}>
+                                                    <span style={{ color: '#64748b' }}>{p.name} ({p.email})</span>
+                                                    <X size={14} onClick={() => setAttendees(attendees.filter((_, idx) => idx !== i))} style={{ cursor: 'pointer', color: '#ef4444' }} />
+                                                </div>
+                                            ))}
+                                        </div>
                                     )}
                                 </div>
                                 <button type="submit" className="btn-primary" disabled={submitting} style={{ opacity: submitting ? 0.8 : 1, cursor: submitting ? 'not-allowed' : 'pointer' }}>
