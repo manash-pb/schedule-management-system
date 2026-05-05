@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, LogOut, Clock, MapPin, AlertTriangle, Pencil, Search, User, Sun, Moon, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -35,7 +34,6 @@ const formatTime = (timeStr) => {
 };
 
 const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange }) => {
-    const { t } = useTranslation();
     const [newAttendee, setNewAttendee] = useState({ name: '', email: '' });
     const [attendees, setAttendees] = useState(event.attendees || []);
     const [saving, setSaving] = useState(false);
@@ -66,7 +64,7 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange }) => {
         <div className="modal-card" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
                 <div>
-                    <span className="status-badge">{t('confirmed')}</span>
+                    <span className="status-badge">Confirmed</span>
                     <h2 className="event-title" style={{ marginBottom: 4 }}>{event.title}</h2>
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -74,7 +72,7 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange }) => {
                         <button className="btn-icon excel" onClick={() => onDownload(event)}>
                             <Download size={20} />
                         </button>
-                        <span className="tooltip-text">{t('downloadExcel')}</span>
+                        <span className="tooltip-text">Download Excel</span>
                     </div>
                     <button className="btn-icon" onClick={onClose}><X size={20} /></button>
                 </div>
@@ -93,14 +91,14 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange }) => {
             )}
 
             <div className="modal-attendees">
-                <p className="modal-attendees-title">{t('attendees')} ({attendees.length})</p>
+                <p className="modal-attendees-title">Attendees ({attendees.length})</p>
                 <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
                     <input className="custom-input" style={{ flex: 1 }} placeholder="Name" value={newAttendee.name} onChange={e => setNewAttendee({ ...newAttendee, name: e.target.value })} />
                     <input className="custom-input" style={{ flex: 1 }} placeholder="Email" value={newAttendee.email} onChange={e => setNewAttendee({ ...newAttendee, email: e.target.value })} />
                     <button className="btn-secondary" onClick={handleAdd} disabled={saving}><UserPlus size={16} /></button>
                 </div>
                 {attendees.length === 0 ? (
-                    <p style={{ color: '#94a3b8', fontSize: 13 }}>{t('noAttendees')}</p>
+                    <p style={{ color: '#94a3b8', fontSize: 13 }}>No attendees added.</p>
                 ) : (
                     <div className="modal-attendees-list">
                         {attendees.map((a, i) => (
@@ -126,13 +124,11 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange }) => {
     );
 };
 
-const EventCard = ({ event, onDelete, onPreview, onEdit, tab }) => {
-    const { t } = useTranslation();
-    return (
+const EventCard = ({ event, onDelete, onPreview, onEdit, tab }) => (
     <div className="event-card">
         <div className="event-info">
             <span className="status-badge" style={tab === 'past' ? { background: '#f1f5f9', color: '#64748b' } : tab === 'live' ? { background: '#dcfce7', color: '#16a34a' } : {}}>
-                {tab === 'past' ? t('past') : tab === 'live' ? t('live') : t('confirmed')}
+                {tab === 'past' ? 'Past' : tab === 'live' ? '🔴 Live' : 'Confirmed'}
             </span>
             {event.category && event.category !== 'General' && (
                 <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category]?.color || '#64748b' }}>
@@ -149,7 +145,7 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab }) => {
         <div className="event-actions">
             <div className="tooltip-wrap">
                 <button onClick={() => onPreview(event)} className="btn-icon preview"><ClosedEyeIcon size={20} /></button>
-                <span className="tooltip-text">{t('preview')}</span>
+                <span className="tooltip-text">Preview</span>
             </div>
             {onEdit && (
                 <div className="tooltip-wrap">
@@ -160,13 +156,12 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab }) => {
             {onDelete && (
                 <div className="tooltip-wrap">
                     <button onClick={() => onDelete(event.event_id)} className="btn-icon delete"><Trash2 size={20} /></button>
-                    <span className="tooltip-text">{t('delete')}</span>
+                    <span className="tooltip-text">Delete</span>
                 </div>
             )}
         </div>
     </div>
-    );
-};
+);
 
 const CustomTimeInput = ({ value, onChange }) => {
   const parseTime = (val) => {
@@ -306,7 +301,6 @@ const CustomTimeInput = ({ value, onChange }) => {
 };
 
 const EditModal = ({ event, onClose, onSave }) => {
-    const { t } = useTranslation();
     const [form, setForm] = useState({
         title: event.title || '',
         description: event.description || '',
