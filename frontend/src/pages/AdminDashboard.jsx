@@ -363,21 +363,21 @@ const EditModal = ({ event, onClose, onSave }) => {
                     <button className="btn-icon" onClick={onClose}><X size={20} /></button>
                 </div>
                 <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 16 }}>
-                    <input className="custom-input" placeholder={t('eventTitle')} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required />
-                    <textarea className="custom-input" placeholder={t('description')} style={{ minHeight: 80, resize: 'none' }} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
-                    <input className="custom-input" placeholder={t('venue')} value={form.venue} onChange={e => setForm({ ...form, venue: e.target.value })} required />
+                    <input className="custom-input" placeholder="Event Title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required />
+                    <textarea className="custom-input" placeholder="Description" style={{ minHeight: 80, resize: 'none' }} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+                    <input className="custom-input" placeholder="Venue" value={form.venue} onChange={e => setForm({ ...form, venue: e.target.value })} required />
                     <input type="date" className="custom-input" value={form.event_date} onChange={e => setForm({ ...form, event_date: e.target.value })} required />
                     <select className="custom-input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
                         {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                     <div className="time-row">
                         <div className="time-field">
-                            <label className="input-label">{t('startTime')}</label>
+                            <label className="input-label">Start Time</label>
                             <CustomTimeInput value={form.start_time} onChange={v => setForm({ ...form, start_time: v })} />
                         </div>
                         <span className="time-row-divider">→</span>
                         <div className="time-field">
-                            <label className="input-label">{t('endTime')}</label>
+                            <label className="input-label">End Time</label>
                             <CustomTimeInput value={form.end_time} onChange={v => setForm({ ...form, end_time: v })} />
                         </div>
                     </div>
@@ -396,7 +396,6 @@ const EditModal = ({ event, onClose, onSave }) => {
 // ... then your Dashboard component starts below ...
 
 const AdminDashboard = () => {
-    const { t } = useTranslation();
     const [events, setEvents] = useState([]);
     const [previewEvent, setPreviewEvent] = useState(null);
     const [editEvent, setEditEvent] = useState(null);
@@ -615,17 +614,17 @@ const AdminDashboard = () => {
                 <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 0', marginBottom: '5px', width: '100%', gap: 8 }}>
                     <button onClick={() => setDarkMode(d => !d)} className="btn-secondary">{darkMode ? <Sun size={16} /> : <Moon size={16} />}{darkMode ? 'Light' : 'Dark'}</button>
                     <button onClick={() => navigate('/profile')} className="btn-secondary"><User size={16} /> Profile</button>
-                    <button onClick={handleLogout} className="btn-secondary"><LogOut size={16} /> {t('logout')}</button>
+                    <button onClick={handleLogout} className="btn-secondary"><LogOut size={16} /> Logout</button>
                 </div>
 
                 {!calendarConnected && (
                     <div className="calendar-connect-banner">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <AlertTriangle size={18} color="#b45309" />
-                            <span>{t('calendarWarning')}</span>
+                            <span>Google Calendar is not connected. Events won't sync.</span>
                         </div>
                         <a href={`http://localhost:3000/auth/google?role=admin`} className="btn-connect-calendar">
-                            {t('connectCalendar')}
+                            Connect Calendar
                         </a>
                     </div>
                 )}
@@ -633,11 +632,11 @@ const AdminDashboard = () => {
                 <div className="main-content">
                     <div className="form-container">
                         <div className="floating-card">
-                            <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 0, paddingBottom: '16px' }}><PlusCircle color="#2563eb" />{t('createEvent')}</h2>
+                            <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 0, paddingBottom: '16px' }}><PlusCircle color="#2563eb" />Create Event</h2>
                             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    <input type="text" placeholder={t('eventTitle')} className="custom-input" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
-                                    <textarea placeholder={t('description')} className="custom-input" style={{ minHeight: '90px', resize: 'none' }} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+                                    <input type="text" placeholder="Event Title" className="custom-input" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
+                                    <textarea placeholder="Description" className="custom-input" style={{ minHeight: '90px', resize: 'none' }} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
                                 </div>
 
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -665,7 +664,7 @@ const AdminDashboard = () => {
 
                                 <div className="time-row">
                                     <div className="time-field">
-                                        <label className="input-label">{t('startTime')}</label>
+                                        <label className="input-label">Start Time</label>
                                         <CustomTimeInput
                                             value={formData.start_time}
                                             onChange={(value) => setFormData(prev => ({ ...prev, start_time: value }))}
@@ -673,7 +672,7 @@ const AdminDashboard = () => {
                                     </div>
                                     <span className="time-row-divider">→</span>
                                     <div className="time-field">
-                                        <label className="input-label">{t('endTime')}</label>
+                                        <label className="input-label">End Time</label>
                                         <CustomTimeInput
                                             value={formData.end_time}
                                             onChange={(value) => setFormData(prev => ({ ...prev, end_time: value }))}
@@ -685,11 +684,11 @@ const AdminDashboard = () => {
 
                                 <div className="attendee-logic">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                        <label style={{ fontWeight: '600', fontSize: '13px', color: '#475569' }}>{t('inviteGuests')}</label>
+                                        <label style={{ fontWeight: '600', fontSize: '13px', color: '#475569' }}>Invite Guests</label>
                                         <div className="tooltip-wrap">
                                             <label className="btn-secondary" style={{ cursor: 'pointer', padding: '6px 12px', fontSize: '12px' }}>
                                                 <FileSpreadsheet size={14} />
-                                                {t('importExcel')}
+                                                Import Excel
                                                 <input
                                                     type="file"
                                                     accept=".xlsx,.xls"
@@ -697,13 +696,13 @@ const AdminDashboard = () => {
                                                     onChange={handleExcelImport}
                                                 />
                                             </label>
-                                            <span className="tooltip-text">{t('columnsHint')}</span>
+                                            <span className="tooltip-text">Columns: name, email</span>
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
                                         <div className="attendee-input-row">
-                                            <input type="text" placeholder={t('guestName')} className="custom-input" style={{ flex: 1 }} value={currentAttendee.name} onChange={e => setCurrentAttendee({ ...currentAttendee, name: e.target.value })} />
-                                            <input type="email" placeholder={t('guestEmail')} className="custom-input" style={{ flex: 1 }} value={currentAttendee.email} onChange={e => setCurrentAttendee({ ...currentAttendee, email: e.target.value })} />
+                                            <input type="text" placeholder="Guest Name" className="custom-input" style={{ flex: 1 }} value={currentAttendee.name} onChange={e => setCurrentAttendee({ ...currentAttendee, name: e.target.value })} />
+                                            <input type="email" placeholder="Guest Email" className="custom-input" style={{ flex: 1 }} value={currentAttendee.email} onChange={e => setCurrentAttendee({ ...currentAttendee, email: e.target.value })} />
                                             <button type="button" className="btn-secondary" onClick={handleAddAttendee}><UserPlus size={18} /></button>
                                         </div>
                                     </div>
@@ -720,9 +719,9 @@ const AdminDashboard = () => {
                                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}>
                                                 <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                                             </svg>
-                                            {t('creating')}
+                                            Creating...
                                         </span>
-                                    ) : t('scheduleAndSend')}
+                                    ) : 'Schedule & Send'}
                                 </button>
                             </form>
                         </div>
@@ -734,12 +733,12 @@ const AdminDashboard = () => {
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
                                 <h2 style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
                                     <Calendar size={24} color="#2563eb" />
-                                    {activeTab === 'upcoming' ? t('upcomingEvents') : activeTab === 'live' ? t('liveEvents') : t('pastEvents')}
+                                    {activeTab === 'upcoming' ? 'Upcoming Events' : activeTab === 'live' ? 'Live Events' : 'Past Events'}
                                 </h2>
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                    <button onClick={() => setActiveTab('upcoming')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'upcoming' ? { background: '#eff6ff', color: '#2563eb', borderColor: '#bfdbfe' } : {}) }}>{t('upcoming')}</button>
-                                    <button onClick={() => setActiveTab('live')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'live' ? { background: '#dcfce7', color: '#16a34a', borderColor: '#bbf7d0' } : { color: '#16a34a', borderColor: '#bbf7d0' }) }}>{t('live')}</button>
-                                    <button onClick={() => setActiveTab('past')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'past' ? { background: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' } : {}) }}>{t('past')}</button>
+                                    <button onClick={() => setActiveTab('upcoming')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'upcoming' ? { background: '#eff6ff', color: '#2563eb', borderColor: '#bfdbfe' } : {}) }}>Upcoming</button>
+                                    <button onClick={() => setActiveTab('live')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'live' ? { background: '#dcfce7', color: '#16a34a', borderColor: '#bbf7d0' } : { color: '#16a34a', borderColor: '#bbf7d0' }) }}>Live</button>
+                                    <button onClick={() => setActiveTab('past')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'past' ? { background: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' } : {}) }}>Past</button>
                                 </div>
                             </div>
 
@@ -783,7 +782,7 @@ const AdminDashboard = () => {
                                     });
 
                                     if (filtered.length === 0)
-                                        return <div className="empty-state-card">{t('noEvents', { tab: activeTab })}</div>;
+                                        return <div className="empty-state-card">No {activeTab} events found.</div>;
 
                                     const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
                                     const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
