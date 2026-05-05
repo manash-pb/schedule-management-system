@@ -86,6 +86,8 @@
   textarea.custom-input { @apply leading-relaxed resize-none max-w-full; }
   .attendee-input-row { @apply flex gap-2 flex-wrap; }
   .attendee-input-row .custom-input { @apply flex-1 min-w-[120px]; }
+  input[type="date"].custom-input { color-scheme: light; }
+  html.dark input[type="date"].custom-input { color-scheme: dark; color: var(--text-primary); }
 
   /* --- LOGIN --- */
   .login-container { @apply w-full max-w-[450px] mx-auto my-8 p-8 box-border sm:p-10; }
@@ -134,6 +136,9 @@
   .btn-icon { @apply w-[42px] h-[42px] rounded-xl flex items-center justify-center border-none cursor-pointer transition-all duration-200; background: var(--bg-hover); color: var(--text-secondary); }
   .btn-icon.delete:hover { background: #ffebe9; color: #cf222e; }
   html.dark .btn-icon.delete:hover { background: rgba(248,81,73,0.15); color: #f85149; }
+  .btn-icon.edit { background: var(--bg-hover) !important; color: var(--text-secondary); }
+  .btn-icon.edit:hover { background: #ddf4ff !important; color: #0969da; }
+  html.dark .btn-icon.edit:hover { background: rgba(56,139,253,0.15) !important; color: #388bfd; }
   .btn-icon.excel:hover { background: #dafbe1; color: #1a7f37; }
   html.dark .btn-icon.excel:hover { background: rgba(46,160,67,0.15); color: #3fb950; }
   .btn-icon.preview:hover { background: #ddf4ff; color: #0969da; }
