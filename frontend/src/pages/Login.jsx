@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, ExternalLink, ShieldCheck, User, Sun, Moon } from 'lucide-react';
+import { Calendar, ExternalLink, ShieldCheck, User, Sun, Moon, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
   const [activeTab, setActiveTab] = useState('user');
   const [isSignUpMode, setIsSignUpMode] = useState(false);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
@@ -83,7 +84,7 @@ const Login = () => {
           {darkMode ? <Sun size={16} /> : <Moon size={16} />}{darkMode ? 'Light' : 'Dark'}
         </button>
       </div>
-      <div style={{ background: 'var(--bg-card)', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '520px', width: '90%', border: '1px solid var(--border)' }}>
+      <div className="login-container" style={{ background: 'var(--bg-card)', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '520px', width: '90%', border: '1px solid var(--border)' }}>
         
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', color: '#2563eb' }}>
           <Calendar size={48} />
@@ -118,12 +119,44 @@ const Login = () => {
           {isSignUpMode ? 'Create your user account.' : 'Securely manage your schedule.'}
         </p>
 
-        <form onSubmit={handleManualLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        <form onSubmit={handleManualLogin} autoComplete="on" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           {isSignUpMode && (
-            <input type="text" placeholder="Full Name" className="custom-input" value={manualName} onChange={e => setManualName(e.target.value)} required style={{ textAlign: 'center' }} />
+            <input autoComplete="name" type="text" placeholder="Full Name" className="custom-input" value={manualName} onChange={e => setManualName(e.target.value)} required style={{ textAlign: 'center', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
           )}
-          <input type="email" placeholder="Email Address" className="custom-input" value={manualEmail} onChange={e => setManualEmail(e.target.value)} required style={{ textAlign: 'center' }} />
-          <input type="password" placeholder="Password" className="custom-input" value={manualPassword} onChange={e => setManualPassword(e.target.value)} required style={{ textAlign: 'center' }} />
+          <input autoComplete="email" type="email" placeholder="Email Address" className="custom-input" value={manualEmail} onChange={e => setManualEmail(e.target.value)} required style={{ textAlign: 'center', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+          <div style={{ position: 'relative', width: '100%' }}>
+            <input
+              autoComplete={isSignUpMode ? 'new-password' : 'current-password'}
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Password"
+              className="custom-input"
+              value={manualPassword}
+              onChange={e => setManualPassword(e.target.value)}
+              required
+              style={{ textAlign: 'center', paddingRight: '42px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(v => !v)}
+              style={{
+                position: 'absolute',
+                right: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+                padding: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
           <button type="submit" className="btn-primary" style={{ width: '100%' }}>
             {isSignUpMode ? 'Create Account' : 'Sign In'}
           </button>

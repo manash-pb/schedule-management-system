@@ -82,6 +82,11 @@
   }
   .custom-input::placeholder { color: var(--text-muted); }
   .custom-input:focus { border-color: #0969da; box-shadow: 0 0 0 3px rgba(9,105,218,0.12); }
+  html.dark .custom-input {
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border-color: var(--border);
+  }
   html.dark .custom-input:focus { border-color: #388bfd; box-shadow: 0 0 0 3px rgba(56,139,253,0.12); }
   textarea.custom-input { @apply leading-relaxed resize-none max-w-full; }
   .attendee-input-row { @apply flex gap-2 flex-wrap; }
