@@ -7,6 +7,7 @@ const UserDashboard = lazy(() => import('./UserDashboard'));
 const PastEvents = lazy(() => import('./PastEvents'));
 const LiveEvents = lazy(() => import('./LiveEvents'));
 const UserProfile = lazy(() => import('./UserProfile'));
+const Layout = lazy(() => import('./Layout'));
 
 const ProtectedRoute = ({ children, adminOnly = false }) => {
   const isAuthenticated = localStorage.getItem('isAdminLoggedIn') === 'true';
@@ -37,11 +38,11 @@ function App() {
       }>
         <Routes>
           <Route path="/" element={<Login />} />
-          <Route path="/admin-dashboard" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
-          <Route path="/user-dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
-          <Route path="/past-events" element={<ProtectedRoute><PastEvents /></ProtectedRoute>} />
-          <Route path="/live-events" element={<ProtectedRoute><LiveEvents /></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
+          <Route path="/admin-dashboard" element={<ProtectedRoute adminOnly><Layout><AdminDashboard /></Layout></ProtectedRoute>} />
+          <Route path="/user-dashboard" element={<ProtectedRoute><Layout><UserDashboard /></Layout></ProtectedRoute>} />
+          <Route path="/past-events" element={<ProtectedRoute><Layout><PastEvents /></Layout></ProtectedRoute>} />
+          <Route path="/live-events" element={<ProtectedRoute><Layout><LiveEvents /></Layout></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Layout><UserProfile /></Layout></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

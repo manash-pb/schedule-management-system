@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Calendar, LogOut, Clock, MapPin, X, Check, XCircle, User, Sun, Moon } from 'lucide-react';
+import { Calendar, Clock, MapPin, X, Check, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const ClosedEyeIcon = ({ size = 20, color = 'currentColor' }) => (
@@ -51,13 +51,8 @@ const PreviewModal = ({ event, onClose }) => (
 const UserDashboard = () => {
     const [events, setEvents] = useState([]);
     const [previewEvent, setPreviewEvent] = useState(null);
-    const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
+    const darkMode = document.documentElement.classList.contains('dark');
     const navigate = useNavigate();
-
-    useEffect(() => {
-        document.documentElement.classList.toggle('dark', darkMode);
-        localStorage.setItem('darkMode', darkMode);
-    }, [darkMode]);
 
     const userEmail = localStorage.getItem('userEmail');
     const userRole = localStorage.getItem('userRole');
@@ -95,14 +90,7 @@ const UserDashboard = () => {
         <div className="dashboard-container">
             {previewEvent && <PreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} />}
             <div className="dashboard-wrapper">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', width: '100%' }}>
-                    <h2 style={{ margin: 0 }}>Welcome, {userName}</h2>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => setDarkMode(d => !d)} className="btn-secondary">{darkMode ? <Sun size={16} /> : <Moon size={16} />}{darkMode ? 'Light' : 'Dark'}</button>
-                        <button onClick={() => navigate('/profile')} className="btn-secondary"><User size={16} /> Profile</button>
-                        <button onClick={handleLogout} className="btn-secondary"><LogOut size={16} /> Logout</button>
-                    </div>
-                </div>
+                <h2 style={{ margin: '10px 0 0 0' }}>Welcome, {userName}</h2>
 
                 <div className="main-content" style={{ gridTemplateColumns: '1fr' }}>
                     <div className="list-container">

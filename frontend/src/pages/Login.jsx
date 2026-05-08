@@ -80,8 +80,14 @@ const Login = () => {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: 'var(--bg-page)' }}>
       <div style={{ position: 'fixed', top: 16, right: 16 }}>
-        <button onClick={() => setDarkMode(d => !d)} className="btn-secondary">
-          {darkMode ? <Sun size={16} /> : <Moon size={16} />}{darkMode ? 'Light' : 'Dark'}
+        <button onClick={() => setDarkMode(d => !d)} className="btn-secondary" style={{ minWidth: '100px', justifyContent: 'center' }}>
+          <div className="relative w-4 h-4 flex items-center justify-center">
+            <Sun size={16} className={`absolute transition-all duration-500 ${darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-0'}`} />
+            <Moon size={16} className={`absolute transition-all duration-500 ${!darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 rotate-90 scale-0'}`} />
+          </div>
+          <span style={{ minWidth: '38px', textAlign: 'left' }}>
+            {darkMode ? 'Light' : 'Dark'}
+          </span>
         </button>
       </div>
       <div className="login-container" style={{ background: 'var(--bg-card)', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '520px', width: '90%', border: '1px solid var(--border)' }}>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, LogOut, Clock, MapPin, AlertTriangle, Pencil, Search, User, Sun, Moon, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const CATEGORIES = ['General', 'Meeting', 'Workshop', 'Holiday', 'Training', 'Social'];
 const CATEGORY_COLORS = {
@@ -412,16 +412,11 @@ const AdminDashboard = () => {
     const [search, setSearch] = useState('');
     const [filterDate, setFilterDate] = useState('');
     const [filterCategory, setFilterCategory] = useState('');
-    const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
     const [page, setPage] = useState(1);
     const PAGE_SIZE = 5;
     const navigate = useNavigate();
     const adminEmail = localStorage.getItem('userEmail');
-
-    useEffect(() => {
-        document.documentElement.classList.toggle('dark', darkMode);
-        localStorage.setItem('darkMode', darkMode);
-    }, [darkMode]);
+    const darkMode = document.documentElement.classList.contains('dark');
 
     useEffect(() => { setPage(1); }, [search, filterDate, filterCategory, activeTab]);
 
@@ -658,11 +653,6 @@ const AdminDashboard = () => {
                 </div>
             )}
             <div className="dashboard-wrapper">
-                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 0', marginBottom: '5px', width: '100%', gap: 8 }}>
-                    <button onClick={() => setDarkMode(d => !d)} className="btn-secondary">{darkMode ? <Sun size={16} /> : <Moon size={16} />}{darkMode ? 'Light' : 'Dark'}</button>
-                    <button onClick={() => navigate('/profile')} className="btn-secondary"><User size={16} /> Profile</button>
-                    <button onClick={handleLogout} className="btn-secondary"><LogOut size={16} /> Logout</button>
-                </div>
 
                 {!calendarConnected && (
                     <div className="calendar-connect-banner">

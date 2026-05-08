@@ -1,0 +1,6 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Gauhati University logo">
+  <rect width="64" height="64" rx="12" fill="#252f4e"/>
+  <circle cx="32" cy="26" r="14" fill="#f6c14e"/>
+  <path d="M22 38c0 5.523 4.477 10 10 10s10-4.477 10-10H22z" fill="#ffffff" opacity="0.9"/>
+  <path d="M28 20h8v4h-8zM28 26h8v4h-8z" fill="#252f4e"/>
+</svg>
