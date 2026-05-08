@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import * as XLSX from 'xlsx';
 import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, LogOut, Clock, MapPin, AlertTriangle, Pencil, Search, User, Sun, Moon, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const CATEGORIES = ['General', 'Meeting', 'Workshop', 'Holiday', 'Training', 'Social'];
@@ -240,7 +239,7 @@ const CustomTimeInput = ({ value, onChange }) => {
   return (
     <div className="hybrid-time-picker">
       <div className="time-column">
-        <button type="button" onClick={() => handleArrow('h', 'down')} className="arrow-btn">▲</button>
+        <button type="button" onClick={() => handleArrow('h', 'up')} className="arrow-btn">▲</button>
         <input
           type="text"
           className="time-type-input"
@@ -252,18 +251,18 @@ const CustomTimeInput = ({ value, onChange }) => {
           onChange={handleHInput}
           onBlur={(e) => commitH(e.target.value)}
           onKeyDown={e => {
-            if (e.key === 'ArrowUp')   { e.preventDefault(); handleArrow('h', 'down'); }
-            if (e.key === 'ArrowDown') { e.preventDefault(); handleArrow('h', 'up'); }
+            if (e.key === 'ArrowUp')   { e.preventDefault(); handleArrow('h', 'up'); }
+            if (e.key === 'ArrowDown') { e.preventDefault(); handleArrow('h', 'down'); }
           }}
         />
-        <button type="button" onClick={() => handleArrow('h', 'up')} className="arrow-btn">▼</button>
+        <button type="button" onClick={() => handleArrow('h', 'down')} className="arrow-btn">▼</button>
         <span className="input-label-sm">HRS</span>
       </div>
 
       <span className="time-separator">:</span>
 
       <div className="time-column">
-        <button type="button" onClick={() => handleArrow('m', 'down')} className="arrow-btn">▲</button>
+        <button type="button" onClick={() => handleArrow('m', 'up')} className="arrow-btn">▲</button>
         <input
           ref={mRef}
           type="text"
@@ -276,24 +275,24 @@ const CustomTimeInput = ({ value, onChange }) => {
           onChange={handleMInput}
           onBlur={(e) => commitM(e.target.value)}
           onKeyDown={e => {
-            if (e.key === 'ArrowUp')   { e.preventDefault(); handleArrow('m', 'down'); }
-            if (e.key === 'ArrowDown') { e.preventDefault(); handleArrow('m', 'up'); }
+            if (e.key === 'ArrowUp')   { e.preventDefault(); handleArrow('m', 'up'); }
+            if (e.key === 'ArrowDown') { e.preventDefault(); handleArrow('m', 'down'); }
           }}
         />
-        <button type="button" onClick={() => handleArrow('m', 'up')} className="arrow-btn">▼</button>
+        <button type="button" onClick={() => handleArrow('m', 'down')} className="arrow-btn">▼</button>
         <span className="input-label-sm">MIN</span>
       </div>
 
       <div className="time-column">
-        <button type="button" onClick={() => handleArrow('p', 'down')} className="arrow-btn">▲</button>
+        <button type="button" onClick={() => handleArrow('p', 'up')} className="arrow-btn">▲</button>
         <div
           ref={ampmRef}
           className="time-type-input ampm"
           tabIndex={0}
-          onClick={() => handleArrow('p', 'down')}
-          onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') handleArrow('p', 'down'); }}
+          onClick={() => handleArrow('p', 'up')}
+          onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') handleArrow('p', 'up'); }}
         >{p}</div>
-        <button type="button" onClick={() => handleArrow('p', 'up')} className="arrow-btn">▼</button>
+        <button type="button" onClick={() => handleArrow('p', 'down')} className="arrow-btn">▼</button>
         <span className="input-label-sm">AM/PM</span>
       </div>
     </div>
@@ -480,7 +479,8 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleDownload = (event) => {
+    const handleDownload = async (event) => {
+        const XLSX = await import('xlsx');
         const wb = XLSX.utils.book_new();
         const formattedDate = new Date(event.event_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         const attendees = event.attendees || [];
@@ -556,9 +556,10 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleExcelImport = (e) => {
+    const handleExcelImport = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        const XLSX = await import('xlsx');
         const reader = new FileReader();
         reader.onload = (evt) => {
             const wb = XLSX.read(evt.target.result, { type: 'binary' });
@@ -801,7 +802,7 @@ const AdminDashboard = () => {
                                         {filterDate ? new Date(filterDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Filter by Date'}
                                     </button>
                                 </div>
-                                <select className="custom-input" style={{ width: 140, height: 42, paddingTop: 0, paddingBottom: 0 }} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+                                <select className="custom-input" style={{ width: 180, height: 42, paddingTop: 0, paddingBottom: 0 }} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
                                     <option value="">All Categories</option>
                                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
