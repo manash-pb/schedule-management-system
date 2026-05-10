@@ -62,9 +62,7 @@ const UserProfile = () => {
                 </div>
             )}
             <div className="dashboard-wrapper" style={{ maxWidth: 520 }}>
-                <div style={{ display: 'flex', alignItems: 'center', padding: '10px 0', marginBottom: 20 }}>
-                    <button onClick={() => navigate(backPath)} className="btn-secondary"><ArrowLeft size={16} /> Back</button>
-                </div>
+
                 <div className="floating-card">
                     <h2 style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 0 }}>
                         <User size={22} color="#2563eb" /> My Profile

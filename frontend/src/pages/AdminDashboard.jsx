@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, LogOut, Clock, MapPin, AlertTriangle, Pencil, Search, User, Sun, Moon, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const CATEGORIES = ['General', 'Meeting', 'Workshop', 'Holiday', 'Training', 'Social'];
 const CATEGORY_COLORS = {
@@ -84,8 +84,8 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange }) => {
             </div>
 
             {event.description && (
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 14px' }}>
-                    <p style={{ margin: 0, fontSize: 14, color: '#475569', lineHeight: 1.6 }}>{event.description}</p>
+                <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
+                    <p style={{ margin: 0, fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{event.description}</p>
                 </div>
             )}
 
@@ -416,7 +416,12 @@ const AdminDashboard = () => {
     const PAGE_SIZE = 5;
     const navigate = useNavigate();
     const adminEmail = localStorage.getItem('userEmail');
-    const darkMode = document.documentElement.classList.contains('dark');
+    const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
+
+    useEffect(() => {
+        document.documentElement.classList.toggle('dark', darkMode);
+        localStorage.setItem('darkMode', darkMode);
+    }, [darkMode]);
 
     useEffect(() => { setPage(1); }, [search, filterDate, filterCategory, activeTab]);
 
@@ -585,6 +590,7 @@ const AdminDashboard = () => {
 
     return (
         <div className="dashboard-container">
+            {previewEvent && <PreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} onDownload={handleDownload} onAttendeesChange={fetchEvents} />}
             {deleting && (
                 <div style={{
                     position: 'fixed', inset: 0, zIndex: 9998,
@@ -653,6 +659,12 @@ const AdminDashboard = () => {
                 </div>
             )}
             <div className="dashboard-wrapper">
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 0', marginBottom: '5px', width: '100%', gap: 8 }}>
+                    <button onClick={() => setDarkMode(d => !d)} className="btn-secondary">{darkMode ? <Sun size={16} /> : <Moon size={16} />}{darkMode ? 'Light' : 'Dark'}</button>
+                    <button onClick={() => navigate('/profile')} className="btn-secondary"><User size={16} /> Profile</button>
+                    <button onClick={handleLogout} className="btn-secondary"><LogOut size={16} /> Logout</button>
+                </div>
 
                 {!calendarConnected && (
                     <div className="calendar-connect-banner">
