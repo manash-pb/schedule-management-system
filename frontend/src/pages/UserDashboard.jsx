@@ -214,6 +214,22 @@ const UserDashboard = () => {
                                         const dateMatch = !filterDate || date === filterDate;
                                         const catMatch = !filterCategory || e.category === filterCategory;
                                         return tabMatch && searchMatch && dateMatch && catMatch;
+                                    }).sort((a, b) => {
+                                        const dateA = a.event_date.slice(0, 10);
+                                        const [sHa, sMa] = a.start_time.split(':');
+                                        const [eHa, eMa] = a.end_time.split(':');
+                                        const startA = new Date(dateA); startA.setHours(+sHa, +sMa, 0, 0);
+                                        const endA = new Date(dateA); endA.setHours(+eHa, +eMa, 0, 0);
+
+                                        const dateB = b.event_date.slice(0, 10);
+                                        const [sHb, sMb] = b.start_time.split(':');
+                                        const [eHb, eMb] = b.end_time.split(':');
+                                        const startB = new Date(dateB); startB.setHours(+sHb, +sMb, 0, 0);
+                                        const endB = new Date(dateB); endB.setHours(+eHb, +eMb, 0, 0);
+
+                                        if (activeTab === 'upcoming') return startA - startB;
+                                        if (activeTab === 'live') return endA - endB;
+                                        return startB - startA;
                                     });
 
                                     if (filtered.length === 0)
