@@ -44,7 +44,7 @@ const PreviewModal = ({ event, onClose }) => (
             </div>
 
             <div className="event-meta" style={{ marginBottom: 16 }}>
-                <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString()}</span></div>
+                <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString('en-GB')}</span></div>
                 <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
                 <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
             </div>
@@ -74,7 +74,7 @@ const UserEventCard = ({ event, onPreview, onRsvp, tab }) => {
                 )}
                 <h3 className="event-title">{event.title}</h3>
                 <div className="event-meta">
-                    <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString()}</span></div>
+                    <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString('en-GB')}</span></div>
                     <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
                     <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
                 </div>

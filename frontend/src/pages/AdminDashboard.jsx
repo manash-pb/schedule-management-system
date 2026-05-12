@@ -78,7 +78,7 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange }) => {
             </div>
 
             <div className="event-meta" style={{ marginBottom: 16 }}>
-                <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString()}</span></div>
+                <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString('en-GB')}</span></div>
                 <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
                 <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
             </div>
@@ -136,7 +136,7 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab }) => (
             )}
             <h3 className="event-title">{event.title}</h3>
             <div className="event-meta">
-                <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString()}</span></div>
+                <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString('en-GB')}</span></div>
                 <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
                 <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
             </div>
@@ -366,6 +366,7 @@ const EditModal = ({ event, onClose, onSave }) => {
                     <textarea className="custom-input" placeholder="Description" style={{ minHeight: 80, resize: 'none' }} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
                     <Autocomplete 
                         apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY} 
+                        options={{ types: ['establishment', 'geocode'] }}
                         onPlaceSelected={(place) => setForm({ ...form, venue: place.formatted_address || place.name })} 
                         className="custom-input" 
                         placeholder="Venue" 
@@ -696,6 +697,7 @@ const AdminDashboard = () => {
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                     <Autocomplete 
                                         apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY} 
+                                        options={{ types: ['establishment', 'geocode'] }}
                                         onPlaceSelected={(place) => setFormData({ ...formData, venue: place.formatted_address || place.name })} 
                                         type="text" 
                                         placeholder="Venue" 
