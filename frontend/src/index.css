@@ -197,7 +197,7 @@
   .app-header { position: sticky; top: 0; z-index: 50; width: 100%; background: #252f4e; border-bottom: 1px solid #1e243b; color: #ffffff; }
   .app-header-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; max-width: 1400px; width: 100%; margin: 0 auto; padding: 18px 20px; }
   .header-brand { display: flex; align-items: center; gap: 12px; }
-  .brand-mark { display: inline-flex; width: 44px; height: 44px; border-radius: 14px; align-items: center; justify-content: center; background: #ffffff; color: #252f4e; font-size: 1rem; font-weight: 800; letter-spacing: 0.08em; }
+  .brand-mark { display: inline-flex; width: 44px; height: 44px; border-radius: 14px; align-items: center; justify-content: center; background: transparent; color: #252f4e; font-size: 1rem; font-weight: 800; letter-spacing: 0.08em; mix-blend-mode: screen; }
   .brand-title { font-weight: 700; font-size: 1rem; color: #ffffff; }
   .brand-subtitle { font-size: 0.85rem; color: rgba(255,255,255,0.8); }
   .nav-links { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
@@ -216,7 +216,7 @@
   .footer-link { color: rgba(255,255,255,0.82); text-decoration: none; transition: color 200ms ease; }
   .footer-link:hover { color: #f6c14e; }
   html.dark .app-header { background: #252f4e; border-bottom-color: #1e243b; }
-  html.dark .brand-mark { color: #252f4e; background: #ffffff; }
+  html.dark .brand-mark { color: #252f4e; background: transparent; }
   html.dark .nav-link { color: rgba(255,255,255,0.85); }
   html.dark .nav-link:hover { background: rgba(255,255,255,0.12); }
   html.dark .app-footer { background: #252f4e; border-top-color: #1e243b; }

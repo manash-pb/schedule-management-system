@@ -86,14 +86,26 @@ const UserEventCard = ({ event, onPreview, onRsvp, tab }) => {
                 </div>
                 {tab === 'upcoming' && (
                     <div style={{ display: 'flex', gap: 6 }}>
-                        <button
-                            onClick={() => onRsvp(event.event_id, 'accepted')}
-                            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: rsvp === 'accepted' ? '#dcfce7' : '#f1f5f9', color: rsvp === 'accepted' ? '#16a34a' : '#64748b' }}
-                        ><Check size={13} /> Accept</button>
-                        <button
-                            onClick={() => onRsvp(event.event_id, 'declined')}
-                            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: rsvp === 'declined' ? '#fee2e2' : '#f1f5f9', color: rsvp === 'declined' ? '#dc2626' : '#64748b' }}
-                        ><XCircle size={13} /> Decline</button>
+                        {rsvp !== 'pending' ? (
+                            <span style={{
+                                fontSize: 12, fontWeight: 700, padding: '6px 14px', borderRadius: 8,
+                                background: rsvp === 'accepted' ? '#dcfce7' : '#fee2e2',
+                                color: rsvp === 'accepted' ? '#16a34a' : '#dc2626'
+                            }}>
+                                {rsvp === 'accepted' ? '✓ Accepted' : '✕ Declined'}
+                            </span>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={() => onRsvp(event.event_id, 'accepted')}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: '#f1f5f9', color: '#64748b' }}
+                                ><Check size={13} /> Accept</button>
+                                <button
+                                    onClick={() => onRsvp(event.event_id, 'declined')}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: '#f1f5f9', color: '#64748b' }}
+                                ><XCircle size={13} /> Decline</button>
+                            </>
+                        )}
                     </div>
                 )}
             </div>

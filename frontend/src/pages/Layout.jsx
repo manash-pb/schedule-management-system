@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Sun, Moon } from 'lucide-react';
-import gauhatiLogo from '../assets/gauhati-logo.svg';
+import gauhatiLogo from '../assets/logo1.png';
 
 const Layout = ({ children }) => {
   const role = localStorage.getItem('userRole') || 'user';

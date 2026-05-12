@@ -275,6 +275,29 @@ exports.rsvpEvent = async (req, res) => {
             ? res.status(400).send('<h2>Invalid RSVP link.</h2>')
             : res.status(400).json({ error: 'Valid email and status (accepted/declined) required' });
     try {
+        // Block re-voting if already responded
+        const [existing] = await pool.execute(
+            `SELECT ea.rsvp_status FROM Event_Attendees ea
+             JOIN Attendees a ON ea.attendee_id = a.attendee_id
+             WHERE ea.event_id = ? AND a.email = ?`,
+            [eventId, email.toLowerCase()]
+        );
+        if (existing.length && existing[0].rsvp_status !== 'pending') {
+            const already = existing[0].rsvp_status;
+            if (isEmailLink) {
+                const color = already === 'accepted' ? '#16a34a' : '#dc2626';
+                const emoji = already === 'accepted' ? '✅' : '❌';
+                return res.send(`
+                    <!DOCTYPE html><html><body style="font-family:'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f1f5f9;margin:0;">
+                    <div style="background:white;padding:48px;border-radius:16px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:400px;">
+                        <div style="font-size:48px;margin-bottom:16px;">${emoji}</div>
+                        <h2 style="color:${color};margin:0 0 8px;">Already ${already.charAt(0).toUpperCase() + already.slice(1)}</h2>
+                        <p style="color:#64748b;margin:0;">You have already responded to this event. Your response cannot be changed.</p>
+                    </div></body></html>
+                `);
+            }
+            return res.status(409).json({ error: `Already ${already}. RSVP cannot be changed.` });
+        }
         const [result] = await pool.execute(
             `UPDATE Event_Attendees ea
              JOIN Attendees a ON ea.attendee_id = a.attendee_id
