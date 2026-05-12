@@ -215,8 +215,32 @@ exports.addAttendee = async (req, res) => {
             return res.status(409).json({ error: 'Attendee already added to this event' });
         }
         await connection.execute(`INSERT INTO Event_Attendees (event_id, attendee_id) VALUES (?, ?)`, [eventId, rec[0].attendee_id]);
+        
+        const [eventRows] = await connection.execute(`SELECT * FROM Events WHERE event_id = ?`, [eventId]);
         await connection.commit();
-        res.status(201).json({ message: 'Attendee added' });
+
+        if (eventRows.length > 0) {
+            const event = eventRows[0];
+            try {
+                // Handle Date object formatting if necessary
+                const event_date = event.event_date instanceof Date ? event.event_date.toISOString().split('T')[0] : event.event_date;
+                await sendInviteEmail({
+                    person: { name, email: attendeeEmail },
+                    title: event.title,
+                    description: event.description,
+                    venue: event.venue,
+                    event_date: event_date,
+                    mysqlStart: event.start_time,
+                    mysqlEnd: event.end_time,
+                    newEventId: eventId
+                });
+                console.log(`✅ Invite sent to ${attendeeEmail}`);
+            } catch (e) {
+                console.error(`❌ Failed to send invite to ${attendeeEmail}:`, e.message);
+            }
+        }
+
+        res.status(201).json({ message: 'Attendee added and invited' });
     } catch (error) {
         if (connection) await connection.rollback();
         console.error('Add attendee error:', error);
