@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
-
+import Autocomplete from "react-google-autocomplete";
 const CATEGORIES = ['General', 'Meeting', 'Workshop', 'Holiday', 'Training', 'Social'];
 const CATEGORY_COLORS = {
     General:  { bg: '#eff6ff', color: '#2563eb' },
@@ -364,7 +364,15 @@ const EditModal = ({ event, onClose, onSave }) => {
                 <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 16 }}>
                     <input className="custom-input" placeholder="Event Title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required />
                     <textarea className="custom-input" placeholder="Description" style={{ minHeight: 80, resize: 'none' }} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
-                    <input className="custom-input" placeholder="Venue" value={form.venue} onChange={e => setForm({ ...form, venue: e.target.value })} required />
+                    <Autocomplete 
+                        apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY} 
+                        onPlaceSelected={(place) => setForm({ ...form, venue: place.formatted_address || place.name })} 
+                        className="custom-input" 
+                        placeholder="Venue" 
+                        value={form.venue} 
+                        onChange={e => setForm({ ...form, venue: e.target.value })} 
+                        required 
+                    />
                     <input type="date" className="custom-input" value={form.event_date} onChange={e => setForm({ ...form, event_date: e.target.value })} required />
                     <select className="custom-input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
                         {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -686,7 +694,17 @@ const AdminDashboard = () => {
                                 </div>
 
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                    <input type="text" placeholder="Venue" className="custom-input" style={{ flex: 1, height: '42px', boxSizing: 'border-box' }} value={formData.venue} onChange={e => setFormData({ ...formData, venue: e.target.value })} required />
+                                    <Autocomplete 
+                                        apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY} 
+                                        onPlaceSelected={(place) => setFormData({ ...formData, venue: place.formatted_address || place.name })} 
+                                        type="text" 
+                                        placeholder="Venue" 
+                                        className="custom-input" 
+                                        style={{ flex: 1, height: '42px', boxSizing: 'border-box' }} 
+                                        value={formData.venue} 
+                                        onChange={e => setFormData({ ...formData, venue: e.target.value })} 
+                                        required 
+                                    />
                                     <button type="button" onClick={async () => {
                                         if (!calendarConnected) { showToast('Connect Google Calendar first to generate a Meet link.', 'error'); return; }
                                         setMeetLoading(true);
