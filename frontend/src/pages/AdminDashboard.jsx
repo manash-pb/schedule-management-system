@@ -358,7 +358,7 @@ const AttendeesModal = ({ attendees, onRemove, onClearAll, onClose }) => (
     </div>
 );
 
-const EditModal = ({ event, onClose, onSave }) => {
+const EditModal = ({ event, onClose, onSave, showToast }) => {
     const [form, setForm] = useState({
         title: event.title || '',
         description: event.description || '',
@@ -372,6 +372,10 @@ const EditModal = ({ event, onClose, onSave }) => {
 
     const handleSave = async (e) => {
         e.preventDefault();
+        if (form.start_time === form.end_time) {
+            showToast('Start time and end time cannot be the same.', 'error');
+            return;
+        }
         setSaving(true);
         try {
             await axios.patch(`/api/events/${event.event_id}`, form);
@@ -441,7 +445,7 @@ const AdminDashboard = () => {
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
     const [toast, setToast] = useState(null);
     const [calendarConnected, setCalendarConnected] = useState(true);
-    const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', start_time: '', end_time: '', category: 'General' });
+    const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', start_time: '00:00', end_time: '00:00', category: 'General' });
     const [attendees, setAttendees] = useState([]);
     const [currentAttendee, setCurrentAttendee] = useState({ name: '', email: '' });
     const [showAttendeesModal, setShowAttendeesModal] = useState(false);
@@ -575,10 +579,14 @@ const AdminDashboard = () => {
             showToast('At least one guest must be invited.', 'error');
             return;
         }
+        if (formData.start_time === formData.end_time) {
+            showToast('Start time and end time cannot be the same.', 'error');
+            return;
+        }
         setSubmitting(true);
         try {
             await axios.post('/api/events', { ...formData, attendees });
-            setFormData({ title: '', description: '', venue: '', event_date: '', start_time: '', end_time: '', category: 'General' });
+            setFormData({ title: '', description: '', venue: '', event_date: '', start_time: '00:00', end_time: '00:00', category: 'General' });
             setAttendees([]);
             fetchEvents();
             showToast('Event created successfully!');
@@ -669,7 +677,7 @@ const AdminDashboard = () => {
                     </div>
                 </div>
             )}
-            {editEvent && <EditModal event={editEvent} onClose={() => setEditEvent(null)} onSave={handleEditSave} />}
+            {editEvent && <EditModal event={editEvent} onClose={() => setEditEvent(null)} onSave={handleEditSave} showToast={showToast} />}
             {showAttendeesModal && (
                 <AttendeesModal
                     attendees={attendees}
@@ -682,7 +690,7 @@ const AdminDashboard = () => {
             {/* Toast notification */}
             {toast && (
                 <div style={{
-                    position: 'fixed', top: 32, left: '50%', transform: 'translateX(-50%)', zIndex: 9999,
+                    position: 'fixed', top: 32, left: 0, right: 0, margin: '0 auto', width: 'max-content', zIndex: 9999,
                     display: 'flex', alignItems: 'center', gap: 14,
                     background: toast.type === 'error' ? '#fef2f2' : '#f0fdf4',
                     border: `1.5px solid ${toast.type === 'error' ? '#fca5a5' : '#86efac'}`,
