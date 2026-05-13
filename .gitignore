@@ -4,6 +4,6 @@ frontend/node_modules/
 
 # Ignore environment variables (SECURITY RISK IF UPLOADED!)
 backend/.env
-
+frontend/.env
 # Ignore Vite build files
 frontend/dist/

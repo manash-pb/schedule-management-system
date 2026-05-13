@@ -138,6 +138,7 @@ const sendInviteEmail = async ({ person, title, description, venue, event_date, 
         to: person.email,
         subject: `You're invited: ${title}`,
         html,
+        headers: { 'X-Priority': '1', 'Importance': 'high' },
         alternatives: [{ contentType: 'text/calendar; method=REQUEST; charset=UTF-8', content: icsContent }],
         attachments: [{ filename: 'invite.ics', content: icsContent, contentType: 'text/calendar; method=REQUEST; charset=UTF-8', contentDisposition: 'attachment' }],
     });
@@ -196,8 +197,66 @@ const sendCancellationEmail = async ({ name, email, event }) => {
         to: email,
         subject: `Event Cancelled: ${event.title}`,
         html,
+        headers: { 'X-Priority': '1', 'Importance': 'high' },
         attachments: [{ filename: 'cancel.ics', content: icsCancel, contentType: 'text/calendar; method=CANCEL; charset=UTF-8', contentDisposition: 'attachment' }],
     });
 };
 
-module.exports = { transporter, sendInviteEmail, sendCancellationEmail };
+const sendRemovalEmail = async ({ name, email, event }) => {
+    const formattedDate = new Date(event.event_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#f97316,#ea580c);padding:32px 36px;">
+            <p style="margin:0 0 4px 0;font-size:13px;color:#fed7aa;letter-spacing:0.08em;text-transform:uppercase;">Removed from Event</p>
+            <h1 style="margin:0;font-size:24px;color:#ffffff;font-weight:700;">${event.title}</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px 36px;">
+            <p style="margin:0 0 6px 0;font-size:15px;color:#0f172a;">Hi <strong>${name}</strong>,</p>
+            <p style="margin:0 0 24px 0;font-size:14px;color:#64748b;">You have been <strong style="color:#ea580c;">removed</strong> from the following event.</p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;">
+              <tr>
+                <td style="padding:8px 0;color:#64748b;font-size:14px;width:110px;">📅 <strong>Date</strong></td>
+                <td style="padding:8px 0;font-size:14px;color:#0f172a;">${formattedDate}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;color:#64748b;font-size:14px;">🕐 <strong>Time</strong></td>
+                <td style="padding:8px 0;font-size:14px;color:#0f172a;">${formatTime12(event.start_time)} – ${formatTime12(event.end_time)}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;color:#64748b;font-size:14px;">📍 <strong>Venue</strong></td>
+                <td style="padding:8px 0;font-size:14px;color:#0f172a;">${event.venue || '—'}</td>
+              </tr>
+            </table>
+            <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;text-align:center;">If you think this was a mistake, please contact the event organiser.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 36px;text-align:center;">
+            <p style="margin:0;font-size:12px;color:#94a3b8;">This notice was sent by <strong>Schedule Manager</strong>. Please do not reply to this email.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    await transporter.sendMail({
+        from: `"Schedule Manager" <${process.env.SMTP_USER}>`,
+        to: email,
+        subject: `You've been removed from: ${event.title}`,
+        html,
+        headers: { 'X-Priority': '1', 'Importance': 'high' },
+    });
+};
+
+module.exports = { transporter, sendInviteEmail, sendCancellationEmail, sendRemovalEmail };

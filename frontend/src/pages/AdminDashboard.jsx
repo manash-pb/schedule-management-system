@@ -32,10 +32,11 @@ const formatTime = (timeStr) => {
     return `${String(h).padStart(2, '0')}:${minutes} ${ampm}`;
 };
 
-const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange }) => {
+const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange, showToast }) => {
     const [newAttendee, setNewAttendee] = useState({ name: '', email: '' });
     const [attendees, setAttendees] = useState(event.attendees || []);
     const [saving, setSaving] = useState(false);
+    const [confirmRemoveEmail, setConfirmRemoveEmail] = useState(null);
 
     const handleAdd = async () => {
         if (!newAttendee.name.trim() || !newAttendee.email.trim()) return;
@@ -44,9 +45,10 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange }) => {
             await axios.post(`/api/events/${event.event_id}/attendees`, newAttendee);
             const updated = [...attendees, { ...newAttendee, rsvp_status: 'pending' }];
             setAttendees(updated);
+            showToast(`${newAttendee.email} added to this event.`);
             setNewAttendee({ name: '', email: '' });
             onAttendeesChange();
-        } catch (e) { alert(e.response?.data?.error || 'Failed to add attendee'); }
+        } catch (e) { showToast(e.response?.data?.error || 'Failed to add attendee.', 'error'); }
         finally { setSaving(false); }
     };
 
@@ -55,7 +57,8 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange }) => {
             await axios.delete(`/api/events/${event.event_id}/attendees/${encodeURIComponent(email)}`);
             setAttendees(attendees.filter(a => a.email !== email));
             onAttendeesChange();
-        } catch { alert('Failed to remove attendee'); }
+            showToast(`${email} removed from this event.`);
+        } catch { showToast('Failed to remove attendee.', 'error'); }
     };
 
     return (
@@ -112,21 +115,45 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange }) => {
                                     background: a.rsvp_status === 'accepted' ? '#dcfce7' : a.rsvp_status === 'declined' ? '#fee2e2' : '#f1f5f9',
                                     color: a.rsvp_status === 'accepted' ? '#16a34a' : a.rsvp_status === 'declined' ? '#dc2626' : '#94a3b8'
                                 }}>{a.rsvp_status || 'pending'}</span>
-                                <button onClick={() => handleRemove(a.email)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', marginLeft: 4 }}><X size={14} /></button>
+                                <button onClick={() => setConfirmRemoveEmail(a.email)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', marginLeft: 4 }}><X size={14} /></button>
                             </div>
                         ))}
                     </div>
                 )}
             </div>
         </div>
+            {confirmRemoveEmail && (
+                <div className="modal-overlay" onClick={() => setConfirmRemoveEmail(null)}>
+                    <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 400, textAlign: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+                            <div style={{ width: 50, height: 50, borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <X size={22} color="#ef4444" />
+                            </div>
+                        </div>
+                        <h2 style={{ margin: '0 0 8px', fontSize: 18, color: 'var(--text-primary)' }}>Remove Attendee?</h2>
+                        <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                            <strong>{confirmRemoveEmail}</strong> will be removed from this event.
+                        </p>
+                        <div style={{ display: 'flex', gap: 10 }}>
+                            <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmRemoveEmail(null)}>Cancel</button>
+                            <button onClick={() => { handleRemove(confirmRemoveEmail); setConfirmRemoveEmail(null); }} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 0', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 14, background: '#ef4444', color: '#fff' }}>
+                                <X size={14} /> Remove
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
     </div>
     );
 };
 
-const EventCard = ({ event, onDelete, onPreview, onEdit, tab }) => (
+const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => (
     <div className="event-card">
         <div className="event-info">
-            <span className="status-badge" style={tab === 'past' ? { background: '#f1f5f9', color: '#64748b' } : tab === 'live' ? { background: '#dcfce7', color: '#16a34a' } : {}}>
+            <span className="status-badge" style={
+                tab === 'past' ? { background: darkMode ? 'rgba(100,116,139,0.2)' : '#f1f5f9', color: darkMode ? '#94a3b8' : '#475569', border: darkMode ? '1px solid rgba(100,116,139,0.3)' : 'none' } :
+                tab === 'live' ? { background: darkMode ? 'rgba(22,163,74,0.2)' : '#dcfce7', color: darkMode ? '#4ade80' : '#16a34a', border: darkMode ? '1px solid rgba(22,163,74,0.3)' : 'none' } : {}
+            }>
                 {tab === 'past' ? 'Past' : tab === 'live' ? '🔴 Live' : 'Confirmed'}
             </span>
             {event.category && (
@@ -602,7 +629,7 @@ const AdminDashboard = () => {
 
     return (
         <div className="dashboard-container">
-            {previewEvent && <PreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} onDownload={handleDownload} onAttendeesChange={fetchEvents} />}
+            {previewEvent && <PreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} onDownload={handleDownload} onAttendeesChange={fetchEvents} showToast={showToast} />}
             {deleting && (
                 <div style={{
                     position: 'fixed', inset: 0, zIndex: 9998,
@@ -872,7 +899,7 @@ const AdminDashboard = () => {
                                     return (
                                         <>
                                             {paginated.map(item => (
-                                                <EventCard key={item.event_id} event={item} onDelete={activeTab !== 'live' ? handleDelete : null} onEdit={activeTab !== 'live' ? setEditEvent : null} onPreview={setPreviewEvent} tab={activeTab} />
+                                                <EventCard key={item.event_id} event={item} onDelete={activeTab !== 'live' ? handleDelete : null} onEdit={activeTab !== 'live' ? setEditEvent : null} onPreview={setPreviewEvent} tab={activeTab} darkMode={darkMode} />
                                             ))}
                                             {totalPages > 1 && (
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 }}>

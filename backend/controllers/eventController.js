@@ -1,6 +1,6 @@
 const pool = require('../db');
 const { createGoogleEvent, deleteGoogleEvent, updateGoogleEvent } = require('../googleCalendar');
-const { sendInviteEmail, sendCancellationEmail } = require('../utils/mailer');
+const { sendInviteEmail, sendCancellationEmail, sendRemovalEmail } = require('../utils/mailer');
 
 const getAdminTokens = async (adminEmail) => {
     if (adminEmail) {
@@ -252,10 +252,24 @@ exports.addAttendee = async (req, res) => {
 
 exports.removeAttendee = async (req, res) => {
     const { id: eventId, email } = req.params;
+    const decodedEmail = decodeURIComponent(email);
     try {
-        const [rec] = await pool.execute(`SELECT attendee_id FROM Attendees WHERE email = ?`, [decodeURIComponent(email)]);
+        const [rec] = await pool.execute(`SELECT attendee_id, name FROM Attendees WHERE email = ?`, [decodedEmail]);
         if (!rec.length) return res.status(404).json({ error: 'Attendee not found' });
         await pool.execute(`DELETE FROM Event_Attendees WHERE event_id = ? AND attendee_id = ?`, [eventId, rec[0].attendee_id]);
+
+        const [eventRows] = await pool.execute(`SELECT * FROM Events WHERE event_id = ?`, [eventId]);
+        if (eventRows.length) {
+            try {
+                const event = eventRows[0];
+                const event_date = event.event_date instanceof Date ? event.event_date.toISOString().split('T')[0] : event.event_date;
+                await sendRemovalEmail({ name: rec[0].name, email: decodedEmail, event: { ...event, event_date } });
+                console.log(`✅ Removal notice sent to ${decodedEmail}`);
+            } catch (e) {
+                console.error(`❌ Failed to send removal email to ${decodedEmail}:`, e.message);
+            }
+        }
+
         res.json({ message: 'Attendee removed' });
     } catch (error) {
         console.error('Remove attendee error:', error);
