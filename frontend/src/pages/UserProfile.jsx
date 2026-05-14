@@ -1,52 +1,68 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import toast from 'react-hot-toast'; // Ensure you have this installed: npm install react-hot-toast
+import toast from 'react-hot-toast';
 import { Shield, ArrowLeft, LogOut, Edit2, Camera, Check, X } from 'lucide-react';
+// 1. New Imports for Cropping
+import Cropper from 'react-easy-crop';
+import { getCroppedImg } from '../utils/cropImage'; // Make sure you created this file!
 
 const UserProfile = () => {
     const navigate = useNavigate();
 
-    // Safely grab user data from localStorage
     const [userName, setUserName] = useState(localStorage.getItem('userName') || 'User');
     const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || 'Not provided');
     const [userPic, setUserPic] = useState(localStorage.getItem('userPicture'));
     const userRole = localStorage.getItem('userRole') || 'user';
 
-    // UI Toggle States
     const [isEditingName, setIsEditingName] = useState(false);
     const [tempName, setTempName] = useState(userName);
 
-    // --- THE MISSING FUNCTION ---
-    const handleImageUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    // --- 2. New States for Cropping ---
+    const [image, setImage] = useState(null);
+    const [crop, setCrop] = useState({ x: 0, y: 0 });
+    const [zoom, setZoom] = useState(1);
+    const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
-        const formData = new FormData();
-        formData.append('profilePic', file);
-        formData.append('email', userEmail);
+    // --- 3. Updated Logic Functions ---
 
-        const toastId = toast.loading('Uploading picture...');
+    // Triggered when you select a file
+    const onFileChange = (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const reader = new FileReader();
+            reader.addEventListener('load', () => setImage(reader.result));
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    };
 
+    const onCropComplete = (croppedArea, croppedAreaPixels) => {
+        setCroppedAreaPixels(croppedAreaPixels);
+    };
+
+    // Triggered when you click "Apply & Upload"
+    const handleFinalUpload = async () => {
+        const toastId = toast.loading('Processing image...');
         try {
-            const res = await axios.post('/api/users/upload-pic', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            const croppedImageBlob = await getCroppedImg(image, croppedAreaPixels);
+            const file = new File([croppedImageBlob], "profile.jpg", { type: "image/jpeg" });
 
-            const newImageUrl = res.data.imageUrl;
+            const formData = new FormData();
+            formData.append('profilePic', file);
+            formData.append('email', userEmail);
 
-            // Update UI and memory
-            setUserPic(newImageUrl);
-            localStorage.setItem('userPicture', newImageUrl);
+            toast.loading('Uploading to server...', { id: toastId });
+            const res = await axios.post('/api/users/upload-pic', formData);
 
-            toast.success('Profile picture updated!', { id: toastId });
+            const newUrl = res.data.imageUrl;
+            setUserPic(newUrl);
+            localStorage.setItem('userPicture', newUrl);
+            setImage(null); // Close the cropper
+            toast.success('Profile updated!', { id: toastId });
 
-            // Give it a tiny delay then reload to update the top-right header
-            setTimeout(() => window.location.reload(), 1000);
-
-        } catch (error) {
-            console.error(error);
-            toast.error('Failed to upload picture', { id: toastId });
+            setTimeout(() => window.location.reload(), 800);
+        } catch (e) {
+            console.error(e);
+            toast.error('Upload failed', { id: toastId });
         }
     };
 
@@ -66,7 +82,6 @@ const UserProfile = () => {
     const saveName = () => {
         setUserName(tempName);
         setIsEditingName(false);
-        // Note: You will eventually add an axios.patch() here to save to MySQL
         localStorage.setItem('userName', tempName);
     };
 
@@ -117,7 +132,6 @@ const UserProfile = () => {
 
                             {/* Avatar Edit Icon */}
                             <label
-                                /* Removed className="btn-icon" from here so the CSS doesn't kill the blue background! */
                                 style={{
                                     position: 'absolute',
                                     bottom: -2, right: -4,
@@ -135,7 +149,8 @@ const UserProfile = () => {
                                 onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                             >
                                 <Camera size={14} />
-                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
+                                {/* Change handleImageUpload to onFileChange here */}
+                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={onFileChange} />
                             </label>
                         </div>
 
@@ -183,9 +198,9 @@ const UserProfile = () => {
                             style={{
                                 width: '100%',
                                 justifyContent: 'center',
-                                backgroundColor: '#ef4444', // Solid red background
-                                color: '#ffffff',           // White text and icon
-                                borderColor: '#dc2626',     // Slightly darker red border
+                                backgroundColor: '#ef4444',
+                                color: '#ffffff',
+                                borderColor: '#dc2626',
                                 height: 46
                             }}
                         >
@@ -194,6 +209,47 @@ const UserProfile = () => {
                     </div>
                 </div>
             </div>
+
+            {/* --- 4. THE CROPPING MODAL (Circular Crop) --- */}
+            {image && (
+                <div className="modal-overlay" style={{ zIndex: 3000 }}>
+                    <div className="modal-card" style={{ maxWidth: 500, height: 'fit-content' }}>
+                        <div style={{ position: 'relative', width: '100%', height: 350, background: '#000', borderRadius: 12, overflow: 'hidden' }}>
+                            <Cropper
+                                image={image}
+                                crop={crop}
+                                zoom={zoom}
+                                aspect={1}
+                                cropShape="round"
+                                showGrid={false}
+                                zoomSpeed={0.2}
+                                onCropChange={setCrop}
+                                onCropComplete={onCropComplete}
+                                onZoomChange={setZoom}
+                            />
+                        </div>
+
+                        {/* Zoom Slider */}
+                        <div style={{ padding: '20px 0', textAlign: 'center' }}>
+                            <input
+                                type="range"
+                                value={zoom}
+                                min={1}
+                                max={3}
+                                step={0.1}
+                                onChange={(e) => setZoom(e.target.value)}
+                                style={{ width: '100%' }}
+                            />
+                            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>Scroll or use slider to zoom</p>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 12 }}>
+                            <button onClick={() => setImage(null)} className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>Cancel</button>
+                            <button onClick={handleFinalUpload} className="btn-primary" style={{ flex: 1, marginTop: 0 }}>Apply & Upload</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

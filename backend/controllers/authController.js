@@ -17,37 +17,55 @@ exports.googleCallback = async (req, res) => {
 
         const email = userInfo.data.email.toLowerCase();
         const name  = userInfo.data.name;
-        const picture = userInfo.data.picture; // Extracted correctly
+        const googlePic = userInfo.data.picture; // The fresh pic from Google
         
         const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
         let user = rows[0];
 
-        // Admin used user login but already has tokens — log in as admin directly
-        if (user && user.role === 'admin' && intendedRole !== 'admin') {
-            if (user.google_tokens) {
-                // 1. ADDED PICTURE TO REDIRECT
-                return res.redirect(`http://localhost:5173/?login=success&role=admin&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&picture=${encodeURIComponent(picture)}`);
-            } else {
-                return res.redirect('/auth/google?role=admin');
-            }
-        }
+        // --- THE FIX: Determine which picture to use and whether to update the DB ---
+        let finalPicture = googlePic; 
 
         if (user) {
+            // Check if the current DB picture is a custom upload (contains '/uploads/')
+            const hasCustomPhoto = user.profile_picture && user.profile_picture.includes('/uploads/');
+            
+            if (hasCustomPhoto) {
+                // Keep the custom one!
+                finalPicture = user.profile_picture;
+            }
+
+            // Handle the redirect for Admin who used user login path
+            if (user.role === 'admin' && intendedRole !== 'admin') {
+                if (user.google_tokens) {
+                    return res.redirect(`http://localhost:5173/?login=success&role=admin&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&picture=${encodeURIComponent(finalPicture)}`);
+                } else {
+                    return res.redirect('/auth/google?role=admin');
+                }
+            }
+
+            // Update user/admin info, but DON'T overwrite the picture if it's custom
             if (user.role === 'admin') {
-                // 2. SAVE PICTURE FOR EXISTING ADMIN
-                await pool.execute('UPDATE users SET google_tokens = ?, profile_picture = ? WHERE email = ?', [JSON.stringify(tokens), picture, email]);
-                console.log(`✅ Updated admin tokens and picture for: ${email}`);
+                // If they have a custom photo, we only update the tokens. If not, update tokens AND picture.
+                if (hasCustomPhoto) {
+                    await pool.execute('UPDATE users SET google_tokens = ? WHERE email = ?', [JSON.stringify(tokens), email]);
+                } else {
+                    await pool.execute('UPDATE users SET google_tokens = ?, profile_picture = ? WHERE email = ?', [JSON.stringify(tokens), googlePic, email]);
+                }
             } else {
-                // 3. SAVE PICTURE FOR EXISTING USER
-                await pool.execute('UPDATE users SET profile_picture = ? WHERE email = ?', [picture, email]);
+                // For standard users, only update if they don't have a custom photo
+                if (!hasCustomPhoto) {
+                    await pool.execute('UPDATE users SET profile_picture = ? WHERE email = ?', [googlePic, email]);
+                }
             }
         } else {
-            // 4. INSERT PICTURE FOR NEW USER
+            // New User: INSERT the Google pic
             const tokenString = intendedRole === 'admin' ? JSON.stringify(tokens) : null;
             await pool.execute(
                 'INSERT INTO users (name, email, google_tokens, role, profile_picture) VALUES (?, ?, ?, ?, ?)',
-                [name, email, tokenString, intendedRole, picture]
+                [name, email, tokenString, intendedRole, googlePic]
             );
+            finalPicture = googlePic;
+            // Re-fetch to get the role if needed, or just use intendedRole
             const [newRows] = await pool.execute('SELECT role FROM users WHERE email = ?', [email]);
             user = newRows[0];
         }
@@ -55,8 +73,13 @@ exports.googleCallback = async (req, res) => {
         const finalRole = user ? user.role : intendedRole;
         const redirectBase = 'http://localhost:5173/';
         
-        // 5. ADDED PICTURE TO FINAL REDIRECT
-        res.redirect(`${redirectBase}?login=success&role=${finalRole}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&picture=${encodeURIComponent(picture)}`);
+        // --- PREVENT THE GOOGLE '0' PLACEHOLDER ---
+        // If the final picture is the generic Google silhouette, send null so React shows your blue initial ring
+        if (finalPicture === 'https://lh3.googleusercontent.com/a/default-user' || finalPicture?.endsWith('/picture/0')) {
+            finalPicture = 'null';
+        }
+
+        res.redirect(`${redirectBase}?login=success&role=${finalRole}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&picture=${encodeURIComponent(finalPicture)}`);
 
     } catch (error) {
         console.error('Google auth error:', error);
@@ -89,6 +112,7 @@ exports.manualLogin = async (req, res) => {
     try {
         const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
         const user = rows[0];
+        
         if (!user) return res.status(401).json({ success: false, message: 'Invalid email or password' });
 
         // Google-only accounts have no password
@@ -97,13 +121,17 @@ exports.manualLogin = async (req, res) => {
         const match = await bcrypt.compare(password, user.password);
         if (!match) return res.status(401).json({ success: false, message: 'Invalid email or password' });
 
-        // --- UPDATED LINE: Added profile_picture to the response ---
+        // --- NEW: SANITIZE GOOGLE PLACEHOLDER ---
+        const googleDefault = 'https://lh3.googleusercontent.com/a/ACg8ocJRX7drijwDmOsxeFUZUUZUyqf9EIDS6vUzkGM_DjKOOfjkCQ=s96-c';
+        const cleanPic = (user.profile_picture === googleDefault) ? null : user.profile_picture;
+        // ----------------------------------------
+
         res.json({ 
             success: true, 
             role: user.role, 
             name: user.name, 
             email: user.email,
-            profile_picture: user.profile_picture 
+            profile_picture: cleanPic // Use the sanitized variable here
         });
         
     } catch (error) {
@@ -122,11 +150,21 @@ exports.signup = async (req, res) => {
         if (existing.length) return res.status(400).json({ success: false, message: 'User already exists' });
 
         const hashed = await bcrypt.hash(password, SALT_ROUNDS);
+        
+        // The SQL INSERT remains the same as the DB column defaults to NULL
         await pool.execute(
             'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
             [name, normalizedEmail, hashed, 'user']
         );
-        res.json({ success: true, role: 'user', name, email: normalizedEmail });
+
+        // --- UPDATED RESPONSE: Explicitly sending profile_picture: null ---
+        res.json({ 
+            success: true, 
+            role: 'user', 
+            name, 
+            email: normalizedEmail,
+            profile_picture: null 
+        });
     } catch (error) {
         console.error('Signup error:', error);
         res.status(500).json({ success: false });

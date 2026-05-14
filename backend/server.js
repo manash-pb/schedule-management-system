@@ -4,6 +4,10 @@ const cors = require('cors');
 const pool = require('./db');
 const { startCronJobs } = require('./cronJobs');
 
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
 const eventRoutes = require('./routes/events');
 const authRoutes  = require('./routes/auth');
 
@@ -22,6 +26,67 @@ pool.getConnection()
 
 // Start cron jobs
 startCronJobs();
+
+// Make the 'uploads' folder publicly accessible to the frontend
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Ensure the 'uploads' directory actually exists
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir);
+}
+
+// Configure Multer storage
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'uploads/');
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+const upload = multer({ storage: storage });
+
+app.post('/api/users/upload-pic', upload.single('profilePic'), async (req, res) => {
+    try {
+        const email = req.body.email;
+        
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file uploaded' });
+        }
+
+        // 1. FIND THE OLD IMAGE PATH BEFORE UPDATING
+        const [rows] = await pool.execute('SELECT profile_picture FROM users WHERE email = ?', [email]);
+        const oldImageUrl = rows[0]?.profile_picture;
+
+        if (oldImageUrl && oldImageUrl.includes('/uploads/')) {
+            // Extract the filename from the URL (e.g., "profile-123.jpg")
+            const filename = oldImageUrl.split('/').pop();
+            const oldFilePath = path.join(__dirname, 'uploads', filename);
+
+            // 2. DELETE THE OLD FILE FROM DISK
+            fs.unlink(oldFilePath, (err) => {
+                if (err) {
+                    console.error("Could not delete old file:", err);
+                    // We don't stop the process; the new upload should still proceed
+                } else {
+                    console.log(`✅ Deleted old profile pic: ${filename}`);
+                }
+            });
+        }
+
+        // 3. GENERATE NEW URL AND UPDATE DB
+        const imageUrl = `http://localhost:3000/uploads/${req.file.filename}`;
+        await pool.execute('UPDATE users SET profile_picture = ? WHERE email = ?', [imageUrl, email]);
+
+        res.json({ success: true, message: 'Profile picture updated', imageUrl });
+        
+    } catch (error) {
+        console.error('Upload Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to upload image' });
+    }
+});
 
 // Mount routes
 app.use('/api/events', eventRoutes);
