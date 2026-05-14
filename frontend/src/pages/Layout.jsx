@@ -66,8 +66,8 @@ const Layout = ({ children }) => {
             >
               {/* Name & Role text (Hidden on very small screens automatically if you use standard CSS) */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>{name}</span>
-                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{role}</span>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: '#ffffff' }}>{name}</span>
+                <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.7)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{role}</span>
               </div>
 
               {/* The Circular Avatar */}
@@ -77,9 +77,9 @@ const Layout = ({ children }) => {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 16, fontWeight: 'bold',
                 boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
-                overflow: 'hidden' // <-- Important to keep the image perfectly round
+                overflow: 'hidden'
               }}>
-                {userPicture ? (
+                {userPicture && userPicture !== 'null' && userPicture !== 'undefined' ? (
                   <img src={userPicture} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   name.charAt(0).toUpperCase()

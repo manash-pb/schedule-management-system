@@ -64,6 +64,13 @@ const Login = () => {
         localStorage.setItem('userEmail', res.data.email || manualEmail);
         localStorage.setItem('userName', res.data.name || manualName || 'User');
 
+        // --- NEW: Handle Profile Picture cleanly ---
+        if (res.data.profile_picture && res.data.profile_picture !== 'null' && res.data.profile_picture !== 'undefined') {
+          localStorage.setItem('userPicture', res.data.profile_picture);
+        } else {
+          localStorage.removeItem('userPicture'); // Forces the first initial to display
+        }
+
         if (finalRole === 'admin') {
           window.location.href = '/admin-dashboard';
         } else {
