@@ -1,7 +1,10 @@
 const pool = require('../db');
 const { oauth2Client, generateMeetLink } = require('../googleCalendar');
 const { google } = require('googleapis');
+const bcrypt = require('bcrypt');
 require('dotenv').config();
+
+const SALT_ROUNDS = 10;
 
 exports.googleCallback = async (req, res) => {
     try {
@@ -82,13 +85,19 @@ exports.manualLogin = async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ success: false, message: 'Email and password are required' });
 
+    const normalizedEmail = email.toLowerCase().trim();
     try {
-        const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email.toLowerCase()]);
+        const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
         const user = rows[0];
-        if (user && user.password === password) {
-            return res.json({ success: true, role: user.role, name: user.name, email: user.email });
-        }
-        res.status(401).json({ success: false, message: 'Invalid email or password' });
+        if (!user) return res.status(401).json({ success: false, message: 'Invalid email or password' });
+
+        // Google-only accounts have no password
+        if (!user.password) return res.status(401).json({ success: false, message: 'This account uses Google sign-in. Please login with Google.' });
+
+        const match = await bcrypt.compare(password, user.password);
+        if (!match) return res.status(401).json({ success: false, message: 'Invalid email or password' });
+
+        res.json({ success: true, role: user.role, name: user.name, email: user.email });
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ success: false, message: 'Server error' });
@@ -99,15 +108,17 @@ exports.signup = async (req, res) => {
     const { name, email, password } = req.body;
     if (!name || !email || !password) return res.status(400).json({ success: false, message: 'All fields are required' });
 
+    const normalizedEmail = email.toLowerCase().trim();
     try {
-        const [existing] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
+        const [existing] = await pool.execute('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
         if (existing.length) return res.status(400).json({ success: false, message: 'User already exists' });
 
+        const hashed = await bcrypt.hash(password, SALT_ROUNDS);
         await pool.execute(
             'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-            [name, email.toLowerCase(), password, 'user']
+            [name, normalizedEmail, hashed, 'user']
         );
-        res.json({ success: true, role: 'user', name, email: email.toLowerCase() });
+        res.json({ success: true, role: 'user', name, email: normalizedEmail });
     } catch (error) {
         console.error('Signup error:', error);
         res.status(500).json({ success: false });
@@ -117,16 +128,20 @@ exports.signup = async (req, res) => {
 exports.updateProfile = async (req, res) => {
     const { email, name, currentPassword, newPassword } = req.body;
     if (!email) return res.status(400).json({ success: false, message: 'Email required' });
+
+    const normalizedEmail = email.toLowerCase().trim();
     try {
-        const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email.toLowerCase()]);
+        const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
         if (!rows.length) return res.status(404).json({ success: false, message: 'User not found' });
         const user = rows[0];
         if (newPassword) {
-            if (user.password !== currentPassword)
-                return res.status(401).json({ success: false, message: 'Current password is incorrect' });
-            await pool.execute('UPDATE users SET name = ?, password = ? WHERE email = ?', [name || user.name, newPassword, email.toLowerCase()]);
+            if (!user.password) return res.status(401).json({ success: false, message: 'No password set for this account' });
+            const match = await bcrypt.compare(currentPassword, user.password);
+            if (!match) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+            const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
+            await pool.execute('UPDATE users SET name = ?, password = ? WHERE email = ?', [name || user.name, hashed, normalizedEmail]);
         } else {
-            await pool.execute('UPDATE users SET name = ? WHERE email = ?', [name || user.name, email.toLowerCase()]);
+            await pool.execute('UPDATE users SET name = ? WHERE email = ?', [name || user.name, normalizedEmail]);
         }
         res.json({ success: true, name: name || user.name });
     } catch (error) {

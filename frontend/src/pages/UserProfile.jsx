@@ -74,9 +74,9 @@ const UserProfile = () => {
                         <div className="floating-card" style={{ padding: '24px', textAlign: 'left', marginBottom: '24px' }}>
 
                             {/* Name Row */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
                                 <div style={{ flex: 1 }}>
-                                    <span style={{ display: 'block', fontSize: 12, color: '#64748b', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Full Name</span>
+                                    <span style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Full Name</span>
                                     {isEditingName ? (
                                         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                                             <input type="text" className="custom-input" value={tempName} onChange={e => setTempName(e.target.value)} autoFocus />
@@ -84,7 +84,7 @@ const UserProfile = () => {
                                             <button onClick={() => setIsEditingName(false)} className="btn-icon" style={{ color: '#ef4444', background: '#fee2e2' }}><X size={18} /></button>
                                         </div>
                                     ) : (
-                                        <span style={{ fontSize: 16, fontWeight: 500, color: '#1e293b' }}>{userName}</span>
+                                        <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--text-primary)' }}>{userName}</span>
                                     )}
                                 </div>
                                 {!isEditingName && (
@@ -93,23 +93,28 @@ const UserProfile = () => {
                             </div>
 
                             {/* Email Row */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
                                 <div>
-                                    <span style={{ display: 'block', fontSize: 12, color: '#64748b', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Email Address</span>
-                                    <span style={{ fontSize: 16, fontWeight: 500, color: '#1e293b' }}>{userEmail}</span>
+                                    <span style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Email Address</span>
+                                    <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--text-primary)' }}>{userEmail}</span>
                                 </div>
                                 <button onClick={() => alert("Email cannot be changed directly.")} className="btn-icon"><Edit2 size={18} color="#64748b" /></button>
                             </div>
 
                             {/* Role Row (Read Only) */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <Shield size={18} color="#94a3b8" />
-                                <span style={{ fontSize: 14, fontWeight: 500, color: '#64748b', textTransform: 'capitalize' }}>{userRole} Account</span>
+                                <Shield size={18} color="var(--text-muted)" />
+                                <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{userRole} Account</span>
                             </div>
                         </div>
 
                         {/* 3. Logout Button */}
-                        <button onClick={handleLogout} className="btn-secondary" style={{ width: '100%', justifyContent: 'center', color: '#ef4444', borderColor: '#fecaca', height: 46 }}>
+                        <button
+                            onClick={handleLogout}
+                            onMouseEnter={e => { e.currentTarget.style.background = '#dc2626'; e.currentTarget.style.borderColor = '#dc2626'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.borderColor = '#ef4444'; }}
+                            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#fff', background: '#ef4444', border: '2px solid #ef4444', borderRadius: 10, height: 46, fontWeight: 600, fontSize: 14, cursor: 'pointer', transition: 'all 0.2s' }}
+                        >
                             <LogOut size={18} /> Sign Out
                         </button>
                     </div>

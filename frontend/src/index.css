@@ -108,6 +108,15 @@
   }
   .custom-input::placeholder { color: var(--text-muted); }
   .custom-input:focus { border-color: #0969da; box-shadow: 0 0 0 3px rgba(9,105,218,0.12); }
+  .custom-input:-webkit-autofill,
+  .custom-input:-webkit-autofill:hover,
+  .custom-input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0px 1000px var(--bg-input) inset !important;
+    -webkit-text-fill-color: var(--text-primary) !important;
+    caret-color: var(--text-primary);
+    border-color: var(--border) !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
   html.dark .custom-input {
     background: var(--bg-input);
     color: var(--text-primary);
