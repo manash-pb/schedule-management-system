@@ -1,95 +1,118 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Lock, Check } from 'lucide-react';
+import { Shield, ArrowLeft, LogOut, Edit2, Camera, Check, X } from 'lucide-react';
 
 const UserProfile = () => {
     const navigate = useNavigate();
-    const userEmail = localStorage.getItem('userEmail');
-    const userRole  = localStorage.getItem('userRole');
-    const backPath  = userRole === 'admin' ? '/admin-dashboard' : '/user-dashboard';
 
-    const [name, setName] = useState(localStorage.getItem('userName') || '');
-    const [currentPassword, setCurrentPassword] = useState('');
-    const [newPassword, setNewPassword]         = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [toast, setToast] = useState(null);
-    const [saving, setSaving] = useState(false);
+    // Safely grab user data from localStorage
+    const [userName, setUserName] = useState(localStorage.getItem('userName') || 'User');
+    const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || 'Not provided');
+    const [userPic, setUserPic] = useState(localStorage.getItem('userPicture') || '');
+    const userRole = localStorage.getItem('userRole') || 'user';
 
-    const showToast = (msg, type = 'success') => {
-        setToast({ msg, type });
-        setTimeout(() => setToast(null), 3000);
+    // UI Toggle States
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [tempName, setTempName] = useState(userName);
+
+    const handleLogout = () => {
+        // 1. Remove ONLY the authentication data (leave darkMode alone!)
+        localStorage.removeItem('isAdminLoggedIn');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userName');
+        localStorage.removeItem('userPicture');
+
+        // 2. Force a full browser reload to clear React's internal cache
+        // This stops the "bouncing back to login" bug dead in its tracks.
+        window.location.href = '/';
     };
 
-    const handleSave = async (e) => {
-        e.preventDefault();
-        if (newPassword && newPassword !== confirmPassword)
-            return showToast('New passwords do not match.', 'error');
-        setSaving(true);
-        try {
-            const res = await axios.patch('/api/auth/profile', {
-                email: userEmail,
-                name,
-                currentPassword: newPassword ? currentPassword : undefined,
-                newPassword:     newPassword || undefined,
-            });
-            localStorage.setItem('userName', res.data.name);
-            setCurrentPassword('');
-            setNewPassword('');
-            setConfirmPassword('');
-            showToast('Profile updated successfully!');
-        } catch (e) {
-            showToast(e.response?.data?.message || 'Update failed.', 'error');
-        } finally {
-            setSaving(false);
-        }
+    const goBack = () => {
+        navigate(userRole === 'admin' ? '/admin-dashboard' : '/user-dashboard');
+    };
+
+    const saveName = () => {
+        setUserName(tempName);
+        setIsEditingName(false);
+        // Note: You will eventually add an axios.patch() here to save to MySQL
+        localStorage.setItem('userName', tempName);
     };
 
     return (
         <div className="dashboard-container">
-            {toast && (
-                <div style={{
-                    position: 'fixed', top: 32, left: '50%', transform: 'translateX(-50%)', zIndex: 9999,
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    background: toast.type === 'error' ? '#fef2f2' : '#f0fdf4',
-                    border: `1.5px solid ${toast.type === 'error' ? '#fca5a5' : '#86efac'}`,
-                    color: toast.type === 'error' ? '#dc2626' : '#16a34a',
-                    padding: '18px 36px', borderRadius: 16, fontWeight: 700, fontSize: 18,
-                    boxShadow: '0 8px 30px rgba(0,0,0,0.15)', whiteSpace: 'nowrap'
-                }}>
-                    <span style={{ fontSize: 22 }}>{toast.type === 'error' ? '✕' : '✓'}</span>
-                    {toast.msg}
+            <div className="dashboard-wrapper">
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 15, marginBottom: 30, paddingTop: 10 }}>
+                    <button onClick={goBack} className="btn-icon" style={{ padding: 8 }}>
+                        <ArrowLeft size={20} />
+                    </button>
+                    <h2 style={{ margin: 0, fontSize: 24 }}>My Profile</h2>
                 </div>
-            )}
-            <div className="dashboard-wrapper" style={{ maxWidth: 520 }}>
 
-                <div className="floating-card">
-                    <h2 style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 0 }}>
-                        <User size={22} color="#2563eb" /> My Profile
-                    </h2>
-                    <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        <div>
-                            <label className="input-label">Full Name</label>
-                            <input className="custom-input" value={name} onChange={e => setName(e.target.value)} required />
+                <div className="form-container">
+                    <div style={{ maxWidth: 450, margin: '0 auto' }}>
+
+                        {/* 1. Avatar Section */}
+                        <div style={{ position: 'relative', width: 100, height: 100, margin: '0 auto 30px auto' }}>
+                            {userPic ? (
+                                <img src={userPic} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '3px solid white', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} />
+                            ) : (
+                                <div style={{ width: '100%', height: '100%', borderRadius: '50%', backgroundColor: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, fontWeight: 'bold', border: '3px solid white', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                                    {userName.charAt(0).toUpperCase()}
+                                </div>
+                            )}
+
+                            {/* Avatar Edit Icon */}
+                            <label style={{ position: 'absolute', bottom: 0, right: 0, background: '#2563eb', color: 'white', padding: 8, borderRadius: '50%', cursor: 'pointer', border: '2px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Camera size={16} />
+                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => alert("Image upload functionality coming soon!")} />
+                            </label>
                         </div>
-                        <div>
-                            <label className="input-label">Email</label>
-                            <input className="custom-input" value={userEmail} disabled style={{ opacity: 0.6, cursor: 'not-allowed' }} />
+
+                        {/* 2. Details Modal/Card */}
+                        <div className="floating-card" style={{ padding: '24px', textAlign: 'left', marginBottom: '24px' }}>
+
+                            {/* Name Row */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #e2e8f0' }}>
+                                <div style={{ flex: 1 }}>
+                                    <span style={{ display: 'block', fontSize: 12, color: '#64748b', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Full Name</span>
+                                    {isEditingName ? (
+                                        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                                            <input type="text" className="custom-input" value={tempName} onChange={e => setTempName(e.target.value)} autoFocus />
+                                            <button onClick={saveName} className="btn-icon" style={{ color: '#16a34a', background: '#dcfce7' }}><Check size={18} /></button>
+                                            <button onClick={() => setIsEditingName(false)} className="btn-icon" style={{ color: '#ef4444', background: '#fee2e2' }}><X size={18} /></button>
+                                        </div>
+                                    ) : (
+                                        <span style={{ fontSize: 16, fontWeight: 500, color: '#1e293b' }}>{userName}</span>
+                                    )}
+                                </div>
+                                {!isEditingName && (
+                                    <button onClick={() => setIsEditingName(true)} className="btn-icon"><Edit2 size={18} color="#64748b" /></button>
+                                )}
+                            </div>
+
+                            {/* Email Row */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #e2e8f0' }}>
+                                <div>
+                                    <span style={{ display: 'block', fontSize: 12, color: '#64748b', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Email Address</span>
+                                    <span style={{ fontSize: 16, fontWeight: 500, color: '#1e293b' }}>{userEmail}</span>
+                                </div>
+                                <button onClick={() => alert("Email cannot be changed directly.")} className="btn-icon"><Edit2 size={18} color="#64748b" /></button>
+                            </div>
+
+                            {/* Role Row (Read Only) */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <Shield size={18} color="#94a3b8" />
+                                <span style={{ fontSize: 14, fontWeight: 500, color: '#64748b', textTransform: 'capitalize' }}>{userRole} Account</span>
+                            </div>
                         </div>
 
-                        <hr style={{ border: 'none', borderTop: '1px solid #f1f5f9', margin: '4px 0' }} />
-
-                        <p style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0, fontSize: 13, fontWeight: 600, color: '#475569' }}>
-                            <Lock size={14} /> Change Password <span style={{ fontWeight: 400, color: '#94a3b8' }}>(leave blank to keep current)</span>
-                        </p>
-                        <input className="custom-input" type="password" placeholder="Current Password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
-                        <input className="custom-input" type="password" placeholder="New Password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
-                        <input className="custom-input" type="password" placeholder="Confirm New Password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
-
-                        <button type="submit" className="btn-primary" disabled={saving} style={{ opacity: saving ? 0.8 : 1, width: 'auto', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                            {saving ? 'Saving...' : <><Check size={15} /> Save Changes</>}
+                        {/* 3. Logout Button */}
+                        <button onClick={handleLogout} className="btn-secondary" style={{ width: '100%', justifyContent: 'center', color: '#ef4444', borderColor: '#fecaca', height: 46 }}>
+                            <LogOut size={18} /> Sign Out
                         </button>
-                    </form>
+                    </div>
                 </div>
             </div>
         </div>

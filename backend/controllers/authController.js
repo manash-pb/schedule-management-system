@@ -14,14 +14,16 @@ exports.googleCallback = async (req, res) => {
 
         const email = userInfo.data.email.toLowerCase();
         const name  = userInfo.data.name;
-
+        const picture = userInfo.data.picture; // Extracted correctly
+        
         const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
         let user = rows[0];
 
         // Admin used user login but already has tokens — log in as admin directly
         if (user && user.role === 'admin' && intendedRole !== 'admin') {
             if (user.google_tokens) {
-                return res.redirect(`http://localhost:5173/?login=success&role=admin&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`);
+                // 1. ADDED PICTURE TO REDIRECT
+                return res.redirect(`http://localhost:5173/?login=success&role=admin&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&picture=${encodeURIComponent(picture)}`);
             } else {
                 return res.redirect('/auth/google?role=admin');
             }
@@ -29,23 +31,29 @@ exports.googleCallback = async (req, res) => {
 
         if (user) {
             if (user.role === 'admin') {
-                await pool.execute('UPDATE users SET google_tokens = ? WHERE email = ?', [JSON.stringify(tokens), email]);
-                console.log(`✅ Updated admin tokens for: ${email}`);
+                // 2. SAVE PICTURE FOR EXISTING ADMIN
+                await pool.execute('UPDATE users SET google_tokens = ?, profile_picture = ? WHERE email = ?', [JSON.stringify(tokens), picture, email]);
+                console.log(`✅ Updated admin tokens and picture for: ${email}`);
+            } else {
+                // 3. SAVE PICTURE FOR EXISTING USER
+                await pool.execute('UPDATE users SET profile_picture = ? WHERE email = ?', [picture, email]);
             }
         } else {
+            // 4. INSERT PICTURE FOR NEW USER
             const tokenString = intendedRole === 'admin' ? JSON.stringify(tokens) : null;
             await pool.execute(
-                'INSERT INTO users (name, email, google_tokens, role) VALUES (?, ?, ?, ?)',
-                [name, email, tokenString, intendedRole]
+                'INSERT INTO users (name, email, google_tokens, role, profile_picture) VALUES (?, ?, ?, ?, ?)',
+                [name, email, tokenString, intendedRole, picture]
             );
             const [newRows] = await pool.execute('SELECT role FROM users WHERE email = ?', [email]);
             user = newRows[0];
         }
 
         const finalRole = user ? user.role : intendedRole;
-        const alreadyHadTokens = user && user.google_tokens;
         const redirectBase = 'http://localhost:5173/';
-        res.redirect(`${redirectBase}?login=success&role=${finalRole}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`);
+        
+        // 5. ADDED PICTURE TO FINAL REDIRECT
+        res.redirect(`${redirectBase}?login=success&role=${finalRole}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&picture=${encodeURIComponent(picture)}`);
 
     } catch (error) {
         console.error('Google auth error:', error);

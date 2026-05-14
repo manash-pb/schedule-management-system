@@ -24,41 +24,40 @@ const Login = () => {
     const userRole = urlParams.get('role');
     const userEmail = urlParams.get('email');
     const userName = urlParams.get('name');
+    const userPicture = urlParams.get('picture'); // 1. Grab the picture from the URL
 
     if (loginStatus === 'success' && userRole) {
       localStorage.setItem('isAdminLoggedIn', 'true');
       localStorage.setItem('userRole', userRole);
       if (userEmail) localStorage.setItem('userEmail', userEmail);
       if (userName) localStorage.setItem('userName', userName);
+      if (userPicture) localStorage.setItem('userPicture', userPicture);
 
       if (userRole === 'admin') {
-        navigate('/admin-dashboard', { replace: true });
+        window.location.href = '/admin-dashboard';
       } else {
-        navigate('/user-dashboard', { replace: true });
+        window.location.href = '/user-dashboard';
       }
     }
-  }, [navigate]);
+  }, []);
 
   const handleManualLogin = async (e) => {
     e.preventDefault();
     const endpoint = isSignUpMode ? '/api/auth/signup' : '/api/auth/manual';
-    
+
     // Force 'user' role for sign-ups. Otherwise, use the selected tab.
     const payloadRole = isSignUpMode ? 'user' : activeTab;
 
     try {
-      const res = await axios.post(endpoint, { 
+      const res = await axios.post(endpoint, {
         name: isSignUpMode ? manualName : undefined,
         email: manualEmail,
         password: manualPassword,
-        role: payloadRole 
+        role: payloadRole
       });
-      
+
       if (res.data.success) {
         const finalRole = res.data.role || payloadRole;
-
-        // Clear any stale session data from a previous login (e.g. old Google name)
-        localStorage.clear();
 
         localStorage.setItem('isAdminLoggedIn', 'true');
         localStorage.setItem('userRole', finalRole);
@@ -66,9 +65,9 @@ const Login = () => {
         localStorage.setItem('userName', res.data.name || manualName || 'User');
 
         if (finalRole === 'admin') {
-            navigate('/admin-dashboard', { replace: true });
+          window.location.href = '/admin-dashboard';
         } else {
-            navigate('/user-dashboard', { replace: true });
+          window.location.href = '/user-dashboard';
         }
       }
 
@@ -91,7 +90,7 @@ const Login = () => {
         </button>
       </div>
       <div className="login-container" style={{ background: 'var(--bg-card)', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '520px', width: '90%', border: '1px solid var(--border)' }}>
-        
+
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', color: '#2563eb' }}>
           <Calendar size={48} />
         </div>
@@ -99,7 +98,7 @@ const Login = () => {
         {/* --- ROLE TABS (Hidden during Sign Up) --- */}
         {!isSignUpMode && (
           <div className="tab-container">
-            <button 
+            <button
               type="button"
               className={`tab-btn ${activeTab === 'user' ? 'active' : ''}`}
               onClick={() => setActiveTab('user')}
@@ -107,7 +106,7 @@ const Login = () => {
             >
               <User size={18} /> User
             </button>
-            <button 
+            <button
               type="button"
               className={`tab-btn ${activeTab === 'admin' ? 'active' : ''}`}
               onClick={() => setActiveTab('admin')}
@@ -181,7 +180,7 @@ const Login = () => {
         <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0', color: '#94a3b8' }}>
           <hr style={{ flex: 1, borderColor: '#e2e8f0' }} /> <span style={{ padding: '0 10px', fontSize: '12px', fontWeight: '600' }}>OR</span> <hr style={{ flex: 1, borderColor: '#e2e8f0' }} />
         </div>
-        
+
         {/* Pass 'user' automatically if signing up, otherwise pass the active tab */}
         <a href={`http://localhost:3000/auth/google?role=${isSignUpMode ? 'user' : activeTab}`} className="btn-secondary" style={{ textDecoration: 'none', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', width: '100%', boxSizing: 'border-box' }}>
           <ExternalLink size={18} color="#2563eb" /> Sign In with Google

@@ -6,8 +6,9 @@ import gauhatiLogo from '../assets/logo1.png';
 const Layout = ({ children }) => {
   const role = localStorage.getItem('userRole') || 'user';
   const name = localStorage.getItem('userName') || 'Student';
+  const userPicture = localStorage.getItem('userPicture');
+
   const dashboardPath = role === 'admin' ? '/admin-dashboard' : '/user-dashboard';
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
   const navigate = useNavigate();
 
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
@@ -17,18 +18,10 @@ const Layout = ({ children }) => {
     localStorage.setItem('darkMode', darkMode);
   }, [darkMode]);
 
+  // Removed "Profile" from here so it doesn't appear as a text link in the middle
   const links = [
-    { to: dashboardPath, label: 'Dashboard' },
-    { to: '/profile', label: 'Profile' }
+    { to: dashboardPath, label: 'Dashboard' }
   ];
-
-  const handleLogout = () => {
-    localStorage.removeItem('isAdminLoggedIn');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userName');
-    navigate('/');
-  };
 
   return (
     <div className="app-shell">
@@ -54,19 +47,44 @@ const Layout = ({ children }) => {
             ))}
           </nav>
 
-          <div className="header-actions">
-            <button onClick={() => setDarkMode(d => !d)} className="btn-secondary theme-btn">
+          <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            {/* Theme Toggle */}
+            <button onClick={() => setDarkMode(d => !d)} className="btn-secondary theme-btn" style={{ padding: '8px' }}>
               <div className="relative w-4 h-4 flex items-center justify-center">
                 <Sun size={16} className={`absolute transition-all duration-500 ${!darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-0'}`} />
                 <Moon size={16} className={`absolute transition-all duration-500 ${darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 rotate-90 scale-0'}`} />
               </div>
             </button>
-            <div className="user-pill">
-              <span>{name}</span>
-              <span className="user-role">{role.toUpperCase()}</span>
-            </div>
-            <button type="button" className="logout-btn" onClick={handleLogout}>
-              Logout
+
+            {/* Profile Avatar Button (Replaces the old Logout button & User Pill) */}
+            <button
+              onClick={() => navigate('/profile')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                background: 'transparent', border: 'none', cursor: 'pointer', padding: 0
+              }}
+            >
+              {/* Name & Role text (Hidden on very small screens automatically if you use standard CSS) */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>{name}</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{role}</span>
+              </div>
+
+              {/* The Circular Avatar */}
+              <div style={{
+                background: '#2563eb', color: '#fff',
+                borderRadius: '50%', width: 38, height: 38,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 16, fontWeight: 'bold',
+                boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
+                overflow: 'hidden' // <-- Important to keep the image perfectly round
+              }}>
+                {userPicture ? (
+                  <img src={userPicture} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  name.charAt(0).toUpperCase()
+                )}
+              </div>
             </button>
           </div>
         </div>
