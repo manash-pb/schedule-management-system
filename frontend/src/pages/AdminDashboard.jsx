@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
 import Autocomplete from "react-google-autocomplete";
+import toast, { Toaster } from 'react-hot-toast';
 const CATEGORIES = ['General', 'Meeting', 'Workshop', 'Holiday', 'Training', 'Social'];
 const CATEGORY_COLORS = {
     General:  { bg: '#eff6ff', color: '#2563eb' },
@@ -36,6 +37,7 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange, showToast
     const [newAttendee, setNewAttendee] = useState({ name: '', email: '' });
     const [attendees, setAttendees] = useState(event.attendees || []);
     const [saving, setSaving] = useState(false);
+    const [removing, setRemoving] = useState(null);
     const [confirmRemoveEmail, setConfirmRemoveEmail] = useState(null);
 
     const handleAdd = async () => {
@@ -53,12 +55,14 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange, showToast
     };
 
     const handleRemove = async (email) => {
+        setRemoving(email);
         try {
             await axios.delete(`/api/events/${event.event_id}/attendees/${encodeURIComponent(email)}`);
             setAttendees(attendees.filter(a => a.email !== email));
             onAttendeesChange();
             showToast(`${email} removed from this event.`);
         } catch { showToast('Failed to remove attendee.', 'error'); }
+        finally { setRemoving(null); }
     };
 
     return (
@@ -97,7 +101,9 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange, showToast
                 <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
                     <input className="custom-input" style={{ flex: 1 }} placeholder="Name" value={newAttendee.name} onChange={e => setNewAttendee({ ...newAttendee, name: e.target.value })} />
                     <input className="custom-input" style={{ flex: 1 }} placeholder="Email" value={newAttendee.email} onChange={e => setNewAttendee({ ...newAttendee, email: e.target.value })} />
-                    <button className="btn-secondary" onClick={handleAdd} disabled={saving}><UserPlus size={16} /></button>
+                    <button className="btn-secondary" onClick={handleAdd} disabled={saving}>
+                        {saving ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg> : <UserPlus size={16} />}
+                    </button>
                 </div>
                 {attendees.length === 0 ? (
                     <p style={{ color: '#94a3b8', fontSize: 13 }}>No attendees added.</p>
@@ -115,7 +121,9 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange, showToast
                                     background: a.rsvp_status === 'accepted' ? '#dcfce7' : a.rsvp_status === 'declined' ? '#fee2e2' : '#f1f5f9',
                                     color: a.rsvp_status === 'accepted' ? '#16a34a' : a.rsvp_status === 'declined' ? '#dc2626' : '#94a3b8'
                                 }}>{a.rsvp_status || 'pending'}</span>
-                                <button onClick={() => setConfirmRemoveEmail(a.email)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', marginLeft: 4 }}><X size={14} /></button>
+                                <button onClick={() => setConfirmRemoveEmail(a.email)} disabled={removing === a.email} style={{ background: 'none', border: 'none', cursor: removing === a.email ? 'not-allowed' : 'pointer', color: '#ef4444', marginLeft: 4, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    {removing === a.email ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg> : <X size={14} />}
+                                </button>
                             </div>
                         ))}
                     </div>
@@ -397,8 +405,8 @@ const EditModal = ({ event, onClose, onSave, showToast }) => {
                     <textarea className="custom-input" placeholder="Description" style={{ minHeight: 80, resize: 'none' }} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
                     <Autocomplete 
                         apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY} 
-                        options={{ types: ['establishment', 'geocode'] }}
-                        onPlaceSelected={(place) => setForm({ ...form, venue: place.formatted_address || place.name })} 
+                        options={{ types: ['establishment', 'geocode'], fields: ['name', 'formatted_address'] }}
+                        onPlaceSelected={(place) => setForm({ ...form, venue: place.name ? `${place.name}, ${place.formatted_address || ''}`.replace(/, $/, '') : place.formatted_address })} 
                         className="custom-input" 
                         placeholder="Venue" 
                         value={form.venue} 
@@ -443,7 +451,6 @@ const AdminDashboard = () => {
     const [meetLoading, setMeetLoading] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-    const [toast, setToast] = useState(null);
     const [calendarConnected, setCalendarConnected] = useState(true);
     const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', start_time: '00:00', end_time: '00:00', category: 'General' });
     const [attendees, setAttendees] = useState([]);
@@ -569,8 +576,8 @@ const AdminDashboard = () => {
     };
 
     const showToast = (msg, type = 'success') => {
-        setToast({ msg, type });
-        setTimeout(() => setToast(null), 3000);
+        if (type === 'error') toast.error(msg);
+        else toast.success(msg);
     };
 
     const handleSubmit = async (e) => {
@@ -687,24 +694,7 @@ const AdminDashboard = () => {
                 />
             )}
 
-            {/* Toast notification */}
-            {toast && (
-                <div style={{
-                    position: 'fixed', top: 32, left: 0, right: 0, margin: '0 auto', width: 'max-content', zIndex: 9999,
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    background: toast.type === 'error' ? '#fef2f2' : '#f0fdf4',
-                    border: `1.5px solid ${toast.type === 'error' ? '#fca5a5' : '#86efac'}`,
-                    color: toast.type === 'error' ? '#dc2626' : '#16a34a',
-                    padding: '18px 36px', borderRadius: 16,
-                    fontWeight: 700, fontSize: 18,
-                    boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
-                    animation: 'slideIn 0.25s ease',
-                    whiteSpace: 'nowrap'
-                }}>
-                    <span style={{ fontSize: 22 }}>{toast.type === 'error' ? '✕' : '✓'}</span>
-                    {toast.msg}
-                </div>
-            )}
+            <Toaster position="top-center" toastOptions={{ duration: 3000, style: { fontWeight: 600, fontSize: 14, borderRadius: 12, padding: '12px 18px' } }} />
             <div className="dashboard-wrapper">
 
                 {!calendarConnected && (
@@ -732,8 +722,8 @@ const AdminDashboard = () => {
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                     <Autocomplete 
                                         apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY} 
-                                        options={{ types: ['establishment', 'geocode'] }}
-                                        onPlaceSelected={(place) => setFormData({ ...formData, venue: place.formatted_address || place.name })} 
+                                        options={{ types: ['establishment', 'geocode'], fields: ['name', 'formatted_address'] }}
+                                        onPlaceSelected={(place) => setFormData({ ...formData, venue: place.name ? `${place.name}, ${place.formatted_address || ''}`.replace(/, $/, '') : place.formatted_address })} 
                                         type="text" 
                                         placeholder="Venue" 
                                         className="custom-input" 
