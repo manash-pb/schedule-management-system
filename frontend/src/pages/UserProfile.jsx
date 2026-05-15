@@ -72,6 +72,7 @@ const UserProfile = () => {
         localStorage.removeItem('userEmail');
         localStorage.removeItem('userName');
         localStorage.removeItem('userPicture');
+        localStorage.removeItem('authToken');
         window.location.href = '/';
     };
 

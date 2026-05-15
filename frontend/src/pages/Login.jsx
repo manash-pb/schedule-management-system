@@ -24,7 +24,8 @@ const Login = () => {
     const userRole = urlParams.get('role');
     const userEmail = urlParams.get('email');
     const userName = urlParams.get('name');
-    const userPicture = urlParams.get('picture'); // 1. Grab the picture from the URL
+    const userPicture = urlParams.get('picture');
+    const urlToken = urlParams.get('token');
 
     if (loginStatus === 'success' && userRole) {
       localStorage.setItem('isAdminLoggedIn', 'true');
@@ -32,6 +33,10 @@ const Login = () => {
       if (userEmail) localStorage.setItem('userEmail', userEmail);
       if (userName) localStorage.setItem('userName', userName);
       if (userPicture) localStorage.setItem('userPicture', userPicture);
+      if (urlToken) {
+        localStorage.setItem('authToken', urlToken);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${urlToken}`;
+      }
 
       if (userRole === 'admin') {
         window.location.href = '/admin-dashboard';
@@ -63,6 +68,8 @@ const Login = () => {
         localStorage.setItem('userRole', finalRole);
         localStorage.setItem('userEmail', res.data.email || manualEmail);
         localStorage.setItem('userName', res.data.name || manualName || 'User');
+        if (res.data.token) localStorage.setItem('authToken', res.data.token);
+        if (res.data.profile_picture) localStorage.setItem('userPicture', res.data.profile_picture);
 
         // --- NEW: Handle Profile Picture cleanly ---
         if (res.data.profile_picture && res.data.profile_picture !== 'null' && res.data.profile_picture !== 'undefined') {

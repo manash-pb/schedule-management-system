@@ -2,6 +2,7 @@ const pool = require('../db');
 const { oauth2Client, generateMeetLink } = require('../googleCalendar');
 const { google } = require('googleapis');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const SALT_ROUNDS = 10;
@@ -71,15 +72,20 @@ exports.googleCallback = async (req, res) => {
         }
 
         const finalRole = user ? user.role : intendedRole;
+
+        const googleToken = jwt.sign(
+            { email, role: finalRole },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
         const redirectBase = 'http://localhost:5173/';
         
-        // --- PREVENT THE GOOGLE '0' PLACEHOLDER ---
-        // If the final picture is the generic Google silhouette, send null so React shows your blue initial ring
         if (finalPicture === 'https://lh3.googleusercontent.com/a/default-user' || finalPicture?.endsWith('/picture/0')) {
             finalPicture = 'null';
         }
 
-        res.redirect(`${redirectBase}?login=success&role=${finalRole}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&picture=${encodeURIComponent(finalPicture)}`);
+        res.redirect(`${redirectBase}?login=success&role=${finalRole}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&picture=${encodeURIComponent(finalPicture)}&token=${googleToken}`);
 
     } catch (error) {
         console.error('Google auth error:', error);
@@ -121,18 +127,16 @@ exports.manualLogin = async (req, res) => {
         const match = await bcrypt.compare(password, user.password);
         if (!match) return res.status(401).json({ success: false, message: 'Invalid email or password' });
 
-        // --- NEW: SANITIZE GOOGLE PLACEHOLDER ---
         const googleDefault = 'https://lh3.googleusercontent.com/a/ACg8ocJRX7drijwDmOsxeFUZUUZUyqf9EIDS6vUzkGM_DjKOOfjkCQ=s96-c';
         const cleanPic = (user.profile_picture === googleDefault) ? null : user.profile_picture;
-        // ----------------------------------------
 
-        res.json({ 
-            success: true, 
-            role: user.role, 
-            name: user.name, 
-            email: user.email,
-            profile_picture: cleanPic // Use the sanitized variable here
-        });
+        const token = jwt.sign(
+            { email: user.email, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        res.json({ success: true, role: user.role, name: user.name, email: user.email, profile_picture: cleanPic, token });
         
     } catch (error) {
         console.error('Login error:', error);
