@@ -4,24 +4,33 @@ import { Sun, Moon } from 'lucide-react';
 import gauhatiLogo from '../assets/logo1.png';
 
 const Layout = ({ children }) => {
-  const role = localStorage.getItem('userRole') || 'user';
-  const name = localStorage.getItem('userName') || 'Student';
-  const userPicture = localStorage.getItem('userPicture');
-
-  const dashboardPath = role === 'admin' ? '/admin-dashboard' : '/user-dashboard';
   const navigate = useNavigate();
+  const role = localStorage.getItem('userRole') || 'user';
 
+  // --- 1. SET UP REACTIVE STATE ---
+  const [userName, setUserName] = useState(localStorage.getItem('userName') || 'Student');
+  const [userPic, setUserPic] = useState(localStorage.getItem('userPicture'));
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
+
+  // --- 2. LISTEN FOR BROADCASTS ---
+  useEffect(() => {
+    const syncProfileData = () => {
+      // This runs whenever UserProfile calls window.dispatchEvent(new Event("storage"))
+      setUserName(localStorage.getItem('userName') || 'Student');
+      setUserPic(localStorage.getItem('userPicture'));
+    };
+
+    window.addEventListener('storage', syncProfileData);
+    return () => window.removeEventListener('storage', syncProfileData);
+  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
     localStorage.setItem('darkMode', darkMode);
   }, [darkMode]);
 
-  // Removed "Profile" from here so it doesn't appear as a text link in the middle
-  const links = [
-    { to: dashboardPath, label: 'Dashboard' }
-  ];
+  const dashboardPath = role === 'admin' ? '/admin-dashboard' : '/user-dashboard';
+  const links = [{ to: dashboardPath, label: 'Dashboard' }];
 
   return (
     <div className="app-shell">
@@ -48,7 +57,6 @@ const Layout = ({ children }) => {
           </nav>
 
           <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            {/* Theme Toggle */}
             <button onClick={() => setDarkMode(d => !d)} className="btn-secondary theme-btn" style={{ padding: '8px' }}>
               <div className="relative w-4 h-4 flex items-center justify-center">
                 <Sun size={16} className={`absolute transition-all duration-500 ${!darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-0'}`} />
@@ -56,7 +64,6 @@ const Layout = ({ children }) => {
               </div>
             </button>
 
-            {/* Profile Avatar Button (Replaces the old Logout button & User Pill) */}
             <button
               onClick={() => navigate('/profile')}
               style={{
@@ -64,13 +71,12 @@ const Layout = ({ children }) => {
                 background: 'transparent', border: 'none', cursor: 'pointer', padding: 0
               }}
             >
-              {/* Name & Role text (Hidden on very small screens automatically if you use standard CSS) */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                <span style={{ fontSize: '14px', fontWeight: 600, color: '#ffffff' }}>{name}</span>
+                {/* 3. USE STATE VARIABLES INSTEAD OF CONSTANTS */}
+                <span style={{ fontSize: '14px', fontWeight: 600, color: '#ffffff' }}>{userName}</span>
                 <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.7)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{role}</span>
               </div>
 
-              {/* The Circular Avatar */}
               <div style={{
                 background: '#2563eb', color: '#fff',
                 borderRadius: '50%', width: 38, height: 38,
@@ -79,10 +85,11 @@ const Layout = ({ children }) => {
                 boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
                 overflow: 'hidden'
               }}>
-                {userPicture && userPicture !== 'null' && userPicture !== 'undefined' ? (
-                  <img src={userPicture} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {/* 4. UPDATED IMAGE LOGIC */}
+                {userPic && userPic !== 'null' && userPic !== 'undefined' ? (
+                  <img src={userPic} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                  name.charAt(0).toUpperCase()
+                  userName.charAt(0).toUpperCase()
                 )}
               </div>
             </button>

@@ -76,12 +76,14 @@ const UserProfile = () => {
             const res = await axios.post('/api/users/delete-pic', { email: userEmail });
             if (res.data.success) {
                 localStorage.removeItem('userPicture');
+
+                window.dispatchEvent(new Event("storage"));
+
                 setUserPic(null);
                 setShowPicOptions(false);
                 setShowDeleteConfirm(false);
                 setImage(null);
                 toast.success('Profile picture removed');
-                setTimeout(() => window.location.reload(), 500);
             } else {
                 toast.error(res.data.message || 'Could not delete image');
             }
@@ -110,12 +112,21 @@ const UserProfile = () => {
             const res = await axios.post('/api/users/upload-pic', formData);
 
             const newUrl = res.data.imageUrl;
-            setUserPic(newUrl);
+
+            // 1. Update the local storage
             localStorage.setItem('userPicture', newUrl);
-            setImage(null); // Close the cropper
+
+            // 2. SHOUT to the Layout.jsx that things have changed
+            window.dispatchEvent(new Event("storage"));
+
+            // 3. Update the local state to show the change in UserProfile
+            setUserPic(newUrl);
+            setImage(null); // Close the cropper modal
             toast.success('Profile updated!', { id: toastId });
 
-            setTimeout(() => window.location.reload(), 800);
+            // --- REMOVED: window.location.reload() ---
+            // We don't need the refresh anymore!
+
         } catch (e) {
             console.error(e);
             toast.error('Upload failed', { id: toastId });
