@@ -90,6 +90,36 @@ app.post('/api/users/upload-pic', upload.single('profilePic'), async (req, res) 
     }
 });
 
+app.post('/api/users/delete-pic', async (req, res) => {
+    try {
+        const email = req.body.email;
+        if (!email) {
+            return res.status(400).json({ success: false, message: 'Email is required' });
+        }
+
+        const [rows] = await pool.execute('SELECT profile_picture FROM users WHERE email = ?', [email]);
+        const profilePicture = rows[0]?.profile_picture;
+
+        if (!profilePicture || profilePicture === 'null' || profilePicture === 'undefined') {
+            return res.status(400).json({ success: false, message: 'No profile picture to delete' });
+        }
+
+        if (profilePicture.includes('/uploads/')) {
+            const filename = profilePicture.split('/').pop();
+            const filePath = path.join(__dirname, 'uploads', filename);
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+        }
+
+        await pool.execute('UPDATE users SET profile_picture = NULL WHERE email = ?', [email]);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Delete profile pic error:', error);
+        res.status(500).json({ success: false, message: 'Failed to delete profile picture' });
+    }
+});
+
 // Mount routes
 app.use('/api/events', eventRoutes);
 app.use('/auth',       authRoutes);

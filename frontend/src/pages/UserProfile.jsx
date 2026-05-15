@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Shield, ArrowLeft, LogOut, Edit2, Camera, Check, X } from 'lucide-react';
-// 1. New Imports for Cropping
+import { Shield, ArrowLeft, LogOut, Edit2, Upload, Trash2, Check, X } from 'lucide-react';
 import Cropper from 'react-easy-crop';
-import { getCroppedImg } from '../utils/cropImage'; // Make sure you created this file!
+import { getCroppedImg } from '../utils/cropImage';
 
 const UserProfile = () => {
     const navigate = useNavigate();
@@ -13,10 +12,36 @@ const UserProfile = () => {
     const [userName, setUserName] = useState(localStorage.getItem('userName') || 'User');
     const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || 'Not provided');
     const [userPic, setUserPic] = useState(localStorage.getItem('userPicture'));
+    const [showPicOptions, setShowPicOptions] = useState(false);
+    const [isDarkMode, setIsDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const fileInputRef = useRef(null);
     const userRole = localStorage.getItem('userRole') || 'user';
 
     const [isEditingName, setIsEditingName] = useState(false);
     const [tempName, setTempName] = useState(userName);
+
+    const profileImageExists = userPic && userPic !== 'null' && userPic !== 'undefined';
+
+    // Watch for dark mode changes
+    useEffect(() => {
+        const observer = new MutationObserver(() => {
+            setIsDarkMode(document.documentElement.classList.contains('dark'));
+        });
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        return () => observer.disconnect();
+    }, []);
+
+    const menuBackground = isDarkMode ? '#1f2937' : '#ffffff';
+    const menuBorder = isDarkMode ? '1px solid #374151' : '1px solid #e2e8f0';
+    const menuTextColor = isDarkMode ? '#f8fafc' : '#111827';
+    const menuSubTextColor = isDarkMode ? '#9ca3af' : '#64748b';
+    const menuHeaderBg = isDarkMode ? '#111827' : '#f9fafb';
+    const menuHeaderBorder = isDarkMode ? '#1f2937' : '#f3f4f6';
+    const menuHoverBg = isDarkMode ? '#111827' : '#f8fafc';
+    const editIconBg = isDarkMode ? '#4b5563' : '#ffffff';
+    const editIconColor = isDarkMode ? '#e5e7eb' : '#2563eb';
+    const editIconBorder = isDarkMode ? '1px solid #6b7280' : '1px solid rgba(37,99,235,0.25)';
 
     // --- 2. New States for Cropping ---
     const [image, setImage] = useState(null);
@@ -37,6 +62,37 @@ const UserProfile = () => {
 
     const onCropComplete = (croppedArea, croppedAreaPixels) => {
         setCroppedAreaPixels(croppedAreaPixels);
+    };
+
+    const triggerFileSelect = () => {
+        setShowPicOptions(false);
+        if (fileInputRef.current) fileInputRef.current.click();
+    };
+
+    const handleDeleteImage = async () => {
+        if (!profileImageExists) return;
+
+        try {
+            const res = await axios.post('/api/users/delete-pic', { email: userEmail });
+            if (res.data.success) {
+                localStorage.removeItem('userPicture');
+                setUserPic(null);
+                setShowPicOptions(false);
+                setShowDeleteConfirm(false);
+                setImage(null);
+                toast.success('Profile picture removed');
+                setTimeout(() => window.location.reload(), 500);
+            } else {
+                toast.error(res.data.message || 'Could not delete image');
+            }
+        } catch (e) {
+            console.error('Delete profile pic error:', e);
+            toast.error('Delete failed');
+        }
+    };
+
+    const handleConfirmDelete = () => {
+        handleDeleteImage();
     };
 
     // Triggered when you click "Apply & Upload"
@@ -99,6 +155,19 @@ const UserProfile = () => {
                 </div>
 
                 <div className="form-container">
+                    {showPicOptions && (
+                        <div
+                            onClick={() => setShowPicOptions(false)}
+                            style={{
+                                position: 'fixed',
+                                inset: 0,
+                                backdropFilter: 'blur(6px)',
+                                WebkitBackdropFilter: 'blur(6px)',
+                                backgroundColor: 'rgba(255,255,255,0.35)',
+                                zIndex: 10,
+                            }}
+                        />
+                    )}
                     <div style={{ maxWidth: 450, margin: '0 auto' }}>
 
                         {/* 1. Avatar Section */}
@@ -120,8 +189,8 @@ const UserProfile = () => {
                                     style={{
                                         width: '100%', height: '100%',
                                         borderRadius: '50%',
-                                        backgroundColor: 'var(--bg-muted)',
-                                        color: '#2563eb',
+                                        backgroundColor: '#2563eb',
+                                        color: '#ffffff',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         fontSize: 36, fontWeight: 'bold',
                                         border: '1.5px solid var(--bg-card)',
@@ -133,27 +202,104 @@ const UserProfile = () => {
                             )}
 
                             {/* Avatar Edit Icon */}
-                            <label
-                                style={{
-                                    position: 'absolute',
-                                    bottom: -2, right: -4,
-                                    background: '#2563eb',
-                                    color: '#ffffff',
-                                    padding: '5px',
-                                    borderRadius: '50%',
-                                    cursor: 'pointer',
-                                    border: '2px solid var(--bg-card)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-                                    transition: 'transform 0.2s ease'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.15)'}
-                                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                            >
-                                <Camera size={14} />
-                                {/* Change handleImageUpload to onFileChange here */}
-                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={onFileChange} />
-                            </label>
+                            <div style={{ position: 'absolute', bottom: -10, right: -10, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', zIndex: 40 }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPicOptions(prev => !prev)}
+                                    style={{
+                                        background: editIconBg,
+                                        color: editIconColor,
+                                        width: 34,
+                                        height: 34,
+                                        borderRadius: '50%',
+                                        cursor: 'pointer',
+                                        border: editIconBorder,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        boxShadow: '0 6px 16px rgba(15, 23, 42, 0.12)',
+                                        transition: 'transform 0.2s ease',
+                                        zIndex: 40,
+                                        outline: 'none',
+                                        WebkitAppearance: 'none',
+                                        appearance: 'none'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                >
+                                    <Edit2 size={16} />
+                                </button>
+                                {showPicOptions && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: 44,
+                                        right: 0,
+                                        width: 190,
+                                        background: menuBackground,
+                                        border: menuBorder,
+                                        borderRadius: 18,
+                                        boxShadow: '0 20px 50px rgba(15, 23, 42, 0.18)',
+                                        overflow: 'hidden',
+                                        zIndex: 30
+                                    }}>
+                                        <div style={{ padding: '12px 14px', borderBottom: `1px solid ${menuHeaderBorder}`, background: menuHeaderBg }}>
+                                            <span style={{ fontSize: 13, fontWeight: 700, color: menuTextColor }}>Edit profile image</span>
+                                            <p style={{ margin: '6px 0 0', fontSize: 12, color: menuSubTextColor }}>Upload or remove your current photo</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={triggerFileSelect}
+                                            style={{
+                                                width: '100%',
+                                                padding: '12px 14px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 10,
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: menuTextColor,
+                                                cursor: 'pointer',
+                                                fontWeight: 600,
+                                                transition: 'background 0.2s ease'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.background = menuHoverBg}
+                                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            <Upload size={16} color={editIconColor} />
+                                            Upload image
+                                        </button>
+                                        {profileImageExists && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowDeleteConfirm(true)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '12px 14px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 10,
+                                                    background: 'transparent',
+                                                    border: 'none',
+                                                    color: '#f87171',
+                                                    cursor: 'pointer',
+                                                    fontWeight: 600,
+                                                    transition: 'background 0.2s ease'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.background = isDarkMode ? 'rgba(248,113,113,0.15)' : 'rgba(254,226,226,0.6)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                            >
+                                                <Trash2 size={16} color="#f87171" />
+                                                Delete current image
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    style={{ display: 'none' }}
+                                    onChange={onFileChange}
+                                />
+                            </div>
                         </div>
 
                         {/* 2. Details Modal/Card */}
@@ -248,6 +394,24 @@ const UserProfile = () => {
                         <div style={{ display: 'flex', gap: 12 }}>
                             <button onClick={() => setImage(null)} className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>Cancel</button>
                             <button onClick={handleFinalUpload} className="btn-primary" style={{ flex: 1, marginTop: 0 }}>Apply & Upload</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* --- DELETE CONFIRMATION MODAL --- */}
+            {showDeleteConfirm && (
+                <div className="modal-overlay" style={{ zIndex: 3000 }}>
+                    <div className="modal-card" style={{ maxWidth: 400, height: 'fit-content' }}>
+                        <div style={{ padding: '24px', textAlign: 'center' }}>
+                            <div style={{ marginBottom: '16px' }}>
+                                <Trash2 size={48} color="#ef4444" style={{ margin: '0 auto' }} />
+                            </div>
+                            <h3 style={{ margin: '16px 0 8px', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>Delete profile picture?</h3>
+                            <p style={{ margin: '8px 0 24px', fontSize: 14, color: 'var(--text-muted)' }}>This action cannot be undone. Your profile will display your initial instead.</p>
+                            <div style={{ display: 'flex', gap: 12 }}>
+                                <button onClick={() => setShowDeleteConfirm(false)} className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>Cancel</button>
+                                <button onClick={handleConfirmDelete} className="btn-secondary" style={{ flex: 1, justifyContent: 'center', backgroundColor: '#ef4444', color: '#ffffff', borderColor: '#dc2626', marginTop: 0 }}>Delete</button>
+                            </div>
                         </div>
                     </div>
                 </div>
