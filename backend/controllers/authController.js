@@ -79,13 +79,20 @@ exports.googleCallback = async (req, res) => {
             { expiresIn: '7d' }
         );
 
+        res.cookie('authToken', googleToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+
         const redirectBase = 'http://localhost:5173/';
-        
+
         if (finalPicture === 'https://lh3.googleusercontent.com/a/default-user' || finalPicture?.endsWith('/picture/0')) {
             finalPicture = 'null';
         }
 
-        res.redirect(`${redirectBase}?login=success&role=${finalRole}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&picture=${encodeURIComponent(finalPicture)}&token=${googleToken}`);
+        res.redirect(`${redirectBase}?login=success&role=${finalRole}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&picture=${encodeURIComponent(finalPicture)}`);
 
     } catch (error) {
         console.error('Google auth error:', error);
@@ -136,7 +143,14 @@ exports.manualLogin = async (req, res) => {
             { expiresIn: '7d' }
         );
 
-        res.json({ success: true, role: user.role, name: user.name, email: user.email, profile_picture: cleanPic, token });
+        res.cookie('authToken', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+
+        res.json({ success: true, role: user.role, name: user.name, email: user.email, profile_picture: cleanPic });
         
     } catch (error) {
         console.error('Login error:', error);
@@ -198,6 +212,15 @@ exports.updateProfile = async (req, res) => {
         console.error('Profile update error:', error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
+};
+
+exports.logout = (req, res) => {
+    res.clearCookie('authToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+    });
+    res.json({ success: true });
 };
 
 exports.checkCalendar = async (req, res) => {

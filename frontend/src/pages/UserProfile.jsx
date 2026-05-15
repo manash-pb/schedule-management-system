@@ -66,7 +66,8 @@ const UserProfile = () => {
         }
     };
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        try { await axios.post('/api/auth/logout'); } catch { /* cookie cleared regardless */ }
         localStorage.removeItem('isAdminLoggedIn');
         localStorage.removeItem('userRole');
         localStorage.removeItem('userEmail');
@@ -169,7 +170,7 @@ const UserProfile = () => {
                                             <button onClick={() => setIsEditingName(false)} className="btn-icon" style={{ color: '#ef4444', background: '#fee2e2' }}><X size={18} /></button>
                                         </div>
                                     ) : (
-                                        <span style={{ fontSize: 16, fontWeight: 500, color: '#1e293b' }}>{userName}</span>
+                                        <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--text-primary)' }}>{userName}</span>
                                     )}
                                 </div>
                                 {!isEditingName && (
@@ -181,7 +182,7 @@ const UserProfile = () => {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #e2e8f0' }}>
                                 <div>
                                     <span style={{ display: 'block', fontSize: 12, color: '#64748b', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Email Address</span>
-                                    <span style={{ fontSize: 16, fontWeight: 500, color: '#1e293b' }}>{userEmail}</span>
+                                    <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--text-primary)' }}>{userEmail}</span>
                                 </div>
                             </div>
 
