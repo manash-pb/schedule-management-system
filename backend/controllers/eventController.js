@@ -112,12 +112,22 @@ exports.getEvents = async (req, res) => {
             JOIN Attendees a ON ea.attendee_id = a.attendee_id
         `);
 
-        const result = events.map(event => ({
-            ...event,
-            attendees: role === 'admin'
-                ? attendees.filter(a => a.event_id === event.event_id).map(a => ({ name: a.name, email: a.email, rsvp_status: a.rsvp_status }))
-                : attendees.filter(a => a.event_id === event.event_id && a.email === email).map(a => ({ rsvp_status: a.rsvp_status })),
-        }));
+        // Pre-group attendees by event_id for O(1) lookup
+        const attendeeMap = {};
+        for (const a of attendees) {
+            if (!attendeeMap[a.event_id]) attendeeMap[a.event_id] = [];
+            attendeeMap[a.event_id].push(a);
+        }
+
+        const result = events.map(event => {
+            const eventAttendees = attendeeMap[event.event_id] || [];
+            return {
+                ...event,
+                attendees: role === 'admin'
+                    ? eventAttendees.map(a => ({ name: a.name, email: a.email, rsvp_status: a.rsvp_status }))
+                    : eventAttendees.filter(a => a.email === email).map(a => ({ rsvp_status: a.rsvp_status })),
+            };
+        });
 
         res.status(200).json(result);
     } catch (error) {

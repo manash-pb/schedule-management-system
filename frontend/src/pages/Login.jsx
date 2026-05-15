@@ -25,10 +25,12 @@ const Login = () => {
     const userEmail = urlParams.get('email');
     const userName = urlParams.get('name');
     const userPicture = urlParams.get('picture');
+    const token = urlParams.get('token');
 
     if (loginStatus === 'success' && userRole) {
       localStorage.setItem('isAdminLoggedIn', 'true');
       localStorage.setItem('userRole', userRole);
+      if (token) localStorage.setItem('token', token);
       if (userEmail) localStorage.setItem('userEmail', userEmail);
       if (userName) localStorage.setItem('userName', userName);
       if (userPicture) localStorage.setItem('userPicture', userPicture);
@@ -61,6 +63,7 @@ const Login = () => {
 
         localStorage.setItem('isAdminLoggedIn', 'true');
         localStorage.setItem('userRole', finalRole);
+        if (res.data.token) localStorage.setItem('token', res.data.token);
         localStorage.setItem('userEmail', res.data.email || manualEmail);
         localStorage.setItem('userName', res.data.name || manualName || 'User');
         if (res.data.profile_picture) localStorage.setItem('userPicture', res.data.profile_picture);
@@ -190,7 +193,7 @@ const Login = () => {
         </div>
 
         {/* Pass 'user' automatically if signing up, otherwise pass the active tab */}
-        <a href={`http://localhost:3000/auth/google?role=${isSignUpMode ? 'user' : activeTab}`} className="btn-secondary" style={{ textDecoration: 'none', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', width: '100%', boxSizing: 'border-box' }}>
+        <a href={`/auth/google?role=${isSignUpMode ? 'user' : activeTab}`} className="btn-secondary" style={{ textDecoration: 'none', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', width: '100%', boxSizing: 'border-box' }}>
           <ExternalLink size={18} color="#2563eb" /> Sign In with Google
         </a>
       </div>

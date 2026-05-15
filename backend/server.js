@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const cookieParser = require('cookie-parser');
 const pool = require('./db');
 const { startCronJobs } = require('./cronJobs');
@@ -18,6 +19,7 @@ app.use(cors({
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
     credentials: true,
 }));
+app.use(compression());
 app.use(express.json());
 app.use(cookieParser());
 

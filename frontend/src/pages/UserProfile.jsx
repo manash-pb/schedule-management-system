@@ -141,6 +141,7 @@ const UserProfile = () => {
         localStorage.removeItem('userName');
         localStorage.removeItem('userPicture');
         localStorage.removeItem('authToken');
+        localStorage.removeItem('token');
         window.location.href = '/';
     };
 

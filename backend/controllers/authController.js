@@ -6,11 +6,18 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const SALT_ROUNDS = 10;
+const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+};
 
 exports.googleCallback = async (req, res) => {
     try {
         const { tokens } = await oauth2Client.getToken(req.query.code);
-        const intendedRole = req.query.state || 'user';
+        const [intendedRole, rememberPref] = (req.query.state || 'user:0').split(':');
 
         oauth2Client.setCredentials(tokens);
         const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
@@ -38,7 +45,13 @@ exports.googleCallback = async (req, res) => {
             // Handle the redirect for Admin who used user login path
             if (user.role === 'admin' && intendedRole !== 'admin') {
                 if (user.google_tokens) {
-                    return res.redirect(`http://localhost:5173/?login=success&role=admin&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&picture=${encodeURIComponent(finalPicture)}`);
+                    const earlyToken = jwt.sign(
+                        { email, role: 'admin' },
+                        process.env.JWT_SECRET,
+                        { expiresIn: '7d' }
+                    );
+                    res.cookie('authToken', earlyToken, cookieOptions);
+                    return res.redirect(`http://localhost:5173/?login=success&role=admin&token=${earlyToken}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&picture=${encodeURIComponent(finalPicture)}`);
                 } else {
                     return res.redirect('/auth/google?role=admin');
                 }
@@ -79,12 +92,7 @@ exports.googleCallback = async (req, res) => {
             { expiresIn: '7d' }
         );
 
-        res.cookie('authToken', googleToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
+        res.cookie('authToken', googleToken, cookieOptions);
 
         const redirectBase = 'http://localhost:5173/';
 
@@ -92,7 +100,7 @@ exports.googleCallback = async (req, res) => {
             finalPicture = 'null';
         }
 
-        res.redirect(`${redirectBase}?login=success&role=${finalRole}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&picture=${encodeURIComponent(finalPicture)}`);
+        res.redirect(`${redirectBase}?login=success&role=${finalRole}&token=${googleToken}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&picture=${encodeURIComponent(finalPicture)}&remember=${rememberPref}`);
 
     } catch (error) {
         console.error('Google auth error:', error);
@@ -102,6 +110,7 @@ exports.googleCallback = async (req, res) => {
 
 exports.googleAuthRedirect = (req, res) => {
     const requestedRole = req.query.role || 'user';
+    const remember = req.query.remember === 'true' ? '1' : '0';
     const scopes = [
         'https://www.googleapis.com/auth/userinfo.profile',
         'https://www.googleapis.com/auth/userinfo.email',
@@ -112,7 +121,7 @@ exports.googleAuthRedirect = (req, res) => {
         access_type: 'offline',
         scope: scopes,
         prompt: 'consent',
-        state: requestedRole,
+        state: `${requestedRole}:${remember}`,
     });
     res.redirect(url);
 };
@@ -143,14 +152,9 @@ exports.manualLogin = async (req, res) => {
             { expiresIn: '7d' }
         );
 
-        res.cookie('authToken', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
+        res.cookie('authToken', token, cookieOptions);
 
-        res.json({ success: true, role: user.role, name: user.name, email: user.email, profile_picture: cleanPic });
+        res.json({ success: true, role: user.role, name: user.name, email: user.email, profile_picture: cleanPic, token });
         
     } catch (error) {
         console.error('Login error:', error);
@@ -175,13 +179,22 @@ exports.signup = async (req, res) => {
             [name, normalizedEmail, hashed, 'user']
         );
 
+        const token = jwt.sign(
+            { email: normalizedEmail, role: 'user' },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        res.cookie('authToken', token, cookieOptions);
+
         // --- UPDATED RESPONSE: Explicitly sending profile_picture: null ---
         res.json({ 
             success: true, 
             role: 'user', 
             name, 
             email: normalizedEmail,
-            profile_picture: null 
+            profile_picture: null,
+            token
         });
     } catch (error) {
         console.error('Signup error:', error);
@@ -216,9 +229,8 @@ exports.updateProfile = async (req, res) => {
 
 exports.logout = (req, res) => {
     res.clearCookie('authToken', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        ...cookieOptions,
+        maxAge: 0,
     });
     res.json({ success: true });
 };

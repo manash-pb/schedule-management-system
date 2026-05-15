@@ -1,9 +1,89 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
-import Autocomplete from "react-google-autocomplete";
 import toast, { Toaster } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 const CATEGORIES = ['General', 'Meeting', 'Workshop', 'Holiday', 'Training', 'Social'];
+
+let googleMapsScriptPromise = null;
+const loadGoogleMapsScript = (apiKey) => {
+    if (!apiKey) return Promise.reject(new Error('Google Maps API key is required'));
+    if (window.google && window.google.maps && window.google.maps.places) return Promise.resolve();
+    if (googleMapsScriptPromise) return googleMapsScriptPromise;
+
+    googleMapsScriptPromise = new Promise((resolve, reject) => {
+        const existingScript = document.querySelector('script[data-google-maps-script]');
+        if (existingScript) {
+            existingScript.addEventListener('load', resolve);
+            existingScript.addEventListener('error', () => reject(new Error('Google Maps script failed to load')));
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.setAttribute('data-google-maps-script', 'true');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&loading=async`;
+        script.async = true;
+        script.defer = true;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('Google Maps script failed to load'));
+        document.head.appendChild(script);
+    });
+
+    return googleMapsScriptPromise;
+};
+
+const PlaceAutocompleteInput = ({ apiKey, value, onChange, onPlaceSelected, placeholder, className, style, required }) => {
+    const inputRef = useRef(null);
+    const autocompleteRef = useRef(null);
+
+    useEffect(() => {
+        let mounted = true;
+        if (!apiKey) return;
+
+        loadGoogleMapsScript(apiKey)
+            .then(() => {
+                if (!mounted || !inputRef.current) return;
+                if (autocompleteRef.current) return;
+
+                const createAutocomplete = () => {
+                    const element = new window.google.maps.places.Autocomplete(inputRef.current, {
+                        types: ['establishment', 'geocode'],
+                        fields: ['name', 'formatted_address'],
+                    });
+
+                    element.addListener('place_changed', () => {
+                        const place = element.getPlace();
+                        if (place) onPlaceSelected(place);
+                    });
+
+                    autocompleteRef.current = element;
+                };
+
+                if (window.google && window.google.maps && window.google.maps.places) {
+                    createAutocomplete();
+                }
+            })
+            .catch((error) => {
+                console.error('Error loading Google Maps script:', error);
+            });
+
+        return () => {
+            mounted = false;
+        };
+    }, [apiKey, onPlaceSelected]);
+
+    return (
+        <input
+            ref={inputRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            className={className}
+            style={style}
+            required={required}
+        />
+    );
+};
 const CATEGORY_COLORS = {
     General:  { bg: '#eff6ff', color: '#2563eb' },
     Meeting:  { bg: '#fef3c7', color: '#d97706' },
@@ -22,7 +102,6 @@ const ClosedEyeIcon = ({ size = 20, color = 'currentColor' }) => (
     <line x1="16.5" y1="11.5" x2="17.5" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
-import { useNavigate } from 'react-router-dom';
 
 const formatTime = (timeStr) => {
     if (!timeStr) return "";
@@ -403,15 +482,14 @@ const EditModal = ({ event, onClose, onSave, showToast }) => {
                 <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 16 }}>
                     <input className="custom-input" placeholder="Event Title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required />
                     <textarea className="custom-input" placeholder="Description" style={{ minHeight: 80, resize: 'none' }} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
-                    <Autocomplete 
-                        apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY} 
-                        options={{ types: ['establishment', 'geocode'], fields: ['name', 'formatted_address'] }}
-                        onPlaceSelected={(place) => setForm({ ...form, venue: place.name ? `${place.name}, ${place.formatted_address || ''}`.replace(/, $/, '') : place.formatted_address })} 
-                        className="custom-input" 
-                        placeholder="Venue" 
-                        value={form.venue} 
-                        onChange={e => setForm({ ...form, venue: e.target.value })} 
-                        required 
+                    <PlaceAutocompleteInput
+                        apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+                        value={form.venue}
+                        onChange={(value) => setForm({ ...form, venue: value })}
+                        onPlaceSelected={(place) => setForm({ ...form, venue: place.name ? `${place.name}, ${place.formatted_address || ''}`.replace(/, $/, '') : place.formatted_address })}
+                        className="custom-input"
+                        placeholder="Venue"
+                        required
                     />
                     <input type="date" className="custom-input" value={form.event_date} onChange={e => setForm({ ...form, event_date: e.target.value })} required />
                     <select className="custom-input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
@@ -481,7 +559,7 @@ const AdminDashboard = () => {
 
     const fetchEvents = async () => {
         try {
-            const res = await axios.get('/api/events', { params: { role: 'admin' } });
+            const res = await axios.get('/api/events', { params: { role: 'admin' }, withCredentials: true });
             setEvents(res.data);
         } catch (e) { console.error(e); }
     };
@@ -703,7 +781,7 @@ const AdminDashboard = () => {
                             <AlertTriangle size={18} color="#b45309" />
                             <span>Google Calendar is not connected. Events won't sync.</span>
                         </div>
-                        <a href={`http://localhost:3000/auth/google?role=admin`} className="btn-connect-calendar">
+                        <a href="/auth/google?role=admin" className="btn-connect-calendar">
                             Connect Calendar
                         </a>
                     </div>
@@ -720,17 +798,15 @@ const AdminDashboard = () => {
                                 </div>
 
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                    <Autocomplete 
-                                        apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY} 
-                                        options={{ types: ['establishment', 'geocode'], fields: ['name', 'formatted_address'] }}
-                                        onPlaceSelected={(place) => setFormData({ ...formData, venue: place.name ? `${place.name}, ${place.formatted_address || ''}`.replace(/, $/, '') : place.formatted_address })} 
-                                        type="text" 
-                                        placeholder="Venue" 
-                                        className="custom-input" 
-                                        style={{ flex: 1, height: '42px', boxSizing: 'border-box' }} 
-                                        value={formData.venue} 
-                                        onChange={e => setFormData({ ...formData, venue: e.target.value })} 
-                                        required 
+                                    <PlaceAutocompleteInput
+                                        apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+                                        value={formData.venue}
+                                        onChange={(value) => setFormData({ ...formData, venue: value })}
+                                        onPlaceSelected={(place) => setFormData({ ...formData, venue: place.name ? `${place.name}, ${place.formatted_address || ''}`.replace(/, $/, '') : place.formatted_address })}
+                                        placeholder="Venue"
+                                        className="custom-input"
+                                        style={{ flex: 1, height: '42px', boxSizing: 'border-box' }}
+                                        required
                                     />
                                     <button type="button" onClick={async () => {
                                         if (!calendarConnected) { showToast('Connect Google Calendar first to generate a Meet link.', 'error'); return; }
