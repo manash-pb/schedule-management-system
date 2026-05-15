@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Shield, ArrowLeft, LogOut, Edit2, Upload, Trash2, Check, X } from 'lucide-react';
+import { Shield, ArrowLeft, LogOut, Edit2, Upload, Trash2, Check, X, Camera } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../utils/cropImage';
 
@@ -21,7 +21,7 @@ const UserProfile = () => {
     const [isEditingName, setIsEditingName] = useState(false);
     const [tempName, setTempName] = useState(userName);
 
-    const profileImageExists = userPic && userPic !== 'null' && userPic !== 'undefined';
+    const profileImageExists = userPic && userPic !== 'null' && userPic !== 'undefined' && userPic.includes('/uploads/');
 
     // Watch for dark mode changes
     useEffect(() => {
@@ -191,8 +191,8 @@ const UserProfile = () => {
                                         width: '100%', height: '100%',
                                         borderRadius: '50%',
                                         objectFit: 'cover',
-                                        border: '1.5px solid var(--bg-card)',
-                                        boxShadow: '0 0 0 1.5px #2563eb, 0 0 0 3px var(--bg-card), 0 4px 10px rgba(0, 0, 0, 0.12)'
+                                        border: `2.5px solid ${isDarkMode ? '#6b7280' : '#2563eb'}`,
+                                        boxShadow: '0 4px 10px rgba(0, 0, 0, 0.12)'
                                     }}
                                 />
                             ) : (
@@ -204,8 +204,8 @@ const UserProfile = () => {
                                         color: '#ffffff',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         fontSize: 36, fontWeight: 'bold',
-                                        border: '1.5px solid var(--bg-card)',
-                                        boxShadow: '0 0 0 1.5px #2563eb, 0 0 0 3px var(--bg-card), 0 4px 10px rgba(0, 0, 0, 0.12)'
+                                        border: `2.5px solid ${isDarkMode ? '#6b7280' : '#2563eb'}`,
+                                        boxShadow: '0 4px 10px rgba(0, 0, 0, 0.12)'
                                     }}
                                 >
                                     {userName.charAt(0).toUpperCase()}
@@ -216,15 +216,15 @@ const UserProfile = () => {
                             <div style={{ position: 'absolute', bottom: -10, right: -10, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', zIndex: 40 }}>
                                 <button
                                     type="button"
-                                    onClick={() => setShowPicOptions(prev => !prev)}
+                                    onClick={() => profileImageExists ? setShowPicOptions(prev => !prev) : triggerFileSelect()}
                                     style={{
-                                        background: editIconBg,
-                                        color: editIconColor,
+                                        background: isDarkMode ? '#4b5563' : '#2563eb',
+                                        color: isDarkMode ? '#e5e7eb' : '#ffffff',
                                         width: 34,
                                         height: 34,
                                         borderRadius: '50%',
                                         cursor: 'pointer',
-                                        border: editIconBorder,
+                                        border: isDarkMode ? '1px solid #6b7280' : '2px solid #2563eb',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         boxShadow: '0 6px 16px rgba(15, 23, 42, 0.12)',
                                         transition: 'transform 0.2s ease',
@@ -236,7 +236,7 @@ const UserProfile = () => {
                                     onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
                                     onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                                 >
-                                    <Edit2 size={16} />
+                                    {profileImageExists ? <Edit2 size={16} /> : <Camera size={16} />}
                                 </button>
                                 {showPicOptions && (
                                     <div style={{
@@ -251,10 +251,6 @@ const UserProfile = () => {
                                         overflow: 'hidden',
                                         zIndex: 30
                                     }}>
-                                        <div style={{ padding: '12px 14px', borderBottom: `1px solid ${menuHeaderBorder}`, background: menuHeaderBg }}>
-                                            <span style={{ fontSize: 13, fontWeight: 700, color: menuTextColor }}>Edit profile image</span>
-                                            <p style={{ margin: '6px 0 0', fontSize: 12, color: menuSubTextColor }}>Upload or remove your current photo</p>
-                                        </div>
                                         <button
                                             type="button"
                                             onClick={triggerFileSelect}
