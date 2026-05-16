@@ -2,22 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Sun, Moon } from 'lucide-react';
 import gauhatiLogo from '../assets/logo1.png';
+import { getAuthData } from '../utils/authStorage';
 
 const Layout = ({ children }) => {
   const navigate = useNavigate();
-  const role = localStorage.getItem('userRole') || 'user';
+  const role = getAuthData('userRole') || 'user';
 
   // --- 1. SET UP REACTIVE STATE ---
-  const [userName, setUserName] = useState(localStorage.getItem('userName') || 'Student');
-  const [userPic, setUserPic] = useState(localStorage.getItem('userPicture'));
+  const [userName, setUserName] = useState(getAuthData('userName') || 'Student');
+  const [userPic, setUserPic] = useState(getAuthData('userPicture'));
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
 
   // --- 2. LISTEN FOR BROADCASTS ---
   useEffect(() => {
     const syncProfileData = () => {
       // This runs whenever UserProfile calls window.dispatchEvent(new Event("storage"))
-      setUserName(localStorage.getItem('userName') || 'Student');
-      setUserPic(localStorage.getItem('userPicture'));
+      setUserName(getAuthData('userName') || 'Student');
+      setUserPic(getAuthData('userPicture'));
     };
 
     window.addEventListener('storage', syncProfileData);

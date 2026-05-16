@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Calendar, Clock, MapPin, X, Check, XCircle, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getAuthData } from '../utils/authStorage';
 
 const CATEGORIES = ['General', 'Meeting', 'Workshop', 'Holiday', 'Training', 'Social'];
 const CATEGORY_COLORS = {
@@ -126,9 +127,9 @@ const UserDashboard = () => {
     const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
     const navigate = useNavigate();
 
-    const userEmail = localStorage.getItem('userEmail');
-    const userRole = localStorage.getItem('userRole');
-    const userName = localStorage.getItem('userName') || 'User';
+    const userEmail = getAuthData('userEmail');
+    const userRole = getAuthData('userRole');
+    const userName = getAuthData('userName') || 'User';
 
     useEffect(() => {
         const observer = new MutationObserver((mutations) => {

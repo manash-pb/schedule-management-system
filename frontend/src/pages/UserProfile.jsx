@@ -5,18 +5,29 @@ import toast from 'react-hot-toast';
 import { Shield, ArrowLeft, LogOut, Edit2, Upload, Trash2, Check, X, Camera } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../utils/cropImage';
+import { getAuthData, clearAuthData } from '../utils/authStorage';
+
+const updateStorage = (key, value) => {
+    if (localStorage.getItem('isAdminLoggedIn')) localStorage.setItem(key, value);
+    else if (sessionStorage.getItem('isAdminLoggedIn')) sessionStorage.setItem(key, value);
+};
+
+const removeStorage = (key) => {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+};
 
 const UserProfile = () => {
     const navigate = useNavigate();
 
-    const [userName, setUserName] = useState(localStorage.getItem('userName') || 'User');
-    const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || 'Not provided');
-    const [userPic, setUserPic] = useState(localStorage.getItem('userPicture'));
+    const [userName, setUserName] = useState(getAuthData('userName') || 'User');
+    const [userEmail, setUserEmail] = useState(getAuthData('userEmail') || 'Not provided');
+    const [userPic, setUserPic] = useState(getAuthData('userPicture'));
     const [showPicOptions, setShowPicOptions] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const fileInputRef = useRef(null);
-    const userRole = localStorage.getItem('userRole') || 'user';
+    const userRole = getAuthData('userRole') || 'user';
 
     const [isEditingName, setIsEditingName] = useState(false);
     const [tempName, setTempName] = useState(userName);
@@ -75,7 +86,7 @@ const UserProfile = () => {
         try {
             const res = await axios.post('/api/users/delete-pic', { email: userEmail });
             if (res.data.success) {
-                localStorage.removeItem('userPicture');
+                removeStorage('userPicture');
 
                 window.dispatchEvent(new Event("storage"));
 
@@ -114,7 +125,7 @@ const UserProfile = () => {
             const newUrl = res.data.imageUrl;
 
             // 1. Update the local storage
-            localStorage.setItem('userPicture', newUrl);
+            updateStorage('userPicture', newUrl);
 
             // 2. SHOUT to the Layout.jsx that things have changed
             window.dispatchEvent(new Event("storage"));
@@ -135,13 +146,7 @@ const UserProfile = () => {
 
     const handleLogout = async () => {
         try { await axios.post('/api/auth/logout'); } catch { /* cookie cleared regardless */ }
-        localStorage.removeItem('isAdminLoggedIn');
-        localStorage.removeItem('userRole');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userName');
-        localStorage.removeItem('userPicture');
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('token');
+        clearAuthData();
         window.location.href = '/';
     };
 
@@ -152,7 +157,7 @@ const UserProfile = () => {
     const saveName = () => {
         setUserName(tempName);
         setIsEditingName(false);
-        localStorage.setItem('userName', tempName);
+        updateStorage('userName', tempName);
     };
 
     return (

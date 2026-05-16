@@ -11,7 +11,10 @@ const cookieOptions = {
     secure: process.env.NODE_ENV === 'production',
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     path: '/',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+};
+
+const getCookieOptions = (remember) => {
+    return remember ? { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 } : cookieOptions;
 };
 
 exports.googleCallback = async (req, res) => {
@@ -50,8 +53,8 @@ exports.googleCallback = async (req, res) => {
                         process.env.JWT_SECRET,
                         { expiresIn: '7d' }
                     );
-                    res.cookie('authToken', earlyToken, cookieOptions);
-                    return res.redirect(`http://localhost:5173/?login=success&role=admin&token=${earlyToken}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&picture=${encodeURIComponent(finalPicture)}`);
+                    res.cookie('authToken', earlyToken, getCookieOptions(rememberPref === '1'));
+                    return res.redirect(`http://localhost:5173/?login=success&role=admin&token=${earlyToken}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&picture=${encodeURIComponent(finalPicture)}&remember=${rememberPref}`);
                 } else {
                     return res.redirect('/auth/google?role=admin');
                 }
@@ -92,7 +95,7 @@ exports.googleCallback = async (req, res) => {
             { expiresIn: '7d' }
         );
 
-        res.cookie('authToken', googleToken, cookieOptions);
+        res.cookie('authToken', googleToken, getCookieOptions(rememberPref === '1'));
 
         const redirectBase = 'http://localhost:5173/';
 
@@ -127,7 +130,7 @@ exports.googleAuthRedirect = (req, res) => {
 };
 
 exports.manualLogin = async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password, rememberMe } = req.body;
     if (!email || !password) return res.status(400).json({ success: false, message: 'Email and password are required' });
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -152,7 +155,7 @@ exports.manualLogin = async (req, res) => {
             { expiresIn: '7d' }
         );
 
-        res.cookie('authToken', token, cookieOptions);
+        res.cookie('authToken', token, getCookieOptions(rememberMe));
 
         res.json({ success: true, role: user.role, name: user.name, email: user.email, profile_picture: cleanPic, token });
         
@@ -163,7 +166,7 @@ exports.manualLogin = async (req, res) => {
 };
 
 exports.signup = async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, password, rememberMe } = req.body;
     if (!name || !email || !password) return res.status(400).json({ success: false, message: 'All fields are required' });
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -185,7 +188,7 @@ exports.signup = async (req, res) => {
             { expiresIn: '7d' }
         );
 
-        res.cookie('authToken', token, cookieOptions);
+        res.cookie('authToken', token, getCookieOptions(rememberMe));
 
         // --- UPDATED RESPONSE: Explicitly sending profile_picture: null ---
         res.json({ 

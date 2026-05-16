@@ -2,7 +2,6 @@ const jwt = require('jsonwebtoken');
 
 exports.verifyToken = (req, res, next) => {
     const token = req.cookies?.authToken || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.split(' ')[1] : undefined);
-    console.log('Auth Middleware:', { cookieHeader: req.headers.cookie, cookies: req.cookies, authHeader: req.headers.authorization, token: token ? 'present' : 'undefined' });
     if (!token) return res.status(401).json({ error: 'Access denied. No token provided.' });
 
     try {

@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import { getAuthData } from '../utils/authStorage';
 const CATEGORIES = ['General', 'Meeting', 'Workshop', 'Holiday', 'Training', 'Social'];
 
 let googleMapsScriptPromise = null;
@@ -540,7 +541,7 @@ const AdminDashboard = () => {
     const [page, setPage] = useState(1);
     const PAGE_SIZE = 5;
     const navigate = useNavigate();
-    const adminEmail = localStorage.getItem('userEmail');
+    const adminEmail = getAuthData('userEmail');
     const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
 
     useEffect(() => {

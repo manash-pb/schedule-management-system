@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, ExternalLink, ShieldCheck, User, Sun, Moon, Eye, EyeOff } from 'lucide-react';
+import { setAuthData, getAuthData } from '../utils/authStorage';
 
 const Login = () => {
   const [activeTab, setActiveTab] = useState('user');
   const [isSignUpMode, setIsSignUpMode] = useState(false);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
@@ -19,6 +21,15 @@ const Login = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // If they are already logged in, redirect them
+    const loggedIn = getAuthData('isAdminLoggedIn') === 'true';
+    if (loggedIn) {
+      const role = getAuthData('userRole');
+      window.location.href = role === 'admin' ? '/admin-dashboard' : '/user-dashboard';
+    }
+  }, []);
+
+  useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const loginStatus = urlParams.get('login');
     const userRole = urlParams.get('role');
@@ -26,14 +37,17 @@ const Login = () => {
     const userName = urlParams.get('name');
     const userPicture = urlParams.get('picture');
     const token = urlParams.get('token');
+    const rememberPref = urlParams.get('remember') === '1';
 
     if (loginStatus === 'success' && userRole) {
-      localStorage.setItem('isAdminLoggedIn', 'true');
-      localStorage.setItem('userRole', userRole);
-      if (token) localStorage.setItem('token', token);
-      if (userEmail) localStorage.setItem('userEmail', userEmail);
-      if (userName) localStorage.setItem('userName', userName);
-      if (userPicture) localStorage.setItem('userPicture', userPicture);
+      setAuthData({
+        isAdminLoggedIn: 'true',
+        userRole,
+        token: token || undefined,
+        userEmail: userEmail || undefined,
+        userName: userName || undefined,
+        userPicture: (userPicture && userPicture !== 'null' && userPicture !== 'undefined') ? userPicture : undefined
+      }, rememberPref);
 
       if (userRole === 'admin') {
         window.location.href = '/admin-dashboard';
@@ -55,25 +69,24 @@ const Login = () => {
         name: isSignUpMode ? manualName : undefined,
         email: manualEmail,
         password: manualPassword,
-        role: payloadRole
+        role: payloadRole,
+        rememberMe
       });
 
       if (res.data.success) {
         const finalRole = res.data.role || payloadRole;
 
-        localStorage.setItem('isAdminLoggedIn', 'true');
-        localStorage.setItem('userRole', finalRole);
-        if (res.data.token) localStorage.setItem('token', res.data.token);
-        localStorage.setItem('userEmail', res.data.email || manualEmail);
-        localStorage.setItem('userName', res.data.name || manualName || 'User');
-        if (res.data.profile_picture) localStorage.setItem('userPicture', res.data.profile_picture);
+        const picture = res.data.profile_picture;
+        const cleanPicture = (picture && picture !== 'null' && picture !== 'undefined') ? picture : undefined;
 
-        // --- NEW: Handle Profile Picture cleanly ---
-        if (res.data.profile_picture && res.data.profile_picture !== 'null' && res.data.profile_picture !== 'undefined') {
-          localStorage.setItem('userPicture', res.data.profile_picture);
-        } else {
-          localStorage.removeItem('userPicture'); // Forces the first initial to display
-        }
+        setAuthData({
+          isAdminLoggedIn: 'true',
+          userRole: finalRole,
+          token: res.data.token || undefined,
+          userEmail: res.data.email || manualEmail,
+          userName: res.data.name || manualName || 'User',
+          userPicture: cleanPicture
+        }, rememberMe);
 
         if (finalRole === 'admin') {
           window.location.href = '/admin-dashboard';
@@ -173,6 +186,20 @@ const Login = () => {
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', paddingLeft: '5px' }}>
+            <input 
+              type="checkbox" 
+              id="rememberMe" 
+              checked={rememberMe} 
+              onChange={(e) => setRememberMe(e.target.checked)} 
+              style={{ marginRight: '8px', cursor: 'pointer' }}
+            />
+            <label htmlFor="rememberMe" style={{ fontSize: '14px', color: 'var(--text-primary)', cursor: 'pointer', userSelect: 'none' }}>
+              Remember Me
+            </label>
+          </div>
+
           <button type="submit" className="btn-primary" style={{ width: '100%' }}>
             {isSignUpMode ? 'Create Account' : 'Sign In'}
           </button>
@@ -193,7 +220,7 @@ const Login = () => {
         </div>
 
         {/* Pass 'user' automatically if signing up, otherwise pass the active tab */}
-        <a href={`/auth/google?role=${isSignUpMode ? 'user' : activeTab}`} className="btn-secondary" style={{ textDecoration: 'none', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', width: '100%', boxSizing: 'border-box' }}>
+        <a href={`/auth/google?role=${isSignUpMode ? 'user' : activeTab}&remember=${rememberMe}`} className="btn-secondary" style={{ textDecoration: 'none', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', width: '100%', boxSizing: 'border-box' }}>
           <ExternalLink size={18} color="#2563eb" /> Sign In with Google
         </a>
       </div>

@@ -5,12 +5,13 @@ import AdminDashboard from './AdminDashboard';
 import UserDashboard from './UserDashboard';
 import UserProfile from './UserProfile';
 import Layout from './Layout';
+import { getAuthData } from '../utils/authStorage';
 
 function App() {
   // --- THESE ARE THE MISSING FUNCTIONS ---
   // They check localStorage to see who is logged in before letting them view a page
-  const isAuthenticated = () => localStorage.getItem('isAdminLoggedIn') === 'true';
-  const isAdmin = () => localStorage.getItem('userRole') === 'admin';
+  const isAuthenticated = () => getAuthData('isAdminLoggedIn') === 'true';
+  const isAdmin = () => getAuthData('userRole') === 'admin';
   // ---------------------------------------
 
   return (
