@@ -1,9 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight, LayoutList, CalendarDays } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { getAuthData } from '../utils/authStorage';
+import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
+import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { enUS } from 'date-fns/locale';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
+
+const locales = { 'en-US': enUS };
+const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
+
+const toCalendarEvents = (events) => events.map(e => {
+    const date = e.event_date.slice(0, 10);
+    const [sH, sM] = e.start_time.split(':');
+    const [eH, eM] = e.end_time.split(':');
+    const start = new Date(date); start.setHours(+sH, +sM, 0, 0);
+    const end   = new Date(date); end.setHours(+eH, +eM, 0, 0);
+    return { title: e.title, start, end, resource: e };
+});
 const CATEGORIES = ['General', 'Meeting', 'Workshop', 'Holiday', 'Training', 'Social'];
 
 let googleMapsScriptPromise = null;
@@ -245,7 +261,7 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => (
                 {tab === 'past' ? 'Past' : tab === 'live' ? '🔴 Live' : 'Confirmed'}
             </span>
             {event.category && (
-                <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category]?.color || '#64748b' }}>
+                <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.color || '#64748b', textTransform: 'capitalize' }}>
                     {event.category}
                 </span>
             )}
@@ -519,6 +535,30 @@ const EditModal = ({ event, onClose, onSave, showToast }) => {
     );
 };
 
+const CustomCalendarToolbar = ({ label, onNavigate, onView, view }) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {view === 'day' && (
+                <button 
+                    onClick={() => onView('month')} 
+                    className="btn-icon" 
+                    style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s', marginRight: 4 }}
+                    title="Back to month view"
+                >
+                    <ChevronLeft size={16} />
+                </button>
+            )}
+            <button onClick={() => onNavigate('PREV')} className="btn-icon" style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s' }}>
+                <ChevronLeft size={16} />
+            </button>
+            <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', minWidth: 160, textAlign: 'center' }}>{label}</span>
+            <button onClick={() => onNavigate('NEXT')} className="btn-icon" style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s' }}>
+                <ChevronRight size={16} />
+            </button>
+        </div>
+    </div>
+);
+
 // ... then your Dashboard component starts below ...
 
 const AdminDashboard = () => {
@@ -542,7 +582,10 @@ const AdminDashboard = () => {
     const PAGE_SIZE = 5;
     const navigate = useNavigate();
     const adminEmail = getAuthData('userEmail');
-    const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
+    const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
+    const [viewMode, setViewMode] = useState('list');
+    const [calendarView, setCalendarView] = useState('month');
+    const [calendarDate, setCalendarDate] = useState(new Date());
 
     useEffect(() => {
         const observer = new MutationObserver((mutations) => {
@@ -723,6 +766,12 @@ const AdminDashboard = () => {
 
     return (
         <div className="dashboard-container">
+            <style>{`
+              .rbc-off-range-bg { background-color: #e5e7eb !important; }
+              html.dark .rbc-off-range-bg { background-color: #1a202c !important; }
+              html.dark .rbc-month-view .rbc-off-range-bg { background-color: #1a202c !important; }
+              html.dark .rbc-month-view .rbc-off-range { color: #9ca3af !important; opacity: 0.8 !important; }
+            `}</style>
             {previewEvent && <PreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} onDownload={handleDownload} onAttendeesChange={fetchEvents} showToast={showToast} />}
             {deleting && (
                 <div style={{
@@ -901,12 +950,21 @@ const AdminDashboard = () => {
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
                                 <h2 style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
                                     <Calendar size={24} color="#2563eb" />
-                                    {activeTab === 'upcoming' ? 'Upcoming Events' : activeTab === 'live' ? 'Live Events' : 'Past Events'}
+                                    Events
                                 </h2>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                    <button onClick={() => setActiveTab('upcoming')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'upcoming' ? { background: darkMode ? '#1e3a5f' : '#eff6ff', color: darkMode ? '#93c5fd' : '#2563eb', borderColor: darkMode ? '#3b82f6' : '#bfdbfe' } : {}) }}>Upcoming</button>
-                                    <button onClick={() => setActiveTab('live')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'live' ? { background: darkMode ? '#14532d' : '#dcfce7', color: darkMode ? '#86efac' : '#16a34a', borderColor: darkMode ? '#22c55e' : '#bbf7d0' } : { color: darkMode ? '#86efac' : '#16a34a', borderColor: darkMode ? '#22c55e' : '#bbf7d0' }) }}>Live</button>
-                                    <button onClick={() => setActiveTab('past')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'past' ? { background: darkMode ? '#1e293b' : '#f1f5f9', color: darkMode ? '#94a3b8' : '#475569', borderColor: darkMode ? '#475569' : '#cbd5e1' } : {}) }}>Past</button>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                    {/* View Mode Toggle */}
+                                    <div style={{ display: 'flex', borderRadius: 10, overflow: 'hidden', border: `1px solid ${darkMode ? '#30363d' : '#d0d7de'}` }}>
+                                        <button onClick={() => setViewMode('list')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, transition: 'all 0.2s', background: viewMode === 'list' ? (darkMode ? '#388bfd' : '#0969da') : (darkMode ? '#21262d' : '#f6f8fa'), color: viewMode === 'list' ? '#fff' : (darkMode ? '#8b949e' : '#656d76') }}>
+                                            <LayoutList size={15} /> List
+                                        </button>
+                                        <button onClick={() => setViewMode('calendar')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, transition: 'all 0.2s', background: viewMode === 'calendar' ? (darkMode ? '#388bfd' : '#0969da') : (darkMode ? '#21262d' : '#f6f8fa'), color: viewMode === 'calendar' ? '#fff' : (darkMode ? '#8b949e' : '#656d76') }}>
+                                            <CalendarDays size={15} /> Calendar
+                                        </button>
+                                    </div>
+                                    <button onClick={() => setActiveTab('upcoming')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'upcoming' ? { background: darkMode ? '#0d1f35' : '#eff6ff', color: darkMode ? '#93c5fd' : '#2563eb', borderColor: darkMode ? '#3b82f6' : '#bfdbfe' } : {}) }}>Upcoming</button>
+                                    <button onClick={() => setActiveTab('live')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'live' ? { background: darkMode ? '#081810' : '#dcfce7', color: darkMode ? '#86efac' : '#16a34a', borderColor: darkMode ? '#22c55e' : '#bbf7d0' } : { color: darkMode ? '#86efac' : '#16a34a', borderColor: darkMode ? '#22c55e' : '#bbf7d0' }) }}>Live</button>
+                                    <button onClick={() => setActiveTab('past')} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px', ...(activeTab === 'past' ? { background: darkMode ? '#0a0e1a' : '#f1f5f9', color: darkMode ? '#94a3b8' : '#475569', borderColor: darkMode ? '#475569' : '#cbd5e1' } : {}) }}>Past</button>
                                 </div>
                             </div>
 
@@ -932,63 +990,92 @@ const AdminDashboard = () => {
                                 )}
                             </div>
 
-                            {/* Event list */}
-                            <div className="schedule-list">
-                                {(() => {
-                                    const now = new Date();
-                                    const filtered = events.filter(e => {
-                                        const date = e.event_date.slice(0, 10);
-                                        const [sH, sM] = e.start_time.split(':');
-                                        const [eH, eM] = e.end_time.split(':');
-                                        const start = new Date(date); start.setHours(+sH, +sM, 0, 0);
-                                        const end   = new Date(date); end.setHours(+eH, +eM, 0, 0);
-                                        const tabMatch = activeTab === 'upcoming' ? now < start : activeTab === 'live' ? now >= start && now <= end : end < now;
-                                        const searchMatch = !search || e.title.toLowerCase().includes(search.toLowerCase()) || (e.venue || '').toLowerCase().includes(search.toLowerCase());
-                                        const dateMatch = !filterDate || date === filterDate;
-                                        const catMatch = !filterCategory || e.category === filterCategory;
-                                        return tabMatch && searchMatch && dateMatch && catMatch;
-                                    }).sort((a, b) => {
-                                        const dateA = a.event_date.slice(0, 10);
-                                        const [sHa, sMa] = a.start_time.split(':');
-                                        const [eHa, eMa] = a.end_time.split(':');
-                                        const startA = new Date(dateA); startA.setHours(+sHa, +sMa, 0, 0);
-                                        const endA = new Date(dateA); endA.setHours(+eHa, +eMa, 0, 0);
-
-                                        const dateB = b.event_date.slice(0, 10);
-                                        const [sHb, sMb] = b.start_time.split(':');
-                                        const [eHb, eMb] = b.end_time.split(':');
-                                        const startB = new Date(dateB); startB.setHours(+sHb, +sMb, 0, 0);
-                                        const endB = new Date(dateB); endB.setHours(+eHb, +eMb, 0, 0);
-
-                                        if (activeTab === 'upcoming') return startA - startB;
-                                        if (activeTab === 'live') return endA - endB;
-                                        return startB - startA;
-                                    });
-
-                                    if (filtered.length === 0)
-                                        return <div className="empty-state-card">No {activeTab} events found.</div>;
-
-                                    const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-                                    const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-                                    return (
-                                        <>
-                                            {paginated.map(item => (
-                                                <EventCard key={item.event_id} event={item} onDelete={activeTab !== 'live' ? handleDelete : null} onEdit={activeTab !== 'live' ? setEditEvent : null} onPreview={setPreviewEvent} tab={activeTab} darkMode={darkMode} />
-                                            ))}
-                                            {totalPages > 1 && (
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 }}>
-                                                    <button className="btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}><ChevronLeft size={16} /></button>
-                                                    {Array.from({ length: totalPages }, (_, i) => (
-                                                        <button key={i} className="btn-secondary" style={{ padding: '6px 12px', ...(page === i + 1 ? { background: '#eff6ff', color: '#2563eb', borderColor: '#bfdbfe' } : {}) }} onClick={() => setPage(i + 1)}>{i + 1}</button>
-                                                    ))}
-                                                    <button className="btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}><ChevronRight size={16} /></button>
-                                                </div>
-                                            )}
-                                        </>
-                                    );
-                                })()}
-                            </div>
+                            {/* Event list / Calendar */}
+                            {viewMode === 'calendar' ? (
+                                <div style={{ height: 600 }}>
+                                    <BigCalendar
+                                        localizer={localizer}
+                                        events={toCalendarEvents(events.filter(e => {
+                                            const date = e.event_date.slice(0, 10);
+                                            const [sH, sM] = e.start_time.split(':');
+                                            const [eH, eM] = e.end_time.split(':');
+                                            const start = new Date(date); start.setHours(+sH, +sM, 0, 0);
+                                            const end = new Date(date); end.setHours(+eH, +eM, 0, 0);
+                                            const now = new Date();
+                                            const tabMatch = activeTab === 'upcoming' ? now < start : activeTab === 'live' ? now >= start && now <= end : end < now;
+                                            const searchMatch = !search || e.title.toLowerCase().includes(search.toLowerCase()) || (e.venue || '').toLowerCase().includes(search.toLowerCase());
+                                            const dateMatch = !filterDate || date === filterDate;
+                                            const catMatch = !filterCategory || (e.category || 'General').toLowerCase() === filterCategory.toLowerCase();
+                                            return tabMatch && searchMatch && dateMatch && catMatch;
+                                        }))}
+                                        startAccessor="start"
+                                        endAccessor="end"
+                                        view={calendarView}
+                                        onView={setCalendarView}
+                                        date={calendarDate}
+                                        onNavigate={setCalendarDate}
+                                        onSelectEvent={(e) => setPreviewEvent(e.resource)}
+                                        eventPropGetter={(e) => {
+                                            const rawCat = e.resource?.category || 'General';
+                                            const cat = rawCat.charAt(0).toUpperCase() + rawCat.slice(1).toLowerCase();
+                                            const c = CATEGORY_COLORS[cat];
+                                            return { style: { backgroundColor: c?.color || '#2563eb', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600 } };
+                                        }}
+                                        components={{ toolbar: CustomCalendarToolbar }}
+                                        style={{ height: '100%' }}
+                                    />
+                                </div>
+                            ) : (
+                                <div className="schedule-list">
+                                    {(() => {
+                                        const now = new Date();
+                                        const filtered = events.filter(e => {
+                                            const date = e.event_date.slice(0, 10);
+                                            const [sH, sM] = e.start_time.split(':');
+                                            const [eH, eM] = e.end_time.split(':');
+                                            const start = new Date(date); start.setHours(+sH, +sM, 0, 0);
+                                            const end   = new Date(date); end.setHours(+eH, +eM, 0, 0);
+                                            const tabMatch = activeTab === 'upcoming' ? now < start : activeTab === 'live' ? now >= start && now <= end : end < now;
+                                            const searchMatch = !search || e.title.toLowerCase().includes(search.toLowerCase()) || (e.venue || '').toLowerCase().includes(search.toLowerCase());
+                                            const dateMatch = !filterDate || date === filterDate;
+                                            const catMatch = !filterCategory || (e.category || 'General').toLowerCase() === filterCategory.toLowerCase();
+                                            return tabMatch && searchMatch && dateMatch && catMatch;
+                                        }).sort((a, b) => {
+                                            const dateA = a.event_date.slice(0, 10);
+                                            const [sHa, sMa] = a.start_time.split(':');
+                                            const startA = new Date(dateA); startA.setHours(+sHa, +sMa, 0, 0);
+                                            const endA = new Date(dateA); endA.setHours(+a.end_time.split(':')[0], +a.end_time.split(':')[1], 0, 0);
+                                            const dateB = b.event_date.slice(0, 10);
+                                            const [sHb, sMb] = b.start_time.split(':');
+                                            const startB = new Date(dateB); startB.setHours(+sHb, +sMb, 0, 0);
+                                            const endB = new Date(dateB); endB.setHours(+b.end_time.split(':')[0], +b.end_time.split(':')[1], 0, 0);
+                                            if (activeTab === 'upcoming') return startA - startB;
+                                            if (activeTab === 'live') return endA - endB;
+                                            return startB - startA;
+                                        });
+                                        if (filtered.length === 0)
+                                            return <div className="empty-state-card">No {activeTab} events found.</div>;
+                                        const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+                                        const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+                                        return (
+                                            <>
+                                                {paginated.map(item => (
+                                                    <EventCard key={item.event_id} event={item} onDelete={activeTab !== 'live' ? handleDelete : null} onEdit={activeTab !== 'live' ? setEditEvent : null} onPreview={setPreviewEvent} tab={activeTab} darkMode={darkMode} />
+                                                ))}
+                                                {totalPages > 1 && (
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 }}>
+                                                        <button className="btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}><ChevronLeft size={16} /></button>
+                                                        {Array.from({ length: totalPages }, (_, i) => (
+                                                            <button key={i} className="btn-secondary" style={{ padding: '6px 12px', ...(page === i + 1 ? { background: '#eff6ff', color: '#2563eb', borderColor: '#bfdbfe' } : {}) }} onClick={() => setPage(i + 1)}>{i + 1}</button>
+                                                        ))}
+                                                        <button className="btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}><ChevronRight size={16} /></button>
+                                                    </div>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

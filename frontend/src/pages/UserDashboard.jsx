@@ -69,7 +69,7 @@ const UserEventCard = ({ event, onPreview, onRsvp, tab }) => {
                     {tab === 'past' ? 'Past' : tab === 'live' ? '🔴 Live' : 'Confirmed'}
                 </span>
                 {event.category && (
-                    <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category]?.color || '#64748b' }}>
+                    <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.color || '#64748b', textTransform: 'capitalize' }}>
                         {event.category}
                     </span>
                 )}
@@ -124,7 +124,7 @@ const UserDashboard = () => {
     const [page, setPage] = useState(1);
     const PAGE_SIZE = 5;
     
-    const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
+    const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
     const navigate = useNavigate();
 
     const userEmail = getAuthData('userEmail');
@@ -225,7 +225,7 @@ const UserDashboard = () => {
                                         const tabMatch = activeTab === 'upcoming' ? now < start : activeTab === 'live' ? now >= start && now <= end : end < now;
                                         const searchMatch = !search || e.title.toLowerCase().includes(search.toLowerCase()) || (e.venue || '').toLowerCase().includes(search.toLowerCase());
                                         const dateMatch = !filterDate || date === filterDate;
-                                        const catMatch = !filterCategory || e.category === filterCategory;
+                                        const catMatch = !filterCategory || (e.category || 'General').toLowerCase() === filterCategory.toLowerCase();
                                         return tabMatch && searchMatch && dateMatch && catMatch;
                                     }).sort((a, b) => {
                                         const dateA = a.event_date.slice(0, 10);

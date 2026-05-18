@@ -24,7 +24,7 @@ const UserProfile = () => {
     const [userEmail, setUserEmail] = useState(getAuthData('userEmail') || 'Not provided');
     const [userPic, setUserPic] = useState(getAuthData('userPicture'));
     const [showPicOptions, setShowPicOptions] = useState(false);
-    const [isDarkMode, setIsDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
+    const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const fileInputRef = useRef(null);
     const userRole = getAuthData('userRole') || 'user';
