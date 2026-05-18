@@ -4,6 +4,8 @@ import Login from './Login';
 import AdminDashboard from './AdminDashboard';
 import UserDashboard from './UserDashboard';
 import UserProfile from './UserProfile';
+import NotificationsPage from './NotificationsPage';
+import PostNotification from './PostNotification';
 import Layout from './Layout';
 import { getAuthData } from '../utils/authStorage';
 
@@ -26,6 +28,12 @@ function App() {
           element={(isAuthenticated() && isAdmin()) ? <Layout><AdminDashboard /></Layout> : <Navigate to="/" />}
         />
 
+        {/* Protected Admin Post Notification Route */}
+        <Route
+          path="/admin/post-notification"
+          element={(isAuthenticated() && isAdmin()) ? <Layout><PostNotification /></Layout> : <Navigate to="/" />}
+        />
+
         {/* Protected User Route */}
         <Route
           path="/user-dashboard"
@@ -36,6 +44,12 @@ function App() {
         <Route
           path="/profile"
           element={isAuthenticated() ? <Layout><UserProfile /></Layout> : <Navigate to="/" />}
+        />
+
+        {/* Protected Notifications Route */}
+        <Route
+          path="/notifications"
+          element={isAuthenticated() ? <Layout><NotificationsPage /></Layout> : <Navigate to="/" />}
         />
 
         {/* Catch-all fallback */}

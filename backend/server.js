@@ -12,6 +12,7 @@ const fs = require('fs');
 
 const eventRoutes = require('./routes/events');
 const authRoutes  = require('./routes/auth');
+const notificationRoutes = require('./routes/notifications');
 
 const app = express();
 app.use(cors({
@@ -126,6 +127,7 @@ app.post('/api/users/delete-pic', async (req, res) => {
 app.use('/api/events', eventRoutes);
 app.use('/auth',       authRoutes);
 app.use('/api/auth',   authRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
