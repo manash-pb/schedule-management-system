@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight, LayoutList, CalendarDays } from 'lucide-react';
+import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutList, CalendarDays } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { getAuthData } from '../utils/authStorage';
@@ -535,8 +535,8 @@ const EditModal = ({ event, onClose, onSave, showToast }) => {
     );
 };
 
-const CustomCalendarToolbar = ({ label, onNavigate, onView, view }) => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+const CustomCalendarToolbar = ({ label, onNavigate, onView, view, date, setCalendarDate }) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8, padding: '4px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {view === 'day' && (
                 <button 
@@ -548,12 +548,18 @@ const CustomCalendarToolbar = ({ label, onNavigate, onView, view }) => (
                     <ChevronLeft size={16} />
                 </button>
             )}
-            <button onClick={() => onNavigate('PREV')} className="btn-icon" style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s' }}>
+            <button onClick={() => setCalendarDate && setCalendarDate(new Date(date.getFullYear() - 1, date.getMonth(), date.getDate()))} className="btn-icon" style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s' }} title="Previous Year">
+                <ChevronsLeft size={16} />
+            </button>
+            <button onClick={() => onNavigate('PREV')} className="btn-icon" style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s' }} title="Previous Month">
                 <ChevronLeft size={16} />
             </button>
             <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', minWidth: 160, textAlign: 'center' }}>{label}</span>
-            <button onClick={() => onNavigate('NEXT')} className="btn-icon" style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s' }}>
+            <button onClick={() => onNavigate('NEXT')} className="btn-icon" style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s' }} title="Next Month">
                 <ChevronRight size={16} />
+            </button>
+            <button onClick={() => setCalendarDate && setCalendarDate(new Date(date.getFullYear() + 1, date.getMonth(), date.getDate()))} className="btn-icon" style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s' }} title="Next Year">
+                <ChevronsRight size={16} />
             </button>
         </div>
     </div>
@@ -1021,7 +1027,7 @@ const AdminDashboard = () => {
                                             const c = CATEGORY_COLORS[cat];
                                             return { style: { backgroundColor: c?.color || '#2563eb', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600 } };
                                         }}
-                                        components={{ toolbar: CustomCalendarToolbar }}
+                                        components={{ toolbar: (props) => <CustomCalendarToolbar {...props} setCalendarDate={setCalendarDate} /> }}
                                         style={{ height: '100%' }}
                                     />
                                 </div>
