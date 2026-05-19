@@ -1123,3 +1123,20 @@ html.dark .rbc-time-header-gutter {
 html.dark .rbc-current-time-indicator {
   background: #388bfd;
 }
+
+/* Attachment link styles */
+.attachment-link {
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease-in-out;
+}
+
+.attachment-link:hover {
+  color: #2563eb !important;
+  text-decoration: underline;
+}
+
+html.dark .attachment-link:hover {
+  color: #58a6ff !important;
+}
+

@@ -7,6 +7,7 @@ import { Trash2, Bell, ArrowLeft, Paperclip } from 'lucide-react';
 const NotificationsPage = () => {
     const navigate = useNavigate();
     const [notifications, setNotifications] = useState([]);
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
     const role = getAuthData('userRole') || 'user';
     const email = getAuthData('userEmail');
 
@@ -24,11 +25,12 @@ const NotificationsPage = () => {
         fetchNotifications();
     }, []);
 
-    const handleDeleteNotification = async (id) => {
+    const confirmDelete = async () => {
+        const id = confirmDeleteId;
+        setConfirmDeleteId(null);
         try {
             await axios.delete(`/api/notifications/${id}`, { withCredentials: true });
             fetchNotifications();
-            // Optional: emit an event so Layout can also fetch new notifications
             window.dispatchEvent(new Event('storage'));
         } catch (e) {
             console.error("Failed to delete notification", e);
@@ -37,8 +39,32 @@ const NotificationsPage = () => {
 
     return (
         <div style={{ maxWidth: '800px', margin: '40px auto', padding: '0 20px' }}>
+
+            {/* Confirmation Modal */}
+            {confirmDeleteId && (
+                <div className="modal-overlay" onClick={() => setConfirmDeleteId(null)}>
+                    <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 420, textAlign: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                            <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Trash2 size={26} color="#ef4444" />
+                            </div>
+                        </div>
+                        <h2 style={{ margin: '0 0 8px', fontSize: 20, color: 'var(--text-primary)' }}>Delete Notification?</h2>
+                        <p style={{ margin: '0 0 24px', fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                            This notification will be permanently removed for all users.
+                        </p>
+                        <div style={{ display: 'flex', gap: 10 }}>
+                            <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmDeleteId(null)}>Cancel</button>
+                            <button onClick={confirmDelete} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 0', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 14, background: '#ef4444', color: '#fff' }}>
+                                <Trash2 size={15} /> Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <button 
-                onClick={() => navigate(-1)} 
+                onClick={() => navigate(role === 'admin' ? '/admin-dashboard' : '/user-dashboard')} 
                 className="btn-secondary" 
                 style={{ marginBottom: '20px', padding: '8px 16px', fontSize: '14px' }}
             >
@@ -56,19 +82,23 @@ const NotificationsPage = () => {
                             <div key={notif.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid var(--border)' }}>
                                 <div style={{ flex: 1, paddingRight: '10px' }}>
                                     <p style={{ margin: '0 0 8px', fontSize: 15, color: 'var(--text-primary)' }}>{notif.text}</p>
-                                    {notif.attachment && (
-                                        <div style={{ marginBottom: '8px' }}>
-                                            <a href={notif.attachment} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                                <Paperclip size={14} />
-                                                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{notif.attachmentName || 'Attachment'}</span>
-                                            </a>
+                                    {notif.attachments && notif.attachments.length > 0 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
+                                            {notif.attachments.map(att => (
+                                                <div key={att.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                                    <Paperclip size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                                                    <a href={att.url} target="_blank" rel="noreferrer" className="attachment-link" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                                                        {att.name || 'Attachment'}
+                                                    </a>
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
                                     <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{notif.time}</span>
                                 </div>
                                 {role === 'admin' && (
                                     <button 
-                                        onClick={() => handleDeleteNotification(notif.id)} 
+                                        onClick={() => setConfirmDeleteId(notif.id)} 
                                         className="btn-icon delete" 
                                         style={{ color: '#ef4444' }}
                                     >

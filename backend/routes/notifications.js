@@ -26,9 +26,9 @@ router.get('/', notificationController.getNotifications);
 router.post('/read', verifyToken, notificationController.markAllAsRead);
 
 // Admin only routes
-router.post('/', verifyToken, requireAdmin, upload.single('attachment'), notificationController.createNotification);
+router.post('/', verifyToken, requireAdmin, upload.array('attachments', 10), notificationController.createNotification);
 router.delete('/:id', verifyToken, requireAdmin, notificationController.deleteNotification);
-// Download attachment for a notification (sets original filename)
-router.get('/:id/attachment', verifyToken, notificationController.downloadAttachment);
+// Download a single attachment by its attachment row id
+router.get('/attachment/:attachmentId', verifyToken, notificationController.downloadAttachment);
 
 module.exports = router;

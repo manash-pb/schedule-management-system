@@ -7,37 +7,48 @@ exports.getNotifications = async (req, res) => {
     }
 
     try {
-        // Fetch all notifications. Also check if this user has read them.
-        const query = `
+        // Fetch all notifications with read status
+        const notifQuery = `
             SELECT 
                 n.id, 
                 n.subject,
                 n.message, 
-                n.attachment_path,
-                n.attachment_name,
                 n.created_at,
                 IF(un.notification_id IS NOT NULL, true, false) as is_read
             FROM notifications n
             LEFT JOIN user_notifications un ON n.id = un.notification_id AND un.user_email = ?
             ORDER BY n.created_at DESC
         `;
-        const [rows] = await pool.query(query, [email]);
+        const [rows] = await pool.query(notifQuery, [email]);
 
-        // Map to a friendlier frontend format (e.g. read instead of is_read, time format)
-        const notifications = rows.map(row => {
-            // Return a download endpoint so we can control filename on download
-            const downloadUrl = row.attachment_path ? `${req.protocol}://${req.get('host')}/api/notifications/${row.id}/attachment` : null;
+        if (rows.length === 0) return res.json([]);
 
-            return {
-                id: row.id,
-                subject: row.subject,
-                text: row.message,
-                attachment: downloadUrl,
-                attachmentName: row.attachment_name || null,
-                time: new Date(row.created_at).toLocaleString(),
-                read: !!row.is_read
-            };
-        });
+        // Fetch all attachments for these notifications in one query
+        const notifIds = rows.map(r => r.id);
+        const [attachRows] = await pool.query(
+            `SELECT id, notification_id, file_path, file_name FROM notification_attachments WHERE notification_id IN (?)`,
+            [notifIds]
+        );
+
+        // Group attachments by notification_id
+        const attachMap = {};
+        for (const a of attachRows) {
+            if (!attachMap[a.notification_id]) attachMap[a.notification_id] = [];
+            attachMap[a.notification_id].push({
+                id: a.id,
+                url: `${req.protocol}://${req.get('host')}/api/notifications/attachment/${a.id}`,
+                name: a.file_name
+            });
+        }
+
+        const notifications = rows.map(row => ({
+            id: row.id,
+            subject: row.subject,
+            text: row.message,
+            attachments: attachMap[row.id] || [],
+            time: new Date(row.created_at).toLocaleString(),
+            read: !!row.is_read
+        }));
 
         res.json(notifications);
     } catch (error) {
@@ -52,19 +63,29 @@ exports.createNotification = async (req, res) => {
         return res.status(400).json({ error: 'Message is required' });
     }
 
-    const storedFilename = req.file ? req.file.filename : null;
-    const originalName = req.file ? req.file.originalname : null;
-
-    // Build a public URL for the attachment if present
-    const attachmentUrl = storedFilename ? `${req.protocol}://${req.get('host')}/uploads/notifications/${storedFilename}` : null;
+    const files = req.files || []; // array from upload.array()
 
     try {
-        // Insert attachment path (public URL) and attachment_name (original filename) if column exists
+        // Insert the notification
         const [result] = await pool.query(
-            'INSERT INTO notifications (subject, message, attachment_path, attachment_name) VALUES (?, ?, ?, ?)', 
-            [subject || null, message, attachmentUrl, originalName]
+            'INSERT INTO notifications (subject, message) VALUES (?, ?)',
+            [subject || null, message]
         );
-        res.status(201).json({ id: result.insertId, subject, message, attachment: attachmentUrl, attachmentName: originalName, success: true });
+        const notificationId = result.insertId;
+
+        // Insert each attachment into notification_attachments
+        if (files.length > 0) {
+            const attachmentValues = files.map(file => {
+                const fileUrl = `${req.protocol}://${req.get('host')}/uploads/notifications/${file.filename}`;
+                return [notificationId, fileUrl, file.originalname];
+            });
+            await pool.query(
+                'INSERT INTO notification_attachments (notification_id, file_path, file_name) VALUES ?',
+                [attachmentValues]
+            );
+        }
+
+        res.status(201).json({ id: notificationId, subject, message, success: true });
     } catch (error) {
         console.error('Error creating notification:', error);
         res.status(500).json({ error: 'Failed to create notification' });
@@ -74,19 +95,25 @@ exports.createNotification = async (req, res) => {
 exports.deleteNotification = async (req, res) => {
     const { id } = req.params;
     try {
-        // Before deleting, try to remove attachment file from disk if present
-        const [rows] = await pool.query('SELECT attachment_path FROM notifications WHERE id = ?', [id]);
-        const attachmentPath = rows[0]?.attachment_path;
-        if (attachmentPath && attachmentPath.includes('/uploads/notifications/')) {
-            const filename = attachmentPath.split('/').pop();
-            const fs = require('fs');
-            const path = require('path');
-            const filePath = path.join(__dirname, '..', 'uploads', 'notifications', filename);
-            fs.unlink(filePath, (err) => {
-                if (err) console.error('Failed to delete attachment file:', err);
-            });
+        // Fetch all attachments so we can delete the files from disk
+        const [attachRows] = await pool.query(
+            'SELECT file_path FROM notification_attachments WHERE notification_id = ?',
+            [id]
+        );
+
+        const fs = require('fs');
+        const path = require('path');
+        for (const row of attachRows) {
+            if (row.file_path && row.file_path.includes('/uploads/notifications/')) {
+                const filename = row.file_path.split('/').pop();
+                const filePath = path.join(__dirname, '..', 'uploads', 'notifications', filename);
+                fs.unlink(filePath, (err) => {
+                    if (err) console.error('Failed to delete attachment file:', err);
+                });
+            }
         }
 
+        // The CASCADE on the FK will delete notification_attachments rows automatically
         await pool.query('DELETE FROM notifications WHERE id = ?', [id]);
         res.json({ success: true });
     } catch (error) {
@@ -102,16 +129,12 @@ exports.markAllAsRead = async (req, res) => {
     }
 
     try {
-        // Fetch all current notification IDs
         const [notifications] = await pool.query('SELECT id FROM notifications');
         if (notifications.length === 0) {
             return res.json({ success: true });
         }
 
-        // Prepare bulk insert
         const values = notifications.map(n => [email, n.id]);
-        
-        // Using IGNORE so if it already exists, it doesn't fail
         await pool.query('INSERT IGNORE INTO user_notifications (user_email, notification_id) VALUES ?', [values]);
 
         res.json({ success: true });
@@ -122,20 +145,20 @@ exports.markAllAsRead = async (req, res) => {
 };
 
 exports.downloadAttachment = async (req, res) => {
-    const { id } = req.params;
+    const { attachmentId } = req.params;
     try {
-        const [rows] = await pool.query('SELECT attachment_path, attachment_name FROM notifications WHERE id = ?', [id]);
-        const attachmentPath = rows[0]?.attachment_path;
-        const attachmentName = rows[0]?.attachment_name || null;
-        if (!attachmentPath) return res.status(404).json({ error: 'Attachment not found' });
+        const [rows] = await pool.query(
+            'SELECT file_path, file_name FROM notification_attachments WHERE id = ?',
+            [attachmentId]
+        );
+        if (!rows[0]) return res.status(404).json({ error: 'Attachment not found' });
 
-        // derive filename on disk from URL
-        const filename = attachmentPath.split('/').pop();
+        const { file_path, file_name } = rows[0];
+        const filename = file_path.split('/').pop();
         const path = require('path');
         const filePath = path.join(__dirname, '..', 'uploads', 'notifications', filename);
 
-        // Use res.download to set Content-Disposition with original filename
-        return res.download(filePath, attachmentName || filename, (err) => {
+        return res.download(filePath, file_name || filename, (err) => {
             if (err) {
                 console.error('Error sending attachment:', err);
                 return res.status(500).end();

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { Sun, Moon, Bell, Trash2, Paperclip } from 'lucide-react';
+import { Sun, Moon, Bell, Paperclip } from 'lucide-react';
 import gauhatiLogo from '../assets/logo1.png';
 import { getAuthData } from '../utils/authStorage';
 
@@ -83,14 +83,7 @@ const Layout = ({ children }) => {
     }
   };
 
-  const handleDeleteNotification = async (id) => {
-    try {
-      await axios.delete(`/api/notifications/${id}`, { withCredentials: true });
-      fetchNotifications();
-    } catch (e) {
-      console.error("Failed to delete notification", e);
-    }
-  };
+
 
   // --- 2. LISTEN FOR BROADCASTS ---
   useEffect(() => {
@@ -198,6 +191,8 @@ const Layout = ({ children }) => {
 
               {showNotifications && (
                 <div className="notification-dropdown floating-card absolute right-0 top-full mt-2 w-80 z-50 p-0 overflow-hidden shadow-xl border border-gray-200 dark:border-gray-700 rounded-xl" style={{ backgroundColor: 'var(--bg-card)' }}>
+
+
                   <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
                     <h3 className="text-sm font-bold m-0" style={{ color: 'var(--text-primary)' }}>Notifications</h3>
                     {unreadCount > 0 && (
@@ -219,25 +214,21 @@ const Layout = ({ children }) => {
                         >
                           <div style={{ flex: 1, paddingRight: '10px' }}>
                             <p className="text-sm m-0 mb-1" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>{notification.text}</p>
-                            {notification.attachment && (
-                              <div style={{ marginBottom: '6px' }}>
-                                <a href={notification.attachment} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                  <Paperclip size={12} />
-                                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{notification.attachmentName || 'Attachment'}</span>
-                                </a>
+                            {notification.attachments && notification.attachments.length > 0 && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '6px' }}>
+                                {notification.attachments.map(att => (
+                                  <div key={att.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                    <Paperclip size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                                    <a href={att.url} target="_blank" rel="noreferrer" className="attachment-link" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                                      {att.name || 'Attachment'}
+                                    </a>
+                                  </div>
+                                ))}
                               </div>
                             )}
                             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{notification.time}</span>
                           </div>
-                          {role === 'admin' && (
-                            <button 
-                                onClick={() => handleDeleteNotification(notification.id)} 
-                                className="btn-icon delete" 
-                                style={{ color: '#ef4444', padding: '4px', flexShrink: 0 }}
-                            >
-                                <Trash2 size={16} />
-                            </button>
-                          )}
+
                         </div>
                       ))
                     ) : (
@@ -246,17 +237,15 @@ const Layout = ({ children }) => {
                       </div>
                     )}
                     
-                    {notifications.length > 3 && (
-                      <button 
+                    <button 
                         onClick={() => {
                           setShowNotifications(false);
                           navigate('/notifications');
                         }}
                         style={{ width: '100%', padding: '10px', background: 'transparent', border: 'none', borderTop: '1px solid var(--border)', color: '#2563eb', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
                       >
-                        View more
+                        View all
                       </button>
-                    )}
                   </div>
 
                   {role === 'admin' && (
