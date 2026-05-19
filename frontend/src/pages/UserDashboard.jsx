@@ -254,6 +254,7 @@ const UserDashboard = () => {
                                     <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none', zIndex: 1 }} />
                                     <input className="custom-input" style={{ paddingLeft: 36, paddingRight: 12, paddingTop: 10, paddingBottom: 10, height: 42 }} placeholder="Search events..." value={search} onChange={e => setSearch(e.target.value)} />
                                 </div>
+                                {viewMode !== 'calendar' && (
                                 <div style={{ position: 'relative', flexShrink: 0, width: 160 }}>
                                     <input type="date" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: '100%', height: '100%', top: 0, left: 0 }} value={filterDate} onChange={e => setFilterDate(e.target.value)} id="filter-date-input" />
                                     <button type="button" className="btn-secondary" onClick={() => document.getElementById('filter-date-input').showPicker()} style={{ gap: 8, whiteSpace: 'nowrap', width: '100%', justifyContent: 'center', height: 42, boxSizing: 'border-box' }}>
@@ -261,6 +262,7 @@ const UserDashboard = () => {
                                         {filterDate ? new Date(filterDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Filter by Date'}
                                     </button>
                                 </div>
+                                )}
                                 <select className="custom-input" style={{ width: 180, height: 42, paddingTop: 0, paddingBottom: 0 }} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
                                     <option value="">All Categories</option>
                                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -283,7 +285,7 @@ const UserDashboard = () => {
                                             const end = new Date(date); end.setHours(+eH, +eM, 0, 0);
                                             const now = new Date();
                                             const tabMatch = activeTab === 'upcoming' ? now < start : activeTab === 'live' ? now >= start && now <= end : end < now;
-                                            const searchMatch = !search || e.title.toLowerCase().includes(search.toLowerCase()) || (e.venue || '').toLowerCase().includes(search.toLowerCase());
+                                            const searchMatch = !search || e.title.toLowerCase().startsWith(search.toLowerCase());
                                             const dateMatch = !filterDate || date === filterDate;
                                             const catMatch = !filterCategory || (e.category || 'General').toLowerCase() === filterCategory.toLowerCase();
                                             return tabMatch && searchMatch && dateMatch && catMatch;
@@ -316,7 +318,7 @@ const UserDashboard = () => {
                                         const start = new Date(date); start.setHours(+sH, +sM, 0, 0);
                                         const end   = new Date(date); end.setHours(+eH, +eM, 0, 0);
                                         const tabMatch = activeTab === 'upcoming' ? now < start : activeTab === 'live' ? now >= start && now <= end : end < now;
-                                        const searchMatch = !search || e.title.toLowerCase().includes(search.toLowerCase()) || (e.venue || '').toLowerCase().includes(search.toLowerCase());
+                                        const searchMatch = !search || e.title.toLowerCase().startsWith(search.toLowerCase());
                                         const dateMatch = !filterDate || date === filterDate;
                                         const catMatch = !filterCategory || (e.category || 'General').toLowerCase() === filterCategory.toLowerCase();
                                         return tabMatch && searchMatch && dateMatch && catMatch;
