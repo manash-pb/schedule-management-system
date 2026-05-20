@@ -63,10 +63,7 @@ const sendInviteEmail = async ({ person, title, description, venue, event_date, 
     const formattedDate = new Date(event_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const icsContent = buildICS({ event_date, mysqlStart, mysqlEnd, title, description, venue, newEventId });
 
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
-    const encodedEmail = encodeURIComponent(person.email);
-    const acceptUrl  = `${backendUrl}/api/events/${newEventId}/rsvp?email=${encodedEmail}&status=accepted`;
-    const declineUrl = `${backendUrl}/api/events/${newEventId}/rsvp?email=${encodedEmail}&status=declined`;
+    // RSVP links removed — no accept/decline via email anymore
 
     const venueRow = isVideoLink
         ? `<tr><td style="padding:8px 0;color:#64748b;font-size:14px;">📹 <strong>Link</strong></td><td style="padding:8px 0;"><a href="${venue}" style="color:#2563eb;">${venue}</a></td></tr>`
@@ -107,19 +104,7 @@ const sendInviteEmail = async ({ person, title, description, venue, event_date, 
             </table>
             ${isVideoLink ? `<div style="text-align:center;margin-top:28px;"><a href="${venue}" style="display:inline-block;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-size:15px;font-weight:600;">Join Meeting</a></div>` : ''}
 
-            <div style="margin-top:32px;padding:20px 24px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;text-align:center;">
-              <p style="margin:0 0 16px;font-size:14px;color:#475569;font-weight:600;">Will you attend?</p>
-              <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
-                <tr>
-                  <td style="padding:0 8px;">
-                    <a href="${acceptUrl}" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;padding:12px 32px;border-radius:10px;font-size:14px;font-weight:700;">✅ Accept</a>
-                  </td>
-                  <td style="padding:0 8px;">
-                    <a href="${declineUrl}" style="display:inline-block;background:#dc2626;color:#fff;text-decoration:none;padding:12px 32px;border-radius:10px;font-size:14px;font-weight:700;">❌ Decline</a>
-                  </td>
-                </tr>
-              </table>
-            </div>
+            <!-- RSVP buttons removed -->
           </td>
         </tr>
         <tr>

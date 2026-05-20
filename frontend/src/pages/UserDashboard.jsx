@@ -105,9 +105,7 @@ const PreviewModal = ({ event, onClose }) => (
     </div>
 );
 
-const UserEventCard = ({ event, onPreview, onRsvp, tab }) => {
-    const rsvp = (event.attendees || [])[0]?.rsvp_status || 'pending';
-    
+const UserEventCard = ({ event, onPreview, tab }) => {
     return (
         <div className="event-card">
             <div className="event-info">
@@ -131,30 +129,7 @@ const UserEventCard = ({ event, onPreview, onRsvp, tab }) => {
                     <button onClick={() => onPreview(event)} className="btn-icon preview"><ClosedEyeIcon size={20} /></button>
                     <span className="tooltip-text">Preview</span>
                 </div>
-                {tab === 'upcoming' && (
-                    <div style={{ display: 'flex', gap: 6 }}>
-                        {rsvp !== 'pending' ? (
-                            <span style={{
-                                fontSize: 12, fontWeight: 700, padding: '6px 14px', borderRadius: 8,
-                                background: rsvp === 'accepted' ? '#dcfce7' : '#fee2e2',
-                                color: rsvp === 'accepted' ? '#16a34a' : '#dc2626'
-                            }}>
-                                {rsvp === 'accepted' ? '✓ Accepted' : '✕ Declined'}
-                            </span>
-                        ) : (
-                            <>
-                                <button
-                                    onClick={() => onRsvp(event.event_id, 'accepted')}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: '#f1f5f9', color: '#64748b' }}
-                                ><Check size={13} /> Accept</button>
-                                <button
-                                    onClick={() => onRsvp(event.event_id, 'declined')}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: '#f1f5f9', color: '#64748b' }}
-                                ><XCircle size={13} /> Decline</button>
-                            </>
-                        )}
-                    </div>
-                )}
+                {/* RSVP removed */}
             </div>
         </div>
     );
@@ -204,14 +179,7 @@ const UserDashboard = () => {
         }
     };
 
-    const handleRsvp = async (eventId, status) => {
-        try {
-            await axios.patch(`/api/events/${eventId}/rsvp`, { email: userEmail, status });
-            fetchEvents();
-        } catch (e) {
-            console.error('RSVP failed:', e);
-        }
-    };
+    // RSVP removed
 
     useEffect(() => {
         if (userEmail) fetchEvents();
@@ -349,7 +317,7 @@ const UserDashboard = () => {
                                     return (
                                         <>
                                             {paginated.map(item => (
-                                                <UserEventCard key={item.event_id || item.id} event={item} onPreview={setPreviewEvent} onRsvp={handleRsvp} tab={activeTab} />
+                                                <UserEventCard key={item.event_id || item.id} event={item} onPreview={setPreviewEvent} tab={activeTab} />
                                             ))}
                                             {totalPages > 1 && (
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 }}>

@@ -141,7 +141,7 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange, showToast
         setSaving(true);
         try {
             await axios.post(`/api/events/${event.event_id}/attendees`, newAttendee);
-            const updated = [...attendees, { ...newAttendee, rsvp_status: 'pending' }];
+            const updated = [...attendees, { ...newAttendee }];
             setAttendees(updated);
             showToast(`${newAttendee.email} added to this event.`);
             setNewAttendee({ name: '', email: '' });
@@ -212,11 +212,7 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange, showToast
                                     <div style={{ fontWeight: 600, fontSize: 13 }}>{a.name}</div>
                                     <div style={{ fontSize: 12, color: '#64748b' }}>{a.email}</div>
                                 </div>
-                                <span style={{
-                                    fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
-                                    background: a.rsvp_status === 'accepted' ? '#dcfce7' : a.rsvp_status === 'declined' ? '#fee2e2' : '#f1f5f9',
-                                    color: a.rsvp_status === 'accepted' ? '#16a34a' : a.rsvp_status === 'declined' ? '#dc2626' : '#94a3b8'
-                                }}>{a.rsvp_status || 'pending'}</span>
+                                {/* RSVP status removed */}
                                 <button onClick={() => setConfirmRemoveEmail(a.email)} disabled={removing === a.email} style={{ background: 'none', border: 'none', cursor: removing === a.email ? 'not-allowed' : 'pointer', color: '#ef4444', marginLeft: 4, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                     {removing === a.email ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg> : <X size={14} />}
                                 </button>
@@ -675,18 +671,17 @@ const AdminDashboard = () => {
             ['Total Attendees', attendees.length],
             [], // blank separator row
             // Attendees header
-            ['#', 'Name', 'Email', 'Status'],
+            ['#', 'Name', 'Email'],
             // Attendee rows
             ...attendees.map((a, i) => [
                 i + 1,
                 a.name || '—',
                 a.email || '—',
-                a.rsvp_status ? a.rsvp_status.charAt(0).toUpperCase() + a.rsvp_status.slice(1) : 'Pending',
             ]),
         ];
 
         const ws = XLSX.utils.aoa_to_sheet(data);
-        ws['!cols'] = [{ wch: 18 }, { wch: 30 }, { wch: 35 }, { wch: 15 }];
+        ws['!cols'] = [{ wch: 18 }, { wch: 30 }, { wch: 35 }];
 
         // Bold event detail labels (column A, rows 0–7)
         for (let r = 0; r < 8; r++) {
@@ -694,7 +689,7 @@ const AdminDashboard = () => {
             if (cell) cell.s = { font: { bold: true } };
         }
         // Bold attendees header row (row 9)
-        for (let c = 0; c < 4; c++) {
+        for (let c = 0; c < 3; c++) {
             const cell = ws[XLSX.utils.encode_cell({ r: 9, c })];
             if (cell) cell.s = { font: { bold: true }, fill: { fgColor: { rgb: 'EFF6FF' } } };
         }

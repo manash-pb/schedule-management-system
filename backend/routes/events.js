@@ -1,11 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { createEvent, getEvents, deleteEvent, deleteAllEvents, updateEvent, rsvpEvent, addAttendee, removeAttendee } = require('../controllers/eventController');
+const { createEvent, getEvents, deleteEvent, deleteAllEvents, updateEvent, addAttendee, removeAttendee } = require('../controllers/eventController');
 const { verifyToken, requireAdmin } = require('../middleware/authMiddleware');
 
-// Public: RSVP (attendees click from email, no login)
-router.patch('/:id/rsvp', rsvpEvent);
-router.get('/:id/rsvp', rsvpEvent);
+// RSVP routes removed
 
 // Any logged-in user
 router.get('/', verifyToken, getEvents);
