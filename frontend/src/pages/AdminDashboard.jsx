@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutList, CalendarDays } from 'lucide-react';
+import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutList, CalendarDays, MessageCircle } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { getAuthData } from '../utils/authStorage';
@@ -588,6 +588,14 @@ const AdminDashboard = () => {
     const [viewMode, setViewMode] = useState('list');
     const [calendarView, setCalendarView] = useState('month');
     const [calendarDate, setCalendarDate] = useState(new Date());
+    const [queries, setQueries] = useState([]);
+    const [queryModalOpen, setQueryModalOpen] = useState(false);
+    const [queryLoading, setQueryLoading] = useState(false);
+    const [queryError, setQueryError] = useState('');
+    const [replyDrafts, setReplyDrafts] = useState({});
+    const [replySending, setReplySending] = useState({});
+    const [expandedQueryId, setExpandedQueryId] = useState(null);
+    const [replyingQueryId, setReplyingQueryId] = useState(null);
 
     useEffect(() => {
         const observer = new MutationObserver((mutations) => {
@@ -612,6 +620,7 @@ const AdminDashboard = () => {
 
     useEffect(() => {
         fetchEvents();
+        fetchQueries();
         // Check if Google Calendar is connected
         if (adminEmail) {
             axios.get('/api/auth/check-calendar', { params: { email: adminEmail } })
@@ -626,6 +635,82 @@ const AdminDashboard = () => {
         }
     }, []);
 
+    useEffect(() => {
+        if (!queryModalOpen) return;
+        const intervalId = window.setInterval(() => fetchQueries({ background: true }), 15000);
+        return () => window.clearInterval(intervalId);
+    }, [queryModalOpen]);
+
+    const fetchQueries = async ({ background = false } = {}) => {
+        if (!background) setQueryLoading(true);
+        try {
+            const res = await axios.get('/api/queries', { withCredentials: true });
+            setQueries(res.data || []);
+        } catch (err) {
+            console.error('Fetch queries failed:', err);
+            setQueryError('Unable to load support queries.');
+        } finally {
+            if (!background) setQueryLoading(false);
+        }
+    };
+
+    const openQueryModal = async () => {
+        setQueryError('');
+        if (queries.length === 0) {
+            await fetchQueries();
+        } else {
+            fetchQueries({ background: true });
+        }
+        setQueryModalOpen(true);
+    };
+
+    const toggleQueryDetails = async (queryId) => {
+        const query = queries.find((q) => q.id === queryId);
+        const isOpening = expandedQueryId !== queryId;
+
+        setExpandedQueryId((prev) => (prev === queryId ? null : queryId));
+        setReplyingQueryId(null);
+
+        if (isOpening && query && query.status === 'new') {
+            // Optimistically update status to 'read' locally
+            setQueries((prev) => prev.map((q) => (q.id === queryId ? { ...q, status: 'read' } : q)));
+            try {
+                await axios.patch(`/api/queries/${queryId}/read`, {}, { withCredentials: true });
+            } catch (err) {
+                console.error('Failed to mark query as read:', err);
+                // Rollback status to 'new' on failure
+                setQueries((prev) => prev.map((q) => (q.id === queryId ? { ...q, status: 'new' } : q)));
+            }
+        }
+    };
+
+    const hasUnreadQueries = queries.some((q) => q.status === 'new');
+
+    const handleReplyChange = (queryId, value) => {
+        setReplyDrafts((prev) => ({ ...prev, [queryId]: value }));
+    };
+
+    const sendReply = async (queryId) => {
+        const message = replyDrafts[queryId];
+        if (!message || !message.trim()) {
+            showToast('Reply message cannot be empty.', 'error');
+            return;
+        }
+
+        setReplySending((prev) => ({ ...prev, [queryId]: true }));
+        try {
+            await axios.post(`/api/queries/${queryId}/reply`, { reply: message }, { withCredentials: true });
+            showToast('Reply sent to user successfully.');
+            fetchQueries();
+            setReplyDrafts((prev) => ({ ...prev, [queryId]: '' }));
+            setReplyingQueryId(null);
+        } catch (err) {
+            console.error('Send reply failed:', err);
+            showToast('Unable to send reply. Please try again.', 'error');
+        } finally {
+            setReplySending((prev) => ({ ...prev, [queryId]: false }));
+        }
+    };
 
     const handleEditSave = async () => {
         fetchEvents();
@@ -824,6 +909,131 @@ const AdminDashboard = () => {
             )}
 
             <Toaster position="top-center" toastOptions={{ duration: 3000, style: { fontWeight: 600, fontSize: 14, borderRadius: 12, padding: '12px 18px' } }} />
+            <button
+                type="button"
+                onClick={openQueryModal}
+                className="floating-query-button"
+                style={{ zIndex: 10000 }}
+                title="Support queries"
+            >
+                <MessageCircle size={24} />
+                {hasUnreadQueries && (
+                    <span style={{ position: 'absolute', top: 2, right: 2, width: 10, height: 10, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 0 2px rgba(255,255,255,0.7)' }} />
+                )}
+            </button>
+
+            {queryModalOpen && (
+                <div className="modal-overlay" onClick={() => setQueryModalOpen(false)}>
+                    <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 720, maxHeight: '90vh', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                            <div>
+                                <h2 style={{ margin: 0, fontSize: 22 }}>Support Queries</h2>
+                                <p style={{ margin: '6px 0 0', color: 'var(--text-secondary)', fontSize: 14 }}>Review messages from users and reply directly.</p>
+                            </div>
+                            <button onClick={() => setQueryModalOpen(false)} className="icon-button">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {queryLoading ? (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>Loading queries...</div>
+                        ) : queryError ? (
+                            <div style={{ color: '#dc2626', padding: 20 }}>{queryError}</div>
+                        ) : queries.length === 0 ? (
+                            <div style={{ padding: 20, color: 'var(--text-secondary)' }}>No support queries yet.</div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                {queries.map((query) => {
+                                    const expanded = expandedQueryId === query.id;
+                                    return (
+                                        <div key={query.id} className="floating-card" style={{ padding: 18, borderRadius: 16, background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 12, alignItems: 'center' }}>
+                                                <div style={{ minWidth: 0 }}>
+                                                    <p style={{ margin: 0, fontWeight: 700, fontSize: 15 }}>{query.subject || 'No subject'}</p>
+                                                    <p style={{ margin: '6px 0 0', color: 'var(--text-secondary)', fontSize: 13 }}>{query.user_name || 'Anonymous'} · {query.user_email}</p>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                    {query.status === 'new' && (
+                                                        <span style={{ color: '#ef4444', fontWeight: 700, fontSize: 12, textTransform: 'uppercase' }}>New</span>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleQueryDetails(query.id)}
+                                                        style={{
+                                                            color: 'var(--text-secondary)',
+                                                            fontSize: 12,
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            padding: '4px 8px',
+                                                            borderRadius: 6,
+                                                            fontWeight: 600,
+                                                            transition: 'all 0.2s'
+                                                        }}
+                                                        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                                                        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.background = 'none'; }}
+                                                    >
+                                                        {expanded ? 'Hide' : 'View'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {expanded && (
+                                                <>
+                                                    <p style={{ margin: '0 0 12px', color: 'var(--text-primary)', lineHeight: 1.8 }}>{query.message}</p>
+                                                    {replyingQueryId === query.id ? (
+                                                        <>
+                                                            <textarea
+                                                                value={replyDrafts[query.id] ?? ''}
+                                                                onChange={(e) => handleReplyChange(query.id, e.target.value)}
+                                                                placeholder="Write a reply..."
+                                                                rows={4}
+                                                                className="custom-input"
+                                                                style={{ resize: 'vertical', minHeight: 95 }}
+                                                            />
+                                                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10, gap: 10 }}>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn-secondary"
+                                                                    style={{ fontSize: 13, padding: '6px 14px', height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                                    onClick={() => setReplyingQueryId(null)}
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn-primary"
+                                                                    style={{ fontSize: 13, padding: '6px 16px', height: 34, width: 'auto', marginTop: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                                    onClick={() => sendReply(query.id)}
+                                                                    disabled={replySending[query.id]}
+                                                                >
+                                                                    {replySending[query.id] ? 'Sending...' : 'Send Reply'}
+                                                                </button>
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                                                            <button
+                                                                type="button"
+                                                                className="btn-secondary"
+                                                                style={{ fontSize: 13, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}
+                                                                onClick={() => setReplyingQueryId(query.id)}
+                                                            >
+                                                                <MessageCircle size={14} />
+                                                                Reply
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             <div className="dashboard-wrapper">
 
                 {!calendarConnected && (

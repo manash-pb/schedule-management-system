@@ -13,6 +13,7 @@ const fs = require('fs');
 const eventRoutes = require('./routes/events');
 const authRoutes  = require('./routes/auth');
 const notificationRoutes = require('./routes/notifications');
+const queryRoutes = require('./routes/queries');
 
 const app = express();
 app.use(cors({
@@ -26,7 +27,43 @@ app.use(cookieParser());
 
 // Verify DB connection on startup
 pool.getConnection()
-    .then(conn => { console.log('✅ Connected to MySQL Database!'); conn.release(); })
+    .then(async (conn) => {
+        console.log('✅ Connected to MySQL Database!');
+        conn.release();
+
+        try {
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS user_queries (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_name VARCHAR(255),
+                    user_email VARCHAR(255) NOT NULL,
+                    subject VARCHAR(255),
+                    message TEXT NOT NULL,
+                    status ENUM('new','read','answered') DEFAULT 'new',
+                    reply_message TEXT,
+                    reply_at TIMESTAMP NULL,
+                    replied_by VARCHAR(255),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX (user_email),
+                    FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE
+                )
+            `);
+            console.log('✅ Ensured user_queries table exists.');
+
+            // Alter existing table to support 'read' status if it doesn't already
+            try {
+                await pool.query(`
+                    ALTER TABLE user_queries 
+                    MODIFY COLUMN status ENUM('new','read','answered') DEFAULT 'new'
+                `);
+                console.log('✅ Ensured user_queries status ENUM supports "read".');
+            } catch (alterErr) {
+                console.warn('⚠️ Could not alter user_queries status ENUM:', alterErr.message);
+            }
+        } catch (err) {
+            console.error('❌ user_queries table creation failed:', err);
+        }
+    })
     .catch(err  => console.error('❌ Database connection error:', err));
 
 // Start cron jobs
@@ -128,6 +165,7 @@ app.use('/api/events', eventRoutes);
 app.use('/auth',       authRoutes);
 app.use('/api/auth',   authRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/queries', queryRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

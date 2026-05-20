@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const pool = require('../db');
 require('dotenv').config();
 
 const transporter = nodemailer.createTransport({
@@ -244,4 +245,71 @@ const sendRemovalEmail = async ({ name, email, event }) => {
     });
 };
 
-module.exports = { transporter, sendInviteEmail, sendCancellationEmail, sendRemovalEmail };
+const sendQueryToAdmins = async ({ fromName, fromEmail, subject, message }) => {
+    const [admins] = await pool.execute('SELECT email FROM users WHERE role = "admin"');
+    const toAddresses = admins.map(admin => admin.email).filter(Boolean);
+
+    if (!toAddresses.length) {
+        throw new Error('No admin recipients found');
+    }
+
+    const mailSubject = subject && subject.trim()
+        ? `User Query: ${subject.trim()}`
+        : `User Query from ${fromName}`;
+
+    const html = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; background:#f8fafc; padding:24px;">
+        <div style="max-width:720px; margin:0 auto; background:#ffffff; border-radius:18px; padding:24px; box-shadow:0 20px 40px rgba(15,23,42,0.08);">
+          <h2 style="margin:0 0 10px; font-size:22px; color:#0f172a;">New user query</h2>
+          <p style="margin:0 0 16px; color:#475569; font-size:14px; line-height:1.7;">A user has sent a message to the admin team via the query button.</p>
+          <table style="width:100%; border-collapse:collapse; margin-bottom:20px;">
+            <tr><td style="padding:8px 0; font-weight:700; color:#111827; width:110px;">Name:</td><td style="padding:8px 0; color:#334155;">${fromName}</td></tr>
+            <tr><td style="padding:8px 0; font-weight:700; color:#111827;">Email:</td><td style="padding:8px 0; color:#334155;">${fromEmail}</td></tr>
+            ${subject ? `<tr><td style="padding:8px 0; font-weight:700; color:#111827;">Subject:</td><td style="padding:8px 0; color:#334155;">${subject}</td></tr>` : ''}
+          </table>
+          <div style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:14px; padding:18px; color:#334155; font-size:15px; line-height:1.7; white-space:pre-wrap;">${message}</div>
+        </div>
+      </div>
+    `;
+
+    const text = `New user query from ${fromName} <${fromEmail}>\n\n${subject ? `Subject: ${subject}\n\n` : ''}${message}`;
+
+    await transporter.sendMail({
+        from: `"Schedule Manager" <${process.env.SMTP_USER}>`,
+        to: toAddresses.join(','),
+        subject: mailSubject,
+        text,
+        html,
+    });
+};
+
+const sendUserReplyEmail = async ({ toName, toEmail, querySubject, originalMessage, replyMessage }) => {
+    const subject = `Reply to your query: ${querySubject}`;
+    const html = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; background:#f8fafc; padding:24px;">
+        <div style="max-width:720px; margin:0 auto; background:#ffffff; border-radius:18px; padding:24px; box-shadow:0 20px 40px rgba(15,23,42,0.08);">
+          <h2 style="margin:0 0 10px; font-size:22px; color:#0f172a;">Reply to your query</h2>
+          <p style="margin:0 0 16px; color:#475569; font-size:14px; line-height:1.7;">Hello ${toName},</p>
+          <div style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:14px; padding:18px; color:#334155; font-size:15px; line-height:1.7; white-space:pre-wrap; margin-bottom: 20px;">
+            <strong>Your original query:</strong><br />${originalMessage}
+          </div>
+          <div style="background:#ecfdf5; border:1px solid #d1fae5; border-radius:14px; padding:18px; color:#065f46; font-size:15px; line-height:1.7; white-space:pre-wrap;">
+            <strong>Admin response:</strong><br />${replyMessage}
+          </div>
+          <p style="margin:24px 0 0; color:#475569; font-size:14px; line-height:1.7;">If you have more questions, feel free to reply to this email.</p>
+        </div>
+      </div>
+    `;
+
+    const text = `Hello ${toName},\n\nThis is a reply to your query:\n\n${originalMessage}\n\nAdmin response:\n${replyMessage}\n\nThank you.`;
+
+    await transporter.sendMail({
+        from: `"Schedule Manager" <${process.env.SMTP_USER}>`,
+        to: toEmail,
+        subject,
+        text,
+        html,
+    });
+};
+
+module.exports = { transporter, sendInviteEmail, sendCancellationEmail, sendRemovalEmail, sendQueryToAdmins, sendUserReplyEmail };
