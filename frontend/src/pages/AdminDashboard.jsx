@@ -12,7 +12,40 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 const locales = { 'en-US': enUS };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
 
-const toCalendarEvents = (events) => events.map(e => {
+const unrollEvents = (events) => {
+    const unrolled = [];
+    events.forEach(e => {
+        const startDateStr = e.event_date.slice(0, 10);
+        const endDateStr = e.end_date ? e.end_date.slice(0, 10) : startDateStr;
+        
+        const startDate = new Date(startDateStr);
+        const endDate = new Date(endDateStr);
+        
+        const isMultiDay = startDate.getTime() !== endDate.getTime();
+        
+        let currentDate = new Date(startDateStr);
+        let dayCount = 1;
+        
+        while (currentDate <= endDate) {
+            const y = currentDate.getFullYear();
+            const m = String(currentDate.getMonth() + 1).padStart(2, '0');
+            const d = String(currentDate.getDate()).padStart(2, '0');
+            
+            unrolled.push({
+                ...e,
+                title: isMultiDay ? `${e.title} : Day ${dayCount}` : e.title,
+                event_date: `${y}-${m}-${d}`,
+                _listKey: `${e.event_id || e.id}_day${dayCount}`
+            });
+            
+            currentDate.setDate(currentDate.getDate() + 1);
+            dayCount++;
+        }
+    });
+    return unrolled;
+};
+
+const toCalendarEvents = (unrolledEvents) => unrolledEvents.map(e => {
     const date = e.event_date.slice(0, 10);
     const [sH, sM] = e.start_time.split(':');
     const [eH, eM] = e.end_time.split(':');
@@ -1396,7 +1429,7 @@ const AdminDashboard = () => {
                                 <div style={{ height: 600 }}>
                                     <BigCalendar
                                         localizer={localizer}
-                                        events={toCalendarEvents(events.filter(e => {
+                                        events={toCalendarEvents(unrollEvents(events).filter(e => {
                                             const date = e.event_date.slice(0, 10);
                                             const [sH, sM] = e.start_time.split(':');
                                             const [eH, eM] = e.end_time.split(':');
@@ -1430,7 +1463,7 @@ const AdminDashboard = () => {
                                 <div className="schedule-list">
                                     {(() => {
                                         const now = new Date();
-                                        const filtered = events.filter(e => {
+                                        const filtered = unrollEvents(events).filter(e => {
                                             const date = e.event_date.slice(0, 10);
                                             const [sH, sM] = e.start_time.split(':');
                                             const [eH, eM] = e.end_time.split(':');
@@ -1461,7 +1494,7 @@ const AdminDashboard = () => {
                                         return (
                                             <>
                                                 {paginated.map(item => (
-                                                    <EventCard key={item.event_id} event={item} onDelete={activeTab !== 'live' ? handleDelete : null} onEdit={activeTab !== 'live' ? setEditEvent : null} onPreview={setPreviewEvent} tab={activeTab} darkMode={darkMode} />
+                                                    <EventCard key={item._listKey || item.event_id} event={item} onDelete={activeTab !== 'live' ? handleDelete : null} onEdit={activeTab !== 'live' ? setEditEvent : null} onPreview={setPreviewEvent} tab={activeTab} darkMode={darkMode} />
                                                 ))}
                                                 {totalPages > 1 && (
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 }}>

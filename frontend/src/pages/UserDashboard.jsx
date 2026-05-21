@@ -21,12 +21,45 @@ const CATEGORY_COLORS = {
 const locales = { 'en-US': enUS };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
 
-const toCalendarEvents = (events) => events.map(e => {
+const unrollEvents = (events) => {
+    const unrolled = [];
+    events.forEach(e => {
+        const startDateStr = e.event_date.slice(0, 10);
+        const endDateStr = e.end_date ? e.end_date.slice(0, 10) : startDateStr;
+        
+        const startDate = new Date(startDateStr);
+        const endDate = new Date(endDateStr);
+        
+        const isMultiDay = startDate.getTime() !== endDate.getTime();
+        
+        let currentDate = new Date(startDateStr);
+        let dayCount = 1;
+        
+        while (currentDate <= endDate) {
+            const y = currentDate.getFullYear();
+            const m = String(currentDate.getMonth() + 1).padStart(2, '0');
+            const d = String(currentDate.getDate()).padStart(2, '0');
+            
+            unrolled.push({
+                ...e,
+                title: isMultiDay ? `${e.title} : Day ${dayCount}` : e.title,
+                event_date: `${y}-${m}-${d}`,
+                _listKey: `${e.event_id || e.id}_day${dayCount}`
+            });
+            
+            currentDate.setDate(currentDate.getDate() + 1);
+            dayCount++;
+        }
+    });
+    return unrolled;
+};
+
+const toCalendarEvents = (unrolledEvents) => unrolledEvents.map(e => {
     const date = e.event_date.slice(0, 10);
     const [sH, sM] = e.start_time.split(':');
     const [eH, eM] = e.end_time.split(':');
     const start = new Date(date); start.setHours(+sH, +sM, 0, 0);
-    const end   = new Date(date); end.setHours(+eH, +eM, 0, 0);
+    const end = new Date(date); end.setHours(+eH, +eM, 0, 0);
     return { title: e.title, start, end, resource: e };
 });
 
@@ -190,6 +223,12 @@ const UserDashboard = () => {
 
     return (
         <div className="dashboard-container">
+            <style>{`
+              .rbc-off-range-bg { background-color: #e5e7eb !important; }
+              html.dark .rbc-off-range-bg { background-color: #1a202c !important; }
+              html.dark .rbc-month-view .rbc-off-range-bg { background-color: #1a202c !important; }
+              html.dark .rbc-month-view .rbc-off-range { color: #9ca3af !important; opacity: 0.8 !important; }
+            `}</style>
             {previewEvent && <PreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} />}
             <div className="dashboard-wrapper">
                 <h2 style={{ margin: '10px 0 20px 0', fontSize: 24 }}>Welcome, {userName}</h2>
@@ -247,7 +286,7 @@ const UserDashboard = () => {
                                 <div style={{ height: 600 }}>
                                     <BigCalendar
                                         localizer={localizer}
-                                        events={toCalendarEvents(events.filter(e => {
+                                        events={toCalendarEvents(unrollEvents(events).filter(e => {
                                             const date = e.event_date.slice(0, 10);
                                             const [sH, sM] = e.start_time.split(':');
                                             const [eH, eM] = e.end_time.split(':');
@@ -281,7 +320,7 @@ const UserDashboard = () => {
                                 <div className="schedule-list">
                                 {(() => {
                                     const now = new Date();
-                                    const filtered = events.filter(e => {
+                                    const filtered = unrollEvents(events).filter(e => {
                                         const date = e.event_date.slice(0, 10);
                                         const [sH, sM] = e.start_time.split(':');
                                         const [eH, eM] = e.end_time.split(':');
@@ -319,7 +358,7 @@ const UserDashboard = () => {
                                     return (
                                         <>
                                             {paginated.map(item => (
-                                                <UserEventCard key={item.event_id || item.id} event={item} onPreview={setPreviewEvent} tab={activeTab} />
+                                                <UserEventCard key={item._listKey || item.event_id || item.id} event={item} onPreview={setPreviewEvent} tab={activeTab} />
                                             ))}
                                             {totalPages > 1 && (
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 }}>

@@ -67,9 +67,24 @@ exports.createEvent = async (req, res) => {
             currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        const createdEvents = [];
-        const googleEventIds = [];
+        // --- 1. Create a single row in the database ---
+        const finalEndDate = dateList[dateList.length - 1]; // Ensures end_date is properly formatted
+        const [eventResult] = await connection.execute(
+            `INSERT INTO events (title, description, venue, event_date, end_date, start_time, end_time, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [title, description, venue, event_date, finalEndDate, mysqlStart, mysqlEnd, category]
+        );
+        const newEventId = eventResult.insertId;
 
+        // --- 2. Attach Attendees to this single event ---
+        for (const person of attendees) {
+            const attendeeEmail = person.email.toLowerCase().trim();
+            await connection.execute(`INSERT IGNORE INTO Attendees (name, email) VALUES (?, ?)`, [person.name || 'Guest', attendeeEmail]);
+            const [rec] = await connection.execute(`SELECT attendee_id FROM Attendees WHERE email = ?`, [attendeeEmail]);
+            await connection.execute(`INSERT INTO Event_Attendees (event_id, attendee_id) VALUES (?, ?)`, [newEventId, rec[0].attendee_id]);
+        }
+
+        // --- 3. Loop over dates for Google Calendar & Emails ---
+        const googleEventIds = [];
         const isMultiDay = dateList.length > 1;
 
         for (let i = 0; i < dateList.length; i++) {
@@ -78,25 +93,11 @@ exports.createEvent = async (req, res) => {
             const googleEnd = `${currentDateStr}T${mysqlEnd}`;
             const eventTitle = isMultiDay ? `${title} : Day ${i + 1}` : title;
 
-            const [eventResult] = await connection.execute(
-                `INSERT INTO events (title, description, venue, event_date, start_time, end_time, category) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [eventTitle, description, venue, currentDateStr, mysqlStart, mysqlEnd, category]
-            );
-            const newEventId = eventResult.insertId;
-            createdEvents.push(newEventId);
-
-            for (const person of attendees) {
-                const attendeeEmail = person.email.toLowerCase().trim();
-                await connection.execute(`INSERT IGNORE INTO Attendees (name, email) VALUES (?, ?)`, [person.name || 'Guest', attendeeEmail]);
-                const [rec] = await connection.execute(`SELECT attendee_id FROM Attendees WHERE email = ?`, [attendeeEmail]);
-                await connection.execute(`INSERT INTO Event_Attendees (event_id, attendee_id) VALUES (?, ?)`, [newEventId, rec[0].attendee_id]);
-            }
-
+            // Create individual Google event
             const googleEventId = await createGoogleEvent({ title: eventTitle, description, venue, startISO: googleStart, endISO: googleEnd }, attendees, tokens);
-            googleEventIds.push(googleEventId);
-            await connection.execute(`UPDATE events SET google_event_id = ? WHERE event_id = ?`, [googleEventId, newEventId]);
+            if (googleEventId) googleEventIds.push(googleEventId);
 
-            // Send invite emails
+            // Send invite emails for this specific day
             for (const person of attendees) {
                 try {
                     await sendInviteEmail({ person, title: eventTitle, description, venue, event_date: currentDateStr, mysqlStart, mysqlEnd, newEventId });
@@ -107,9 +108,14 @@ exports.createEvent = async (req, res) => {
             }
         }
 
+        // --- 4. Update the DB with the comma-separated Google Event IDs ---
+        if (googleEventIds.length > 0) {
+            await connection.execute(`UPDATE events SET google_event_id = ? WHERE event_id = ?`, [googleEventIds.join(','), newEventId]);
+        }
+
         await connection.commit();
 
-        res.status(201).json({ message: 'Success!', eventIds: createdEvents, googleEventIds });
+        res.status(201).json({ message: 'Success!', eventId: newEventId, googleEventIds });
     } catch (error) {
         if (connection) await connection.rollback();
         console.error('Event creation error:', error.message);
@@ -187,7 +193,12 @@ exports.deleteEvent = async (req, res) => {
 
         if (event.google_event_id) {
             const tokens = await getAdminTokens(null);
-            if (tokens) await deleteGoogleEvent(event.google_event_id, tokens);
+            if (tokens) {
+                const googleIds = event.google_event_id.split(',');
+                for (const gid of googleIds) {
+                    if (gid.trim()) await deleteGoogleEvent(gid.trim(), tokens);
+                }
+            }
         }
 
         await pool.execute(`DELETE FROM Events WHERE event_id = ?`, [eventId]);
@@ -225,7 +236,12 @@ exports.deleteAllEvents = async (req, res) => {
         const tokens = await getAdminTokens(null);
         for (const event of events) {
             try {
-                if (tokens) await deleteGoogleEvent(event.google_event_id, tokens);
+                if (tokens) {
+                    const googleIds = event.google_event_id.split(',');
+                    for (const gid of googleIds) {
+                        if (gid.trim()) await deleteGoogleEvent(gid.trim(), tokens);
+                    }
+                }
             } catch (e) {
                 console.warn(`Could not delete Google event ${event.google_event_id}`);
             }
