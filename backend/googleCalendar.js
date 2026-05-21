@@ -37,9 +37,6 @@ async function createGoogleEvent(eventData, attendees, tokens) {
         // (avoids Google sending its own notification emails)
         const attendeeList = [];
 
-        // Only add a Meet link if the venue looks like a video/meet link
-        const isVideoLink = eventData.venue && /^https?:\/\//i.test(eventData.venue.trim());
-
         const event = {
             summary: eventData.title,
             description: eventData.description,
@@ -50,17 +47,11 @@ async function createGoogleEvent(eventData, attendees, tokens) {
             reminders: { useDefault: true },
         };
 
-        // Only attach conferenceData when venue is a URL
         const insertParams = {
             calendarId: 'primary',
             resource: event,
-            sendUpdates: 'none', // We send our own emails via SMTP
+            sendUpdates: 'none',
         };
-
-        if (isVideoLink) {
-            event.conferenceData = { createRequest: { requestId: `meet-${Date.now()}` } };
-            insertParams.conferenceDataVersion = 1;
-        }
 
         const response = await calendar.events.insert(insertParams);
         console.log(`✅ Google Event Created: ${response.data.htmlLink}`);

@@ -36,12 +36,17 @@ const loadGoogleMapsScript = (apiKey) => {
             return;
         }
 
+        const callbackName = 'initGoogleMapsAPI';
+        window[callbackName] = () => {
+            resolve();
+            delete window[callbackName];
+        };
+
         const script = document.createElement('script');
         script.setAttribute('data-google-maps-script', 'true');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&loading=async`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&callback=${callbackName}`;
         script.async = true;
         script.defer = true;
-        script.onload = resolve;
         script.onerror = () => reject(new Error('Google Maps script failed to load'));
         document.head.appendChild(script);
     });
@@ -69,7 +74,6 @@ const PlaceAutocompleteInput = ({ apiKey, value, onChange, onPlaceSelected, plac
 
                 const createAutocomplete = () => {
                     const element = new window.google.maps.places.Autocomplete(inputRef.current, {
-                        types: ['establishment', 'geocode'],
                         fields: ['name', 'formatted_address'],
                     });
 
@@ -590,7 +594,7 @@ const AdminDashboard = () => {
     const [deleting, setDeleting] = useState(false);
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
     const [calendarConnected, setCalendarConnected] = useState(true);
-    const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', start_time: '00:00', end_time: '00:00', category: 'General' });
+    const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', end_date: '', start_time: '00:00', end_time: '00:00', category: 'General' });
     const [attendees, setAttendees] = useState([]);
     const [currentAttendee, setCurrentAttendee] = useState({ name: '', email: '' });
     const [showAttendeesModal, setShowAttendeesModal] = useState(false);
@@ -858,7 +862,7 @@ const AdminDashboard = () => {
         setSubmitting(true);
         try {
             await axios.post('/api/events', { ...formData, attendees });
-            setFormData({ title: '', description: '', venue: '', event_date: '', start_time: '00:00', end_time: '00:00', category: 'General' });
+            setFormData({ title: '', description: '', venue: '', event_date: '', end_date: '', start_time: '00:00', end_time: '00:00', category: 'General' });
             setAttendees([]);
             fetchEvents();
             showToast('Event created successfully!');
@@ -1052,7 +1056,7 @@ const AdminDashboard = () => {
                                                     ) : (
                                                         <span style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', background: 'var(--bg-hover)', padding: '2px 8px', borderRadius: 6 }}>Read</span>
                                                     )}
-                                                    
+
                                                     <button
                                                         type="button"
                                                         onClick={() => handleDeleteQuery(query.id)}
@@ -1256,7 +1260,16 @@ const AdminDashboard = () => {
                                         {meetLoading ? 'Loading' : 'Meet'}
                                     </button>
                                 </div>
-                                <input type="date" className="custom-input" value={formData.event_date} onChange={e => setFormData({ ...formData, event_date: e.target.value })} required />
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                        <label className="input-label" style={{ fontSize: 12, marginBottom: 4, color: 'var(--text-secondary)' }}>Start Date</label>
+                                        <input type="date" className="custom-input" value={formData.event_date} onChange={e => setFormData({ ...formData, event_date: e.target.value })} required />
+                                    </div>
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                        <label className="input-label" style={{ fontSize: 12, marginBottom: 4, color: 'var(--text-secondary)' }}>End Date (Optional)</label>
+                                        <input type="date" className="custom-input" value={formData.end_date} onChange={e => setFormData({ ...formData, end_date: e.target.value })} min={formData.event_date} />
+                                    </div>
+                                </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <Tag size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                                     <select className="custom-input" style={{ flex: 1 }} value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>

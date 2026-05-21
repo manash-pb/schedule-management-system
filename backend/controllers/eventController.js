@@ -31,15 +31,13 @@ const cleanTime = (t) => {
 };
 
 exports.createEvent = async (req, res) => {
-    let { title = null, description = null, venue = null, event_date = null,
+    let { title = null, description = null, venue = null, event_date = null, end_date = null,
         start_time = null, end_time = null, attendees = [], adminEmail = null, category = 'General' } = req.body;
 
     const mysqlStart = cleanTime(start_time);
     const mysqlEnd = cleanTime(end_time);
-    const googleStart = (event_date && mysqlStart) ? `${event_date}T${mysqlStart}` : null;
-    const googleEnd = (event_date && mysqlEnd) ? `${event_date}T${mysqlEnd}` : null;
 
-    if (!googleStart || !googleEnd) {
+    if (!event_date || !mysqlStart || !mysqlEnd) {
         return res.status(400).json({ error: 'Missing date or time fields' });
     }
 
@@ -51,37 +49,67 @@ exports.createEvent = async (req, res) => {
         connection = await pool.getConnection();
         await connection.beginTransaction();
 
-        const [eventResult] = await connection.execute(
-            `INSERT INTO events (title, description, venue, event_date, start_time, end_time, category) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [title, description, venue, event_date, mysqlStart, mysqlEnd, category]
-        );
-        const newEventId = eventResult.insertId;
-
-        for (const person of attendees) {
-            const attendeeEmail = person.email.toLowerCase().trim();
-            await connection.execute(`INSERT IGNORE INTO Attendees (name, email) VALUES (?, ?)`, [person.name || 'Guest', attendeeEmail]);
-            const [rec] = await connection.execute(`SELECT attendee_id FROM Attendees WHERE email = ?`, [attendeeEmail]);
-            await connection.execute(`INSERT INTO Event_Attendees (event_id, attendee_id) VALUES (?, ?)`, [newEventId, rec[0].attendee_id]);
+        // Calculate date range
+        const startDateObj = new Date(event_date);
+        const endDateObj = end_date ? new Date(end_date) : new Date(event_date);
+        if (endDateObj < startDateObj) {
+            return res.status(400).json({ error: 'End date cannot be before start date' });
         }
 
-        const googleEventId = await createGoogleEvent({ title, description, venue, startISO: googleStart, endISO: googleEnd }, attendees, tokens);
-        await connection.execute(`UPDATE events SET google_event_id = ? WHERE event_id = ?`, [googleEventId, newEventId]);
+        const dateList = [];
+        let currentDate = new Date(startDateObj);
+        while (currentDate <= endDateObj) {
+            // Fix timezone issue when extracting YYYY-MM-DD
+            const yyyy = currentDate.getFullYear();
+            const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
+            const dd = String(currentDate.getDate()).padStart(2, '0');
+            dateList.push(`${yyyy}-${mm}-${dd}`);
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
 
+        const createdEvents = [];
+        const googleEventIds = [];
 
+        const isMultiDay = dateList.length > 1;
 
-        await connection.commit();
+        for (let i = 0; i < dateList.length; i++) {
+            const currentDateStr = dateList[i];
+            const googleStart = `${currentDateStr}T${mysqlStart}`;
+            const googleEnd = `${currentDateStr}T${mysqlEnd}`;
+            const eventTitle = isMultiDay ? `${title} : Day ${i + 1}` : title;
 
-        // Send invite emails
-        for (const person of attendees) {
-            try {
-                await sendInviteEmail({ person, title, description, venue, event_date, mysqlStart, mysqlEnd, newEventId });
-                console.log(`✅ Invite sent to ${person.email}`);
-            } catch (e) {
-                console.error(`❌ Failed to send invite to ${person.email}:`, e.message);
+            const [eventResult] = await connection.execute(
+                `INSERT INTO events (title, description, venue, event_date, start_time, end_time, category) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [eventTitle, description, venue, currentDateStr, mysqlStart, mysqlEnd, category]
+            );
+            const newEventId = eventResult.insertId;
+            createdEvents.push(newEventId);
+
+            for (const person of attendees) {
+                const attendeeEmail = person.email.toLowerCase().trim();
+                await connection.execute(`INSERT IGNORE INTO Attendees (name, email) VALUES (?, ?)`, [person.name || 'Guest', attendeeEmail]);
+                const [rec] = await connection.execute(`SELECT attendee_id FROM Attendees WHERE email = ?`, [attendeeEmail]);
+                await connection.execute(`INSERT INTO Event_Attendees (event_id, attendee_id) VALUES (?, ?)`, [newEventId, rec[0].attendee_id]);
+            }
+
+            const googleEventId = await createGoogleEvent({ title: eventTitle, description, venue, startISO: googleStart, endISO: googleEnd }, attendees, tokens);
+            googleEventIds.push(googleEventId);
+            await connection.execute(`UPDATE events SET google_event_id = ? WHERE event_id = ?`, [googleEventId, newEventId]);
+
+            // Send invite emails
+            for (const person of attendees) {
+                try {
+                    await sendInviteEmail({ person, title: eventTitle, description, venue, event_date: currentDateStr, mysqlStart, mysqlEnd, newEventId });
+                    console.log(`✅ Invite sent to ${person.email} for ${currentDateStr}`);
+                } catch (e) {
+                    console.error(`❌ Failed to send invite to ${person.email} for ${currentDateStr}:`, e.message);
+                }
             }
         }
 
-        res.status(201).json({ message: 'Success!', eventId: newEventId, googleEventId });
+        await connection.commit();
+
+        res.status(201).json({ message: 'Success!', eventIds: createdEvents, googleEventIds });
     } catch (error) {
         if (connection) await connection.rollback();
         console.error('Event creation error:', error.message);
