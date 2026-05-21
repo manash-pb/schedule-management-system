@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutList, CalendarDays } from 'lucide-react';
+import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutList, CalendarDays, MessageCircle, Repeat } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { getAuthData } from '../utils/authStorage';
@@ -53,6 +53,11 @@ const PlaceAutocompleteInput = ({ apiKey, value, onChange, onPlaceSelected, plac
     const inputRef = useRef(null);
     const autocompleteRef = useRef(null);
 
+    const onPlaceSelectedRef = useRef(onPlaceSelected);
+    useEffect(() => {
+        onPlaceSelectedRef.current = onPlaceSelected;
+    }, [onPlaceSelected]);
+
     useEffect(() => {
         let mounted = true;
         if (!apiKey) return;
@@ -70,7 +75,9 @@ const PlaceAutocompleteInput = ({ apiKey, value, onChange, onPlaceSelected, plac
 
                     element.addListener('place_changed', () => {
                         const place = element.getPlace();
-                        if (place) onPlaceSelected(place);
+                        if (place && onPlaceSelectedRef.current) {
+                            onPlaceSelectedRef.current(place);
+                        }
                     });
 
                     autocompleteRef.current = element;
@@ -87,13 +94,20 @@ const PlaceAutocompleteInput = ({ apiKey, value, onChange, onPlaceSelected, plac
         return () => {
             mounted = false;
         };
-    }, [apiKey, onPlaceSelected]);
+    }, [apiKey]);
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+        }
+    };
 
     return (
         <input
             ref={inputRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder={placeholder}
             className={className}
             style={style}
@@ -473,6 +487,7 @@ const EditModal = ({ event, onClose, onSave, showToast }) => {
         start_time: event.start_time?.slice(0, 5) || '',
         end_time: event.end_time?.slice(0, 5) || '',
         category: event.category || 'General',
+        recurrence_type: event.recurrence_type || 'Does not repeat',
     });
     const [saving, setSaving] = useState(false);
 
@@ -513,6 +528,12 @@ const EditModal = ({ event, onClose, onSave, showToast }) => {
                     <input type="date" className="custom-input" value={form.event_date} onChange={e => setForm({ ...form, event_date: e.target.value })} required />
                     <select className="custom-input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
                         {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <select className="custom-input" value={form.recurrence_type} onChange={e => setForm({ ...form, recurrence_type: e.target.value })}>
+                        <option value="Does not repeat">Does not repeat</option>
+                        <option value="Daily">Daily</option>
+                        <option value="Weekly">Weekly</option>
+                        <option value="Monthly">Monthly</option>
                     </select>
                     <div className="time-row">
                         <div className="time-field">

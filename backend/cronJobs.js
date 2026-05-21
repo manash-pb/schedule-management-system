@@ -1,7 +1,9 @@
 // cronJobs.js
 const cron = require('node-cron');
 const pool = require('./db');
-const { transporter } = require('./utils/mailer');
+const { transporter, sendInviteEmail } = require('./utils/mailer');
+const { createGoogleEvent } = require('./googleCalendar');
+const { getAdminTokens } = require('./controllers/eventController');
 
 const formatTime12 = (t) => {
     if (!t) return '';
@@ -113,6 +115,97 @@ function startCronJobs() {
             }
         } catch (error) {
             console.error('1-hour reminder cron error:', error);
+        }
+    });
+
+    // Recurring events: check every 5 minutes
+    cron.schedule('*/5 * * * *', async () => {
+        console.log('Running recurring events generator job...');
+        try {
+            // Find completed events that need next recurrence
+            // Completed means date + end_time is in the past
+            const [rows] = await pool.execute(`
+                SELECT * FROM Events 
+                WHERE recurrence_type IS NOT NULL 
+                  AND recurrence_type != 'Does not repeat' 
+                  AND next_occurrence_generated = 0
+                  AND TIMESTAMP(event_date, end_time) < NOW()
+            `);
+
+            for (const event of rows) {
+                console.log(`Generating next occurrence for event ID ${event.event_id} (${event.title})`);
+                
+                // Calculate next date
+                const nextDateObj = new Date(event.event_date);
+                if (event.recurrence_type === 'Daily') nextDateObj.setDate(nextDateObj.getDate() + 1);
+                else if (event.recurrence_type === 'Weekly') nextDateObj.setDate(nextDateObj.getDate() + 7);
+                else if (event.recurrence_type === 'Monthly') nextDateObj.setMonth(nextDateObj.getMonth() + 1);
+
+                const nextDateStr = nextDateObj.toISOString().split('T')[0];
+                const mysqlStart = event.start_time;
+                const mysqlEnd = event.end_time;
+                const nextGoogleStart = `${nextDateStr}T${mysqlStart}`;
+                const nextGoogleEnd = `${nextDateStr}T${mysqlEnd}`;
+
+                const parentId = event.parent_event_id || event.event_id;
+
+                let connection;
+                try {
+                    connection = await pool.getConnection();
+                    await connection.beginTransaction();
+
+                    // Insert next event
+                    const [nextEventResult] = await connection.execute(
+                        `INSERT INTO events (title, description, venue, event_date, start_time, end_time, category, recurrence_type, parent_event_id, admin_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [event.title, event.description, event.venue, nextDateStr, mysqlStart, mysqlEnd, event.category, event.recurrence_type, parentId, event.admin_email]
+                    );
+                    const nextEventId = nextEventResult.insertId;
+
+                    // Get attendees from original event
+                    const [attendees] = await connection.execute(
+                        `SELECT a.attendee_id, a.name, a.email FROM Attendees a JOIN Event_Attendees ea ON a.attendee_id = ea.attendee_id WHERE ea.event_id = ?`,
+                        [event.event_id]
+                    );
+
+                    for (const person of attendees) {
+                        await connection.execute(`INSERT IGNORE INTO Event_Attendees (event_id, attendee_id) VALUES (?, ?)`, [nextEventId, person.attendee_id]);
+                    }
+
+                    // Sync with Google Calendar
+                    let nextGoogleEventId = null;
+                    const tokens = await getAdminTokens(event.admin_email);
+                    if (tokens) {
+                        try {
+                            nextGoogleEventId = await createGoogleEvent({ title: event.title, description: event.description, venue: event.venue, startISO: nextGoogleStart, endISO: nextGoogleEnd }, attendees, tokens);
+                            await connection.execute(`UPDATE events SET google_event_id = ? WHERE event_id = ?`, [nextGoogleEventId, nextEventId]);
+                        } catch (e) {
+                            console.error('Failed to create Google event for recurrence:', e.message);
+                        }
+                    }
+
+                    // Send invite emails
+                    for (const person of attendees) {
+                        try {
+                            await sendInviteEmail({ person, title: event.title, description: event.description, venue: event.venue, event_date: nextDateStr, mysqlStart, mysqlEnd, newEventId: nextEventId });
+                        } catch (e) {
+                            console.error(`Failed to send invite to ${person.email} for recurring instance:`, e.message);
+                        }
+                    }
+
+                    // Mark current event as handled
+                    await connection.execute(`UPDATE events SET next_occurrence_generated = 1 WHERE event_id = ?`, [event.event_id]);
+                    
+                    await connection.commit();
+                    console.log(`✅ Successfully generated and scheduled next occurrence: ${nextDateStr}`);
+                } catch (e) {
+                    if (connection) await connection.rollback();
+                    console.error(`Failed to generate recurrence for event ${event.event_id}:`, e);
+                } finally {
+                    if (connection) connection.release();
+                }
+            }
+        } catch (error) {
+            console.error('Recurring events cron error:', error);
         }
     });
 }

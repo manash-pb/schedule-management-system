@@ -23,6 +23,7 @@ const getAdminTokens = async (adminEmail) => {
         ? JSON.parse(fallback[0].google_tokens)
         : fallback[0].google_tokens;
 };
+exports.getAdminTokens = getAdminTokens;
 
 const cleanTime = (t) => {
     if (!t) return null;
@@ -66,48 +67,7 @@ exports.createEvent = async (req, res) => {
         const googleEventId = await createGoogleEvent({ title, description, venue, startISO: googleStart, endISO: googleEnd }, attendees, tokens);
         await connection.execute(`UPDATE events SET google_event_id = ? WHERE event_id = ?`, [googleEventId, newEventId]);
 
-        // Handle recurring events
-        if (recurrence_type && recurrence_type !== 'Does not repeat') {
-            const occurrences = 10; // Generate 10 occurrences by default
-            for (let i = 1; i <= occurrences; i++) {
-                const nextDateObj = new Date(event_date);
-                if (recurrence_type === 'Daily') nextDateObj.setDate(nextDateObj.getDate() + i);
-                else if (recurrence_type === 'Weekly') nextDateObj.setDate(nextDateObj.getDate() + 7 * i);
-                else if (recurrence_type === 'Monthly') nextDateObj.setMonth(nextDateObj.getMonth() + i);
 
-                const nextDateStr = nextDateObj.toISOString().split('T')[0];
-                const nextGoogleStart = `${nextDateStr}T${mysqlStart}`;
-                const nextGoogleEnd = `${nextDateStr}T${mysqlEnd}`;
-
-                // Insert into events table
-                const [nextEventResult] = await connection.execute(
-                    `INSERT INTO events (title, description, venue, event_date, start_time, end_time, category, recurrence_type, parent_event_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [title, description, venue, nextDateStr, mysqlStart, mysqlEnd, category, recurrence_type, newEventId]
-                );
-                const nextEventId = nextEventResult.insertId;
-
-                // Insert attendees
-                for (const person of attendees) {
-                    const attendeeEmail = person.email.toLowerCase().trim();
-                    const [rec] = await connection.execute(`SELECT attendee_id FROM Attendees WHERE email = ?`, [attendeeEmail]);
-                    await connection.execute(`INSERT INTO Event_Attendees (event_id, attendee_id) VALUES (?, ?)`, [nextEventId, rec[0].attendee_id]);
-                }
-
-                // Sync with Google Calendar
-                const nextGoogleEventId = await createGoogleEvent({ title, description, venue, startISO: nextGoogleStart, endISO: nextGoogleEnd }, attendees, tokens);
-                await connection.execute(`UPDATE events SET google_event_id = ? WHERE event_id = ?`, [nextGoogleEventId, nextEventId]);
-
-                // Send invite emails for recurring instance
-                for (const person of attendees) {
-                    try {
-                        await sendInviteEmail({ person, title, description, venue, event_date: nextDateStr, mysqlStart, mysqlEnd, newEventId: nextEventId });
-                        console.log(`✅ Invite sent to ${person.email} for recurring instance ${nextDateStr}`);
-                    } catch (e) {
-                        console.error(`❌ Failed to send invite to ${person.email} for recurring instance:`, e.message);
-                    }
-                }
-            }
-        }
 
         await connection.commit();
 
@@ -344,7 +304,7 @@ exports.updateEvent = async (req, res) => {
 
         const fields = [], values = [];
         for (const [key, value] of Object.entries(updates)) {
-            if (['title', 'description', 'venue', 'event_date', 'start_time', 'end_time', 'category'].includes(key)) {
+            if (['title', 'description', 'venue', 'event_date', 'start_time', 'end_time', 'category', 'recurrence_type'].includes(key)) {
                 fields.push(`${key} = ?`);
                 values.push(value);
             }
