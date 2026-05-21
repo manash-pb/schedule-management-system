@@ -43,6 +43,8 @@ pool.getConnection()
                     reply_message TEXT,
                     reply_at TIMESTAMP NULL,
                     replied_by VARCHAR(255),
+                    deleted_by_user TINYINT(1) DEFAULT 0,
+                    deleted_by_admin TINYINT(1) DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     INDEX (user_email),
                     FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE
@@ -59,6 +61,28 @@ pool.getConnection()
                 console.log('✅ Ensured user_queries status ENUM supports "read".');
             } catch (alterErr) {
                 console.warn('⚠️ Could not alter user_queries status ENUM:', alterErr.message);
+            }
+
+            // Ensure deleted_by_user column exists
+            try {
+                await pool.query(`
+                    ALTER TABLE user_queries 
+                    ADD COLUMN deleted_by_user TINYINT(1) DEFAULT 0
+                `);
+                console.log('✅ Ensured deleted_by_user column exists in user_queries.');
+            } catch (err) {
+                // Ignore if it already exists
+            }
+
+            // Ensure deleted_by_admin column exists
+            try {
+                await pool.query(`
+                    ALTER TABLE user_queries 
+                    ADD COLUMN deleted_by_admin TINYINT(1) DEFAULT 0
+                `);
+                console.log('✅ Ensured deleted_by_admin column exists in user_queries.');
+            } catch (err) {
+                // Ignore if it already exists
             }
         } catch (err) {
             console.error('❌ user_queries table creation failed:', err);
