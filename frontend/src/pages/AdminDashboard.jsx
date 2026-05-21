@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutList, CalendarDays, MessageCircle } from 'lucide-react';
+import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutList, CalendarDays } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { getAuthData } from '../utils/authStorage';
@@ -17,7 +17,7 @@ const toCalendarEvents = (events) => events.map(e => {
     const [sH, sM] = e.start_time.split(':');
     const [eH, eM] = e.end_time.split(':');
     const start = new Date(date); start.setHours(+sH, +sM, 0, 0);
-    const end   = new Date(date); end.setHours(+eH, +eM, 0, 0);
+    const end = new Date(date); end.setHours(+eH, +eM, 0, 0);
     return { title: e.title, start, end, resource: e };
 });
 const CATEGORIES = ['General', 'Meeting', 'Workshop', 'Holiday', 'Training', 'Social'];
@@ -102,22 +102,22 @@ const PlaceAutocompleteInput = ({ apiKey, value, onChange, onPlaceSelected, plac
     );
 };
 const CATEGORY_COLORS = {
-    General:  { bg: '#eff6ff', color: '#2563eb' },
-    Meeting:  { bg: '#fef3c7', color: '#d97706' },
+    General: { bg: '#eff6ff', color: '#2563eb' },
+    Meeting: { bg: '#fef3c7', color: '#d97706' },
     Workshop: { bg: '#f0fdf4', color: '#16a34a' },
-    Holiday:  { bg: '#fce7f3', color: '#db2777' },
+    Holiday: { bg: '#fce7f3', color: '#db2777' },
     Training: { bg: '#f5f3ff', color: '#7c3aed' },
-    Social:   { bg: '#fff7ed', color: '#ea580c' },
+    Social: { bg: '#fff7ed', color: '#ea580c' },
 };
 
 const ClosedEyeIcon = ({ size = 20, color = 'currentColor' }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M4 8 Q12 16 20 8" stroke={color} strokeWidth="2" strokeLinecap="round" fill="none"/>
-    <line x1="7.5" y1="11.5" x2="6.5" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round"/>
-    <line x1="10.5" y1="13" x2="10" y2="15.5" stroke={color} strokeWidth="2" strokeLinecap="round"/>
-    <line x1="13.5" y1="13" x2="14" y2="15.5" stroke={color} strokeWidth="2" strokeLinecap="round"/>
-    <line x1="16.5" y1="11.5" x2="17.5" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round"/>
-  </svg>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 8 Q12 16 20 8" stroke={color} strokeWidth="2" strokeLinecap="round" fill="none" />
+        <line x1="7.5" y1="11.5" x2="6.5" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round" />
+        <line x1="10.5" y1="13" x2="10" y2="15.5" stroke={color} strokeWidth="2" strokeLinecap="round" />
+        <line x1="13.5" y1="13" x2="14" y2="15.5" stroke={color} strokeWidth="2" strokeLinecap="round" />
+        <line x1="16.5" y1="11.5" x2="17.5" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </svg>
 );
 
 const formatTime = (timeStr) => {
@@ -162,66 +162,69 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange, showToast
     };
 
     return (
-    <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-                <div>
-                    <span className="status-badge">Confirmed</span>
-                    <h2 className="event-title" style={{ marginBottom: 4 }}>{event.title}</h2>
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <div className="tooltip-wrap">
-                        <button className="btn-icon excel" onClick={() => onDownload(event)}>
-                            <Download size={20} />
-                        </button>
-                        <span className="tooltip-text">Download Excel</span>
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-card" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <div>
+                        <span className="status-badge">Confirmed</span>
+                        <h2 className="event-title" style={{ marginBottom: 4 }}>{event.title}</h2>
                     </div>
-                    <button className="btn-icon" onClick={onClose}><X size={20} /></button>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <div className="tooltip-wrap">
+                            <button className="btn-icon excel" onClick={() => onDownload(event)}>
+                                <Download size={20} />
+                            </button>
+                            <span className="tooltip-text">Download Excel</span>
+                        </div>
+                        <button className="btn-icon" onClick={onClose}><X size={20} /></button>
+                    </div>
                 </div>
-            </div>
 
-            <div className="event-meta" style={{ marginBottom: 16 }}>
-                <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString('en-GB')}</span></div>
-                <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
-                <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
-            </div>
-
-            {event.description && (
-                <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
-                    <p style={{ margin: 0, fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{event.description}</p>
+                <div className="event-meta" style={{ marginBottom: 16 }}>
+                    <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString('en-GB')}</span></div>
+                    <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
+                    <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
+                    {event.recurrence_type && event.recurrence_type !== 'Does not repeat' && (
+                        <div className="meta-item"><Repeat size={14} className="text-blue" /><span>Repeats {event.recurrence_type}</span></div>
+                    )}
                 </div>
-            )}
 
-            <div className="modal-attendees">
-                <p className="modal-attendees-title">Attendees ({attendees.length})</p>
-                <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-                    <input className="custom-input" style={{ flex: 1 }} placeholder="Name" value={newAttendee.name} onChange={e => setNewAttendee({ ...newAttendee, name: e.target.value })} />
-                    <input className="custom-input" style={{ flex: 1 }} placeholder="Email" value={newAttendee.email} onChange={e => setNewAttendee({ ...newAttendee, email: e.target.value })} />
-                    <button className="btn-secondary" onClick={handleAdd} disabled={saving}>
-                        {saving ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg> : <UserPlus size={16} />}
-                    </button>
-                </div>
-                {attendees.length === 0 ? (
-                    <p style={{ color: '#94a3b8', fontSize: 13 }}>No attendees added.</p>
-                ) : (
-                    <div className="modal-attendees-list">
-                        {attendees.map((a, i) => (
-                            <div key={i} className="modal-attendee-row">
-                                <div className="attendee-avatar">{a.name?.[0]?.toUpperCase() || '?'}</div>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontWeight: 600, fontSize: 13 }}>{a.name}</div>
-                                    <div style={{ fontSize: 12, color: '#64748b' }}>{a.email}</div>
-                                </div>
-                                {/* RSVP status removed */}
-                                <button onClick={() => setConfirmRemoveEmail(a.email)} disabled={removing === a.email} style={{ background: 'none', border: 'none', cursor: removing === a.email ? 'not-allowed' : 'pointer', color: '#ef4444', marginLeft: 4, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    {removing === a.email ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg> : <X size={14} />}
-                                </button>
-                            </div>
-                        ))}
+                {event.description && (
+                    <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
+                        <p style={{ margin: 0, fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{event.description}</p>
                     </div>
                 )}
+
+                <div className="modal-attendees">
+                    <p className="modal-attendees-title">Attendees ({attendees.length})</p>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                        <input className="custom-input" style={{ flex: 1 }} placeholder="Name" value={newAttendee.name} onChange={e => setNewAttendee({ ...newAttendee, name: e.target.value })} />
+                        <input className="custom-input" style={{ flex: 1 }} placeholder="Email" value={newAttendee.email} onChange={e => setNewAttendee({ ...newAttendee, email: e.target.value })} />
+                        <button className="btn-secondary" onClick={handleAdd} disabled={saving}>
+                            {saving ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg> : <UserPlus size={16} />}
+                        </button>
+                    </div>
+                    {attendees.length === 0 ? (
+                        <p style={{ color: '#94a3b8', fontSize: 13 }}>No attendees added.</p>
+                    ) : (
+                        <div className="modal-attendees-list">
+                            {attendees.map((a, i) => (
+                                <div key={i} className="modal-attendee-row">
+                                    <div className="attendee-avatar">{a.name?.[0]?.toUpperCase() || '?'}</div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 600, fontSize: 13 }}>{a.name}</div>
+                                        <div style={{ fontSize: 12, color: '#64748b' }}>{a.email}</div>
+                                    </div>
+                                    {/* RSVP status removed */}
+                                    <button onClick={() => setConfirmRemoveEmail(a.email)} disabled={removing === a.email} style={{ background: 'none', border: 'none', cursor: removing === a.email ? 'not-allowed' : 'pointer', color: '#ef4444', marginLeft: 4, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        {removing === a.email ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg> : <X size={14} />}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
-        </div>
             {confirmRemoveEmail && (
                 <div className="modal-overlay" onClick={() => setConfirmRemoveEmail(null)}>
                     <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 400, textAlign: 'center' }}>
@@ -243,7 +246,7 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange, showToast
                     </div>
                 </div>
             )}
-    </div>
+        </div>
     );
 };
 
@@ -252,7 +255,7 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => (
         <div className="event-info">
             <span className="status-badge" style={
                 tab === 'past' ? { background: darkMode ? 'rgba(100,116,139,0.2)' : '#f1f5f9', color: darkMode ? '#94a3b8' : '#475569', border: darkMode ? '1px solid rgba(100,116,139,0.3)' : 'none' } :
-                tab === 'live' ? { background: darkMode ? 'rgba(22,163,74,0.2)' : '#dcfce7', color: darkMode ? '#4ade80' : '#16a34a', border: darkMode ? '1px solid rgba(22,163,74,0.3)' : 'none' } : {}
+                    tab === 'live' ? { background: darkMode ? 'rgba(22,163,74,0.2)' : '#dcfce7', color: darkMode ? '#4ade80' : '#16a34a', border: darkMode ? '1px solid rgba(22,163,74,0.3)' : 'none' } : {}
             }>
                 {tab === 'past' ? 'Past' : tab === 'live' ? '🔴 Live' : 'Confirmed'}
             </span>
@@ -266,6 +269,9 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => (
                 <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString('en-GB')}</span></div>
                 <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
                 <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
+                {event.recurrence_type && event.recurrence_type !== 'Does not repeat' && (
+                    <div className="meta-item" title={`Repeats ${event.recurrence_type}`}><Repeat size={14} className="text-blue" /><span>{event.recurrence_type}</span></div>
+                )}
             </div>
         </div>
         <div className="event-actions">
@@ -290,140 +296,140 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => (
 );
 
 const CustomTimeInput = ({ value, onChange }) => {
-  const parseTime = (val) => {
-    if (!val) return { h: 12, m: 0, p: 'AM' };
-    let [h, m] = val.split(':').map(Number);
-    const p = h >= 12 ? 'PM' : 'AM';
-    h = h % 12 || 12;
-    return { h, m, p };
-  };
+    const parseTime = (val) => {
+        if (!val) return { h: 12, m: 0, p: 'AM' };
+        let [h, m] = val.split(':').map(Number);
+        const p = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        return { h, m, p };
+    };
 
-  const { h, m, p } = parseTime(value);
-  const [displayH, setDisplayH] = useState(String(h).padStart(2, '0'));
-  const [displayM, setDisplayM] = useState(String(m).padStart(2, '0'));
-  const mRef = useRef(null);
-  const ampmRef = useRef(null);
+    const { h, m, p } = parseTime(value);
+    const [displayH, setDisplayH] = useState(String(h).padStart(2, '0'));
+    const [displayM, setDisplayM] = useState(String(m).padStart(2, '0'));
+    const mRef = useRef(null);
+    const ampmRef = useRef(null);
 
-  useEffect(() => {
-    setDisplayH(String(h).padStart(2, '0'));
-    setDisplayM(String(m).padStart(2, '0'));
-  }, [h, m]);
+    useEffect(() => {
+        setDisplayH(String(h).padStart(2, '0'));
+        setDisplayM(String(m).padStart(2, '0'));
+    }, [h, m]);
 
-  const update = (newH, newM, newP) => {
-    let finalH = newP === 'PM' ? (newH % 12) + 12 : newH % 12;
-    onChange(`${String(finalH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`);
-  };
+    const update = (newH, newM, newP) => {
+        let finalH = newP === 'PM' ? (newH % 12) + 12 : newH % 12;
+        onChange(`${String(finalH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`);
+    };
 
-  const handleArrow = (type, direction) => {
-    if (type === 'h') update(direction === 'up' ? (h === 12 ? 1 : h + 1) : (h === 1 ? 12 : h - 1), m, p);
-    else if (type === 'm') update(h, direction === 'up' ? (m === 59 ? 0 : m + 1) : (m === 0 ? 59 : m - 1), p);
-    else if (type === 'p') update(h, m, p === 'AM' ? 'PM' : 'AM');
-  };
+    const handleArrow = (type, direction) => {
+        if (type === 'h') update(direction === 'up' ? (h === 12 ? 1 : h + 1) : (h === 1 ? 12 : h - 1), m, p);
+        else if (type === 'm') update(h, direction === 'up' ? (m === 59 ? 0 : m + 1) : (m === 0 ? 59 : m - 1), p);
+        else if (type === 'p') update(h, m, p === 'AM' ? 'PM' : 'AM');
+    };
 
-  const commitH = (raw) => {
-    let num = parseInt(raw);
-    if (isNaN(num) || num < 1) num = 1;
-    if (num > 12) num = 12;
-    setDisplayH(String(num).padStart(2, '0'));
-    update(num, m, p);
-  };
+    const commitH = (raw) => {
+        let num = parseInt(raw);
+        if (isNaN(num) || num < 1) num = 1;
+        if (num > 12) num = 12;
+        setDisplayH(String(num).padStart(2, '0'));
+        update(num, m, p);
+    };
 
-  const commitM = (raw) => {
-    let num = parseInt(raw);
-    if (isNaN(num)) num = 0;
-    if (num > 59) num = 59;
-    setDisplayM(String(num).padStart(2, '0'));
-    update(h, num, p);
-  };
+    const commitM = (raw) => {
+        let num = parseInt(raw);
+        if (isNaN(num)) num = 0;
+        if (num > 59) num = 59;
+        setDisplayM(String(num).padStart(2, '0'));
+        update(h, num, p);
+    };
 
-  const handleHInput = (e) => {
-    const raw = e.target.value.replace(/\D/g, '').slice(-2);
-    setDisplayH(raw);
-    // auto-advance: 2 digits entered, or first digit > 1 (can't be valid start of 12-hr hour)
-    if (raw.length === 2 || (raw.length === 1 && parseInt(raw) > 1)) {
-      let num = parseInt(raw);
-      if (isNaN(num) || num < 1) num = 1;
-      if (num > 12) num = 12;
-      update(num, m, p);
-      mRef.current?.focus();
-      mRef.current?.select();
-    }
-  };
+    const handleHInput = (e) => {
+        const raw = e.target.value.replace(/\D/g, '').slice(-2);
+        setDisplayH(raw);
+        // auto-advance: 2 digits entered, or first digit > 1 (can't be valid start of 12-hr hour)
+        if (raw.length === 2 || (raw.length === 1 && parseInt(raw) > 1)) {
+            let num = parseInt(raw);
+            if (isNaN(num) || num < 1) num = 1;
+            if (num > 12) num = 12;
+            update(num, m, p);
+            mRef.current?.focus();
+            mRef.current?.select();
+        }
+    };
 
-  const handleMInput = (e) => {
-    const raw = e.target.value.replace(/\D/g, '').slice(-2);
-    setDisplayM(raw);
-    // auto-advance: 2 digits, or first digit > 5 (minutes max is 59)
-    if (raw.length === 2 || (raw.length === 1 && parseInt(raw) > 5)) {
-      let num = parseInt(raw);
-      if (isNaN(num)) num = 0;
-      if (num > 59) num = 59;
-      update(h, num, p);
-      ampmRef.current?.focus();
-    }
-  };
+    const handleMInput = (e) => {
+        const raw = e.target.value.replace(/\D/g, '').slice(-2);
+        setDisplayM(raw);
+        // auto-advance: 2 digits, or first digit > 5 (minutes max is 59)
+        if (raw.length === 2 || (raw.length === 1 && parseInt(raw) > 5)) {
+            let num = parseInt(raw);
+            if (isNaN(num)) num = 0;
+            if (num > 59) num = 59;
+            update(h, num, p);
+            ampmRef.current?.focus();
+        }
+    };
 
-  return (
-    <div className="hybrid-time-picker">
-      <div className="time-column">
-        <button type="button" onClick={() => handleArrow('h', 'up')} className="arrow-btn">▲</button>
-        <input
-          type="text"
-          className="time-type-input"
-          value={displayH}
-          inputMode="numeric"
-          maxLength={2}
-          style={{ caretColor: 'currentColor' }}
-          onFocus={e => e.target.select()}
-          onChange={handleHInput}
-          onBlur={(e) => commitH(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'ArrowUp')   { e.preventDefault(); handleArrow('h', 'up'); }
-            if (e.key === 'ArrowDown') { e.preventDefault(); handleArrow('h', 'down'); }
-          }}
-        />
-        <button type="button" onClick={() => handleArrow('h', 'down')} className="arrow-btn">▼</button>
-        <span className="input-label-sm">HRS</span>
-      </div>
+    return (
+        <div className="hybrid-time-picker">
+            <div className="time-column">
+                <button type="button" onClick={() => handleArrow('h', 'up')} className="arrow-btn">▲</button>
+                <input
+                    type="text"
+                    className="time-type-input"
+                    value={displayH}
+                    inputMode="numeric"
+                    maxLength={2}
+                    style={{ caretColor: 'currentColor' }}
+                    onFocus={e => e.target.select()}
+                    onChange={handleHInput}
+                    onBlur={(e) => commitH(e.target.value)}
+                    onKeyDown={e => {
+                        if (e.key === 'ArrowUp') { e.preventDefault(); handleArrow('h', 'up'); }
+                        if (e.key === 'ArrowDown') { e.preventDefault(); handleArrow('h', 'down'); }
+                    }}
+                />
+                <button type="button" onClick={() => handleArrow('h', 'down')} className="arrow-btn">▼</button>
+                <span className="input-label-sm">HRS</span>
+            </div>
 
-      <span className="time-separator">:</span>
+            <span className="time-separator">:</span>
 
-      <div className="time-column">
-        <button type="button" onClick={() => handleArrow('m', 'up')} className="arrow-btn">▲</button>
-        <input
-          ref={mRef}
-          type="text"
-          className="time-type-input"
-          value={displayM}
-          inputMode="numeric"
-          maxLength={2}
-          style={{ caretColor: 'currentColor' }}
-          onFocus={e => e.target.select()}
-          onChange={handleMInput}
-          onBlur={(e) => commitM(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'ArrowUp')   { e.preventDefault(); handleArrow('m', 'up'); }
-            if (e.key === 'ArrowDown') { e.preventDefault(); handleArrow('m', 'down'); }
-          }}
-        />
-        <button type="button" onClick={() => handleArrow('m', 'down')} className="arrow-btn">▼</button>
-        <span className="input-label-sm">MIN</span>
-      </div>
+            <div className="time-column">
+                <button type="button" onClick={() => handleArrow('m', 'up')} className="arrow-btn">▲</button>
+                <input
+                    ref={mRef}
+                    type="text"
+                    className="time-type-input"
+                    value={displayM}
+                    inputMode="numeric"
+                    maxLength={2}
+                    style={{ caretColor: 'currentColor' }}
+                    onFocus={e => e.target.select()}
+                    onChange={handleMInput}
+                    onBlur={(e) => commitM(e.target.value)}
+                    onKeyDown={e => {
+                        if (e.key === 'ArrowUp') { e.preventDefault(); handleArrow('m', 'up'); }
+                        if (e.key === 'ArrowDown') { e.preventDefault(); handleArrow('m', 'down'); }
+                    }}
+                />
+                <button type="button" onClick={() => handleArrow('m', 'down')} className="arrow-btn">▼</button>
+                <span className="input-label-sm">MIN</span>
+            </div>
 
-      <div className="time-column">
-        <button type="button" onClick={() => handleArrow('p', 'up')} className="arrow-btn">▲</button>
-        <div
-          ref={ampmRef}
-          className="time-type-input ampm"
-          tabIndex={0}
-          onClick={() => handleArrow('p', 'up')}
-          onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') handleArrow('p', 'up'); }}
-        >{p}</div>
-        <button type="button" onClick={() => handleArrow('p', 'down')} className="arrow-btn">▼</button>
-        <span className="input-label-sm">AM/PM</span>
-      </div>
-    </div>
-  );
+            <div className="time-column">
+                <button type="button" onClick={() => handleArrow('p', 'up')} className="arrow-btn">▲</button>
+                <div
+                    ref={ampmRef}
+                    className="time-type-input ampm"
+                    tabIndex={0}
+                    onClick={() => handleArrow('p', 'up')}
+                    onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') handleArrow('p', 'up'); }}
+                >{p}</div>
+                <button type="button" onClick={() => handleArrow('p', 'down')} className="arrow-btn">▼</button>
+                <span className="input-label-sm">AM/PM</span>
+            </div>
+        </div>
+    );
 };
 
 const AttendeesModal = ({ attendees, onRemove, onClearAll, onClose }) => (
@@ -535,9 +541,9 @@ const CustomCalendarToolbar = ({ label, onNavigate, onView, view, date, setCalen
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8, padding: '4px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {view === 'day' && (
-                <button 
-                    onClick={() => onView('month')} 
-                    className="btn-icon" 
+                <button
+                    onClick={() => onView('month')}
+                    className="btn-icon"
                     style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s', marginRight: 4 }}
                     title="Back to month view"
                 >
@@ -573,7 +579,7 @@ const AdminDashboard = () => {
     const [deleting, setDeleting] = useState(false);
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
     const [calendarConnected, setCalendarConnected] = useState(true);
-    const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', start_time: '00:00', end_time: '00:00', category: 'General' });
+    const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', start_time: '00:00', end_time: '00:00', category: 'General', recurrence_type: 'Does not repeat' });
     const [attendees, setAttendees] = useState([]);
     const [currentAttendee, setCurrentAttendee] = useState({ name: '', email: '' });
     const [showAttendeesModal, setShowAttendeesModal] = useState(false);
@@ -746,13 +752,13 @@ const AdminDashboard = () => {
 
         const data = [
             // Event details block
-            ['Event Title',    event.title],
-            ['Date',           formattedDate],
-            ['Start Time',     formatTime(event.start_time)],
-            ['End Time',       formatTime(event.end_time)],
-            ['Venue',          event.venue || '—'],
-            ['Category',       event.category || 'General'],
-            ['Description',    event.description || '—'],
+            ['Event Title', event.title],
+            ['Date', formattedDate],
+            ['Start Time', formatTime(event.start_time)],
+            ['End Time', formatTime(event.end_time)],
+            ['Venue', event.venue || '—'],
+            ['Category', event.category || 'General'],
+            ['Description', event.description || '—'],
             ['Total Attendees', attendees.length],
             [], // blank separator row
             // Attendees header
@@ -801,7 +807,7 @@ const AdminDashboard = () => {
         setSubmitting(true);
         try {
             await axios.post('/api/events', { ...formData, attendees });
-            setFormData({ title: '', description: '', venue: '', event_date: '', start_time: '00:00', end_time: '00:00', category: 'General' });
+            setFormData({ title: '', description: '', venue: '', event_date: '', start_time: '00:00', end_time: '00:00', category: 'General', recurrence_type: 'Does not repeat' });
             setAttendees([]);
             fetchEvents();
             showToast('Event created successfully!');
@@ -1078,7 +1084,7 @@ const AdminDashboard = () => {
                                         } catch { showToast('Failed to generate Meet link.', 'error'); }
                                         finally { setMeetLoading(false); }
                                     }} className="btn-secondary" disabled={meetLoading} style={{ whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: calendarConnected ? 1 : 0.5, height: '42px', width: '90px', boxSizing: 'border-box' }}>
-                                        {meetLoading ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg> : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>}
+                                        {meetLoading ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg> : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" /></svg>}
                                         {meetLoading ? 'Loading' : 'Meet'}
                                     </button>
                                 </div>
@@ -1087,6 +1093,15 @@ const AdminDashboard = () => {
                                     <Tag size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                                     <select className="custom-input" style={{ flex: 1 }} value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
                                         {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <CalendarDays size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                                    <select className="custom-input" style={{ flex: 1 }} value={formData.recurrence_type} onChange={e => setFormData({ ...formData, recurrence_type: e.target.value })}>
+                                        <option value="Does not repeat">Does not repeat</option>
+                                        <option value="Daily">Daily</option>
+                                        <option value="Weekly">Weekly</option>
+                                        <option value="Monthly">Monthly</option>
                                     </select>
                                 </div>
 
@@ -1163,7 +1178,7 @@ const AdminDashboard = () => {
                                     <Calendar size={24} color="#2563eb" />
                                     Events
                                 </h2>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                                     {/* View Mode Toggle */}
                                     <div style={{ display: 'flex', borderRadius: 10, overflow: 'hidden', border: `1px solid ${darkMode ? '#30363d' : '#d0d7de'}` }}>
                                         <button onClick={() => setViewMode('list')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, transition: 'all 0.2s', background: viewMode === 'list' ? (darkMode ? '#388bfd' : '#0969da') : (darkMode ? '#21262d' : '#f6f8fa'), color: viewMode === 'list' ? '#fff' : (darkMode ? '#8b949e' : '#656d76') }}>
@@ -1186,13 +1201,13 @@ const AdminDashboard = () => {
                                     <input className="custom-input" style={{ paddingLeft: 36, paddingRight: 12, paddingTop: 10, paddingBottom: 10, height: 42 }} placeholder="Search events..." value={search} onChange={e => setSearch(e.target.value)} />
                                 </div>
                                 {viewMode !== 'calendar' && (
-                                <div style={{ position: 'relative', flexShrink: 0, width: 160 }}>
-                                    <input type="date" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: '100%', height: '100%', top: 0, left: 0 }} value={filterDate} onChange={e => setFilterDate(e.target.value)} id="filter-date-input" />
-                                    <button type="button" className="btn-secondary" onClick={() => document.getElementById('filter-date-input').showPicker()} style={{ gap: 8, whiteSpace: 'nowrap', width: '100%', justifyContent: 'center', height: 42, boxSizing: 'border-box' }}>
-                                        <Calendar size={15} />
-                                        {filterDate ? new Date(filterDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Filter by Date'}
-                                    </button>
-                                </div>
+                                    <div style={{ position: 'relative', flexShrink: 0, width: 160 }}>
+                                        <input type="date" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: '100%', height: '100%', top: 0, left: 0 }} value={filterDate} onChange={e => setFilterDate(e.target.value)} id="filter-date-input" />
+                                        <button type="button" className="btn-secondary" onClick={() => document.getElementById('filter-date-input').showPicker()} style={{ gap: 8, whiteSpace: 'nowrap', width: '100%', justifyContent: 'center', height: 42, boxSizing: 'border-box' }}>
+                                            <Calendar size={15} />
+                                            {filterDate ? new Date(filterDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Filter by Date'}
+                                        </button>
+                                    </div>
                                 )}
                                 <select className="custom-input" style={{ width: 180, height: 42, paddingTop: 0, paddingBottom: 0 }} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
                                     <option value="">All Categories</option>
@@ -1247,7 +1262,7 @@ const AdminDashboard = () => {
                                             const [sH, sM] = e.start_time.split(':');
                                             const [eH, eM] = e.end_time.split(':');
                                             const start = new Date(date); start.setHours(+sH, +sM, 0, 0);
-                                            const end   = new Date(date); end.setHours(+eH, +eM, 0, 0);
+                                            const end = new Date(date); end.setHours(+eH, +eM, 0, 0);
                                             const tabMatch = activeTab === 'upcoming' ? now < start : activeTab === 'live' ? now >= start && now <= end : end < now;
                                             const searchMatch = !search || e.title.toLowerCase().startsWith(search.toLowerCase());
                                             const dateMatch = !filterDate || date === filterDate;
