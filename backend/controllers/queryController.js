@@ -47,7 +47,7 @@ exports.getMyQueries = async (req, res) => {
     const [rows] = await pool.execute(
       `SELECT id, user_name, user_email, subject, message, reply_message, status, created_at, reply_at, replied_by
        FROM user_queries
-       WHERE user_email = ?
+       WHERE user_email = ? AND deleted_by_user = 0
        ORDER BY created_at DESC`,
       [userEmail]
     );
@@ -63,6 +63,7 @@ exports.getQueries = async (req, res) => {
     const [rows] = await pool.execute(
       `SELECT id, user_name, user_email, subject, message, reply_message, status, created_at, reply_at, replied_by
        FROM user_queries
+       WHERE deleted_by_admin = 0
        ORDER BY status = 'new' DESC, created_at DESC`
     );
     return res.json(rows);
@@ -129,5 +130,68 @@ exports.markQueryAsRead = async (req, res) => {
   } catch (error) {
     console.error('Failed to mark query as read:', error.message || error);
     return res.status(500).json({ error: 'Failed to mark query as read.' });
+  }
+};
+
+exports.deleteQuery = async (req, res) => {
+  const queryId = req.params.id;
+  const userEmail = req.user?.email;
+  const userRole = req.user?.role;
+
+  if (!userEmail) {
+    return res.status(401).json({ error: 'Unauthorized.' });
+  }
+
+  try {
+    const [rows] = await pool.execute('SELECT user_email FROM user_queries WHERE id = ?', [queryId]);
+    if (!rows.length) {
+      return res.status(404).json({ error: 'Query not found.' });
+    }
+
+    const query = rows[0];
+
+    if (userRole === 'admin') {
+      await pool.execute('UPDATE user_queries SET deleted_by_admin = 1 WHERE id = ?', [queryId]);
+    } else {
+      if (query.user_email !== userEmail) {
+        return res.status(403).json({ error: 'You are not authorized to delete this query.' });
+      }
+      await pool.execute('UPDATE user_queries SET deleted_by_user = 1 WHERE id = ?', [queryId]);
+    }
+
+    await pool.execute('DELETE FROM user_queries WHERE deleted_by_user = 1 AND deleted_by_admin = 1');
+
+    return res.json({ success: true, message: 'Query deleted successfully.' });
+  } catch (error) {
+    console.error('Failed to delete query:', error.message || error);
+    return res.status(500).json({ error: 'Failed to delete query.' });
+  }
+};
+
+exports.clearMyHistory = async (req, res) => {
+  const userEmail = req.user?.email;
+
+  if (!userEmail) {
+    return res.status(401).json({ error: 'Unauthorized.' });
+  }
+
+  try {
+    await pool.execute('UPDATE user_queries SET deleted_by_user = 1 WHERE user_email = ?', [userEmail]);
+    await pool.execute('DELETE FROM user_queries WHERE deleted_by_user = 1 AND deleted_by_admin = 1');
+    return res.json({ success: true, message: 'Your support history has been cleared.' });
+  } catch (error) {
+    console.error('Failed to clear queries history:', error.message || error);
+    return res.status(500).json({ error: 'Failed to clear query history.' });
+  }
+};
+
+exports.clearAllHistory = async (req, res) => {
+  try {
+    await pool.execute('UPDATE user_queries SET deleted_by_admin = 1');
+    await pool.execute('DELETE FROM user_queries WHERE deleted_by_user = 1 AND deleted_by_admin = 1');
+    return res.json({ success: true, message: 'All support queries have been cleared from admin view.' });
+  } catch (error) {
+    console.error('Failed to clear all queries:', error.message || error);
+    return res.status(500).json({ error: 'Failed to clear all queries.' });
   }
 };

@@ -739,6 +739,34 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleDeleteQuery = async (queryId) => {
+        if (!window.confirm('Are you sure you want to delete this query from the admin panel?')) return;
+        try {
+            await axios.delete(`/api/queries/${queryId}`, { withCredentials: true });
+            showToast('Query deleted successfully.');
+            setQueries((prev) => prev.filter((q) => q.id !== queryId));
+            if (expandedQueryId === queryId) {
+                setExpandedQueryId(null);
+            }
+        } catch (err) {
+            console.error('Delete query failed:', err);
+            showToast('Unable to delete query. Please try again.', 'error');
+        }
+    };
+
+    const handleClearAllQueries = async () => {
+        if (!window.confirm('Are you sure you want to clear all queries from the admin panel? This cannot be undone.')) return;
+        try {
+            await axios.delete('/api/queries/clear/all', { withCredentials: true });
+            showToast('All queries cleared successfully.');
+            setQueries([]);
+            setExpandedQueryId(null);
+        } catch (err) {
+            console.error('Clear queries failed:', err);
+            showToast('Unable to clear queries. Please try again.', 'error');
+        }
+    };
+
     const handleEditSave = async () => {
         fetchEvents();
         showToast('Event updated successfully!');
@@ -957,9 +985,44 @@ const AdminDashboard = () => {
                                 <h2 style={{ margin: 0, fontSize: 22 }}>Support Queries</h2>
                                 <p style={{ margin: '6px 0 0', color: 'var(--text-secondary)', fontSize: 14 }}>Review messages from users and reply directly.</p>
                             </div>
-                            <button onClick={() => setQueryModalOpen(false)} className="icon-button">
-                                <X size={20} />
-                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                {queries.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={handleClearAllQueries}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                            background: 'transparent',
+                                            border: '1px solid var(--border)',
+                                            borderRadius: 8,
+                                            padding: '6px 12px',
+                                            fontSize: 12,
+                                            fontWeight: 600,
+                                            color: 'var(--text-secondary)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.color = '#ef4444';
+                                            e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)';
+                                            e.currentTarget.style.background = 'rgba(239,68,68,0.05)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.color = 'var(--text-secondary)';
+                                            e.currentTarget.style.borderColor = 'var(--border)';
+                                            e.currentTarget.style.background = 'transparent';
+                                        }}
+                                    >
+                                        <Trash2 size={13} />
+                                        Clear All
+                                    </button>
+                                )}
+                                <button onClick={() => setQueryModalOpen(false)} className="icon-button">
+                                    <X size={20} />
+                                </button>
+                            </div>
                         </div>
 
                         {queryLoading ? (
@@ -983,6 +1046,35 @@ const AdminDashboard = () => {
                                                     {query.status === 'new' && (
                                                         <span style={{ color: '#ef4444', fontWeight: 700, fontSize: 12, textTransform: 'uppercase' }}>New</span>
                                                     )}
+                                                    
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteQuery(query.id)}
+                                                        style={{
+                                                            background: 'transparent',
+                                                            border: 'none',
+                                                            borderRadius: 8,
+                                                            padding: '6px',
+                                                            cursor: 'pointer',
+                                                            color: 'var(--text-secondary)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            transition: 'all 0.2s',
+                                                        }}
+                                                        title="Delete query"
+                                                        onMouseEnter={(e) => {
+                                                            e.currentTarget.style.color = '#ef4444';
+                                                            e.currentTarget.style.background = 'rgba(239,68,68,0.08)';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.currentTarget.style.color = 'var(--text-secondary)';
+                                                            e.currentTarget.style.background = 'transparent';
+                                                        }}
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+
                                                     <button
                                                         type="button"
                                                         onClick={() => toggleQueryDetails(query.id)}

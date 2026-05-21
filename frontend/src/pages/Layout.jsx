@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { Sun, Moon, Bell, Paperclip, MessageCircle, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sun, Moon, Bell, Paperclip, MessageCircle, X, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import gauhatiLogo from '../assets/logo1.png';
 import { getAuthData } from '../utils/authStorage';
 
@@ -161,6 +161,32 @@ const Layout = ({ children }) => {
       setQueryError(err.response?.data?.error || err.message || 'Failed to send query');
     } finally {
       setQuerySending(false);
+    }
+  };
+
+  const handleDeleteQuery = async (queryId) => {
+    if (!window.confirm('Are you sure you want to delete this query from your history?')) return;
+    try {
+      await axios.delete(`/api/queries/${queryId}`, { withCredentials: true });
+      setMyQueries(prev => prev.filter(q => q.id !== queryId));
+      if (expandedUserQueryId === queryId) {
+        setExpandedUserQueryId(null);
+      }
+    } catch (err) {
+      console.error('Failed to delete query', err);
+      alert(err.response?.data?.error || err.message || 'Failed to delete query.');
+    }
+  };
+
+  const handleClearMyHistory = async () => {
+    if (!window.confirm('Are you sure you want to clear your entire support query history? This cannot be undone.')) return;
+    try {
+      await axios.delete('/api/queries/clear/my-history', { withCredentials: true });
+      setMyQueries([]);
+      setExpandedUserQueryId(null);
+    } catch (err) {
+      console.error('Failed to clear history', err);
+      alert(err.response?.data?.error || err.message || 'Failed to clear query history.');
     }
   };
 
@@ -596,7 +622,41 @@ const Layout = ({ children }) => {
                           You haven't submitted any queries yet.
                         </div>
                       ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '380px', overflowY: 'auto', paddingRight: '4px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                            <button
+                              type="button"
+                              onClick={handleClearMyHistory}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                background: 'transparent',
+                                border: '1px solid var(--border)',
+                                borderRadius: 8,
+                                padding: '6px 12px',
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.color = '#ef4444';
+                                e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)';
+                                e.currentTarget.style.background = 'rgba(239,68,68,0.05)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.color = 'var(--text-secondary)';
+                                e.currentTarget.style.borderColor = 'var(--border)';
+                                e.currentTarget.style.background = 'transparent';
+                              }}
+                            >
+                              <Trash2 size={13} />
+                              Clear History
+                            </button>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '320px', overflowY: 'auto', paddingRight: '4px' }}>
                           {myQueries.map((query) => {
                             const isExpanded = expandedUserQueryId === query.id;
                             const hasReply = !!query.reply_message;
@@ -632,6 +692,35 @@ const Layout = ({ children }) => {
                                       </span>
                                     )}
                                     
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteQuery(query.id)}
+                                      style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        borderRadius: 8,
+                                        padding: '6px',
+                                        cursor: 'pointer',
+                                        color: 'var(--text-muted)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        transition: 'all 0.2s',
+                                        marginRight: 2
+                                      }}
+                                      title="Delete query"
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.color = '#ef4444';
+                                        e.currentTarget.style.background = 'rgba(239,68,68,0.08)';
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.color = 'var(--text-muted)';
+                                        e.currentTarget.style.background = 'transparent';
+                                      }}
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+
                                     <button
                                       type="button"
                                       onClick={() => setExpandedUserQueryId(isExpanded ? null : query.id)}
@@ -684,7 +773,8 @@ const Layout = ({ children }) => {
                             );
                           })}
                         </div>
-                      )}
+                      </div>
+                    )}
                     </div>
                   </div>
                 </div>
