@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Calendar, Clock, MapPin, X, Check, XCircle, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutList, CalendarDays, Repeat } from 'lucide-react';
+import { Calendar, Clock, MapPin, X, Check, XCircle, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutList, CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getAuthData } from '../utils/authStorage';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
@@ -94,9 +94,7 @@ const PreviewModal = ({ event, onClose }) => (
                 <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString('en-GB')}</span></div>
                 <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
                 <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
-                {event.recurrence_type && event.recurrence_type !== 'Does not repeat' && (
-                    <div className="meta-item"><Repeat size={14} className="text-blue" /><span>Repeats {event.recurrence_type}</span></div>
-                )}
+
             </div>
 
             {event.description && (
@@ -125,9 +123,7 @@ const UserEventCard = ({ event, onPreview, tab }) => {
                     <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString('en-GB')}</span></div>
                     <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
                     <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
-                    {event.recurrence_type && event.recurrence_type !== 'Does not repeat' && (
-                        <div className="meta-item" title={`Repeats ${event.recurrence_type}`}><Repeat size={14} className="text-blue" /><span>{event.recurrence_type}</span></div>
-                    )}
+
                 </div>
             </div>
             <div className="event-actions" style={{ flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>

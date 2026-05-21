@@ -32,7 +32,7 @@ const cleanTime = (t) => {
 
 exports.createEvent = async (req, res) => {
     let { title = null, description = null, venue = null, event_date = null,
-        start_time = null, end_time = null, attendees = [], adminEmail = null, category = 'General', recurrence_type = 'Does not repeat' } = req.body;
+        start_time = null, end_time = null, attendees = [], adminEmail = null, category = 'General' } = req.body;
 
     const mysqlStart = cleanTime(start_time);
     const mysqlEnd = cleanTime(end_time);
@@ -52,8 +52,8 @@ exports.createEvent = async (req, res) => {
         await connection.beginTransaction();
 
         const [eventResult] = await connection.execute(
-            `INSERT INTO events (title, description, venue, event_date, start_time, end_time, category, recurrence_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [title, description, venue, event_date, mysqlStart, mysqlEnd, category, recurrence_type]
+            `INSERT INTO events (title, description, venue, event_date, start_time, end_time, category) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [title, description, venue, event_date, mysqlStart, mysqlEnd, category]
         );
         const newEventId = eventResult.insertId;
 
@@ -304,7 +304,7 @@ exports.updateEvent = async (req, res) => {
 
         const fields = [], values = [];
         for (const [key, value] of Object.entries(updates)) {
-            if (['title', 'description', 'venue', 'event_date', 'start_time', 'end_time', 'category', 'recurrence_type'].includes(key)) {
+            if (['title', 'description', 'venue', 'event_date', 'start_time', 'end_time', 'category'].includes(key)) {
                 fields.push(`${key} = ?`);
                 values.push(value);
             }

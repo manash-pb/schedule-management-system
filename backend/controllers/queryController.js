@@ -75,7 +75,7 @@ exports.getQueries = async (req, res) => {
 
 exports.replyToQuery = async (req, res) => {
   const queryId = req.params.id;
-  const { reply } = req.body;
+  const { reply, expectedLastReplyAt } = req.body;
   const adminEmail = req.user?.email;
   const adminName = req.user?.name || adminEmail || 'Admin';
 
@@ -84,12 +84,23 @@ exports.replyToQuery = async (req, res) => {
   }
 
   try {
-    const [rows] = await pool.execute('SELECT user_email, user_name, subject, message FROM user_queries WHERE id = ?', [queryId]);
+    const [rows] = await pool.execute('SELECT user_email, user_name, subject, message, reply_at FROM user_queries WHERE id = ?', [queryId]);
     if (!rows.length) {
       return res.status(404).json({ error: 'Query not found.' });
     }
 
     const query = rows[0];
+
+    // Optimistic Concurrency Control (OCC) Check to prevent concurrent overwrites
+    const actualTimeSec = query.reply_at ? Math.floor(new Date(query.reply_at).getTime() / 1000) : null;
+    const expectedTimeSec = expectedLastReplyAt ? Math.floor(new Date(expectedLastReplyAt).getTime() / 1000) : null;
+
+    if (actualTimeSec !== expectedTimeSec) {
+      return res.status(409).json({
+        error: 'This query has been answered or updated by another administrator. Please check the latest reply before sending yours.'
+      });
+    }
+
     await sendUserReplyEmail({
       toName: query.user_name || query.user_email,
       toEmail: query.user_email,

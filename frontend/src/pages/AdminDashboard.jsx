@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutList, CalendarDays, MessageCircle, Repeat } from 'lucide-react';
+import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutList, CalendarDays, MessageCircle } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { getAuthData } from '../utils/authStorage';
@@ -198,9 +198,7 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange, showToast
                     <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString('en-GB')}</span></div>
                     <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
                     <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
-                    {event.recurrence_type && event.recurrence_type !== 'Does not repeat' && (
-                        <div className="meta-item"><Repeat size={14} className="text-blue" /><span>Repeats {event.recurrence_type}</span></div>
-                    )}
+
                 </div>
 
                 {event.description && (
@@ -283,9 +281,7 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => (
                 <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString('en-GB')}</span></div>
                 <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
                 <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
-                {event.recurrence_type && event.recurrence_type !== 'Does not repeat' && (
-                    <div className="meta-item" title={`Repeats ${event.recurrence_type}`}><Repeat size={14} className="text-blue" /><span>{event.recurrence_type}</span></div>
-                )}
+
             </div>
         </div>
         <div className="event-actions">
@@ -487,7 +483,6 @@ const EditModal = ({ event, onClose, onSave, showToast }) => {
         start_time: event.start_time?.slice(0, 5) || '',
         end_time: event.end_time?.slice(0, 5) || '',
         category: event.category || 'General',
-        recurrence_type: event.recurrence_type || 'Does not repeat',
     });
     const [saving, setSaving] = useState(false);
 
@@ -529,12 +524,7 @@ const EditModal = ({ event, onClose, onSave, showToast }) => {
                     <select className="custom-input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
                         {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
-                    <select className="custom-input" value={form.recurrence_type} onChange={e => setForm({ ...form, recurrence_type: e.target.value })}>
-                        <option value="Does not repeat">Does not repeat</option>
-                        <option value="Daily">Daily</option>
-                        <option value="Weekly">Weekly</option>
-                        <option value="Monthly">Monthly</option>
-                    </select>
+
                     <div className="time-row">
                         <div className="time-field">
                             <label className="input-label">Start Time</label>
@@ -600,7 +590,7 @@ const AdminDashboard = () => {
     const [deleting, setDeleting] = useState(false);
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
     const [calendarConnected, setCalendarConnected] = useState(true);
-    const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', start_time: '00:00', end_time: '00:00', category: 'General', recurrence_type: 'Does not repeat' });
+    const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', start_time: '00:00', end_time: '00:00', category: 'General' });
     const [attendees, setAttendees] = useState([]);
     const [currentAttendee, setCurrentAttendee] = useState({ name: '', email: '' });
     const [showAttendeesModal, setShowAttendeesModal] = useState(false);
@@ -724,16 +714,28 @@ const AdminDashboard = () => {
             return;
         }
 
+        const query = queries.find((q) => q.id === queryId);
+        const expectedLastReplyAt = query ? query.reply_at : null;
+
         setReplySending((prev) => ({ ...prev, [queryId]: true }));
         try {
-            await axios.post(`/api/queries/${queryId}/reply`, { reply: message }, { withCredentials: true });
+            await axios.post(
+                `/api/queries/${queryId}/reply`,
+                { reply: message, expectedLastReplyAt },
+                { withCredentials: true }
+            );
             showToast('Reply sent to user successfully.');
             fetchQueries();
             setReplyDrafts((prev) => ({ ...prev, [queryId]: '' }));
             setReplyingQueryId(null);
         } catch (err) {
             console.error('Send reply failed:', err);
-            showToast('Unable to send reply. Please try again.', 'error');
+            if (err.response?.status === 409) {
+                showToast(err.response.data.error || 'This query has been updated by another admin. Refreshing...', 'error');
+                fetchQueries();
+            } else {
+                showToast('Unable to send reply. Please try again.', 'error');
+            }
         } finally {
             setReplySending((prev) => ({ ...prev, [queryId]: false }));
         }
@@ -856,7 +858,7 @@ const AdminDashboard = () => {
         setSubmitting(true);
         try {
             await axios.post('/api/events', { ...formData, attendees });
-            setFormData({ title: '', description: '', venue: '', event_date: '', start_time: '00:00', end_time: '00:00', category: 'General', recurrence_type: 'Does not repeat' });
+            setFormData({ title: '', description: '', venue: '', event_date: '', start_time: '00:00', end_time: '00:00', category: 'General' });
             setAttendees([]);
             fetchEvents();
             showToast('Event created successfully!');
@@ -1043,8 +1045,12 @@ const AdminDashboard = () => {
                                                     <p style={{ margin: '6px 0 0', color: 'var(--text-secondary)', fontSize: 13 }}>{query.user_name || 'Anonymous'} · {query.user_email}</p>
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                    {query.status === 'new' && (
-                                                        <span style={{ color: '#ef4444', fontWeight: 700, fontSize: 12, textTransform: 'uppercase' }}>New</span>
+                                                    {query.status === 'new' ? (
+                                                        <span style={{ color: '#ef4444', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', background: 'rgba(239,68,68,0.08)', padding: '2px 8px', borderRadius: 6 }}>New</span>
+                                                    ) : query.status === 'answered' ? (
+                                                        <span style={{ color: '#16a34a', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', background: 'rgba(22,163,74,0.08)', padding: '2px 8px', borderRadius: 6 }}>Answered</span>
+                                                    ) : (
+                                                        <span style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', background: 'var(--bg-hover)', padding: '2px 8px', borderRadius: 6 }}>Read</span>
                                                     )}
                                                     
                                                     <button
@@ -1099,8 +1105,52 @@ const AdminDashboard = () => {
                                             {expanded && (
                                                 <>
                                                     <p style={{ margin: '0 0 12px', color: 'var(--text-primary)', lineHeight: 1.8 }}>{query.message}</p>
+                                                    {query.reply_message && (
+                                                        <div style={{
+                                                            marginTop: 12,
+                                                            marginBottom: 16,
+                                                            padding: '12px 14px',
+                                                            borderRadius: 12,
+                                                            background: 'rgba(22, 163, 74, 0.04)',
+                                                            border: '1px dashed rgba(22, 163, 74, 0.3)',
+                                                        }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+                                                                <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 700 }}>
+                                                                    Replied by: <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{query.replied_by || 'Admin'}</span>
+                                                                </span>
+                                                                {query.reply_at && (
+                                                                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                                                                        {new Date(query.reply_at).toLocaleString('en-GB')}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p style={{ margin: 0, fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                                                                {query.reply_message}
+                                                            </p>
+                                                        </div>
+                                                    )}
                                                     {replyingQueryId === query.id ? (
                                                         <>
+                                                            {query.reply_message && (
+                                                                <div style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'flex-start',
+                                                                    gap: 8,
+                                                                    background: 'rgba(234, 179, 8, 0.06)',
+                                                                    border: '1px solid rgba(234, 179, 8, 0.3)',
+                                                                    borderRadius: 10,
+                                                                    padding: '10px 12px',
+                                                                    marginBottom: 10,
+                                                                    fontSize: 13,
+                                                                    color: '#a16207',
+                                                                    lineHeight: 1.5
+                                                                }}>
+                                                                    <span style={{ fontSize: 15, marginTop: -2 }}>⚠️</span>
+                                                                    <span>
+                                                                        This query was already answered by <strong>{query.replied_by || 'another admin'}</strong>. Sending a new reply will overwrite their response.
+                                                                    </span>
+                                                                </div>
+                                                            )}
                                                             <textarea
                                                                 value={replyDrafts[query.id] ?? ''}
                                                                 onChange={(e) => handleReplyChange(query.id, e.target.value)}
@@ -1135,10 +1185,15 @@ const AdminDashboard = () => {
                                                                 type="button"
                                                                 className="btn-secondary"
                                                                 style={{ fontSize: 13, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}
-                                                                onClick={() => setReplyingQueryId(query.id)}
+                                                                onClick={() => {
+                                                                    setReplyingQueryId(query.id);
+                                                                    if (query.reply_message && !replyDrafts[query.id]) {
+                                                                        setReplyDrafts(prev => ({ ...prev, [query.id]: query.reply_message }));
+                                                                    }
+                                                                }}
                                                             >
-                                                                <MessageCircle size={14} />
-                                                                Reply
+                                                                {query.reply_message ? <Pencil size={14} /> : <MessageCircle size={14} />}
+                                                                {query.reply_message ? 'Edit Reply' : 'Reply'}
                                                             </button>
                                                         </div>
                                                     )}
@@ -1208,15 +1263,7 @@ const AdminDashboard = () => {
                                         {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <CalendarDays size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                                    <select className="custom-input" style={{ flex: 1 }} value={formData.recurrence_type} onChange={e => setFormData({ ...formData, recurrence_type: e.target.value })}>
-                                        <option value="Does not repeat">Does not repeat</option>
-                                        <option value="Daily">Daily</option>
-                                        <option value="Weekly">Weekly</option>
-                                        <option value="Monthly">Monthly</option>
-                                    </select>
-                                </div>
+
 
                                 <div className="time-row">
                                     <div className="time-field">
