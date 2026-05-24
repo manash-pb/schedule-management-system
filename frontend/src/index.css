@@ -265,7 +265,7 @@
 
   /* --- TIME PICKER --- */
   .hybrid-time-picker {
-    @apply flex items-center gap-2 px-3 py-[10px] rounded-[10px] w-full box-border transition-all duration-200;
+    @apply flex items-center justify-center gap-2 px-3 py-[10px] rounded-[10px] w-full box-border transition-all duration-200;
     background: var(--bg-card);
     border: 1px solid var(--border);
   }
@@ -315,7 +315,7 @@
   }
 
   .time-separator {
-    @apply font-bold text-xl -mt-[15px];
+    @apply inline-block font-bold text-xl relative -top-[8px] mt-0;
     color: var(--text-secondary);
   }
 
@@ -331,6 +331,31 @@
 
   html.dark .arrow-btn:hover {
     color: #388bfd;
+  }
+
+  /* Compact styling for time pickers inside sub-day cards to prevent horizontal overflow */
+  .sub-day-card .hybrid-time-picker {
+    @apply gap-1 px-1.5 py-1.5;
+  }
+
+  .sub-day-card .time-type-input {
+    @apply w-[30px] h-7 text-sm;
+  }
+
+  .sub-day-card .time-type-input.ampm {
+    @apply w-9 text-sm;
+  }
+
+  .sub-day-card .arrow-btn {
+    @apply px-[6px] py-[1px] text-[10px];
+  }
+
+  .sub-day-card .time-separator {
+    @apply inline-block text-base relative -top-[5px] mt-0;
+  }
+
+  .sub-day-card .input-label-sm {
+    @apply text-[9px] mt-[1px];
   }
 
   /* --- BUTTONS --- */

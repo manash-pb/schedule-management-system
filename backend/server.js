@@ -84,6 +84,8 @@ pool.getConnection()
             } catch (err) {
                 // Ignore if it already exists
             }
+
+
         } catch (err) {
             console.error('❌ user_queries table creation failed:', err);
         }

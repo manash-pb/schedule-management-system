@@ -53,6 +53,41 @@ const toCalendarEvents = (unrolledEvents) => unrolledEvents.map(e => {
     const end = new Date(date); end.setHours(+eH, +eM, 0, 0);
     return { title: e.title, start, end, resource: e };
 });
+
+const groupMultiDaySpans = (eventsList) => {
+    const grouped = [];
+    const spanMap = {};
+    
+    eventsList.forEach(e => {
+        if (e.span_id) {
+            if (!spanMap[e.span_id]) {
+                spanMap[e.span_id] = [];
+            }
+            spanMap[e.span_id].push(e);
+        } else {
+            grouped.push(e);
+        }
+    });
+    
+    Object.keys(spanMap).forEach(spanId => {
+        const group = spanMap[spanId];
+        group.sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
+        
+        const firstEvent = group[0];
+        const lastEvent = group[group.length - 1];
+        
+        grouped.push({
+            ...firstEvent,
+            event_date: firstEvent.event_date,
+            end_date: lastEvent.event_date,
+            isMultiDaySpan: true,
+            days: group
+        });
+    });
+    
+    return grouped;
+};
+
 const CATEGORIES = ['General', 'Meeting', 'Workshop', 'Holiday', 'Training', 'Social'];
 
 let googleMapsScriptPromise = null;
@@ -299,50 +334,137 @@ const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange, showToast
     );
 };
 
-const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => (
-    <div className="event-card">
-        <div className="event-info">
-            <span className="status-badge" style={
-                tab === 'past' ? { background: darkMode ? 'rgba(100,116,139,0.2)' : '#f1f5f9', color: darkMode ? '#94a3b8' : '#475569', border: darkMode ? '1px solid rgba(100,116,139,0.3)' : 'none' } :
-                    tab === 'live' ? { background: darkMode ? 'rgba(22,163,74,0.2)' : '#dcfce7', color: darkMode ? '#4ade80' : '#16a34a', border: darkMode ? '1px solid rgba(22,163,74,0.3)' : 'none' } : {}
-            }>
-                {tab === 'past' ? 'Past' : tab === 'live' ? '🔴 Live' : 'Confirmed'}
-            </span>
-            {event.category && (
-                <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.color || '#64748b', textTransform: 'capitalize' }}>
-                    {event.category}
-                </span>
-            )}
-            <h3 className="event-title">{event.title}</h3>
-            <div className="event-meta">
-                <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString('en-GB')}</span></div>
-                <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
-                <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
-
+const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => {
+    const [expanded, setExpanded] = useState(false);
+    
+    const startDateStr = event.event_date.slice(0, 10);
+    const endDateStr = event.end_date ? event.end_date.slice(0, 10) : startDateStr;
+    const isMultiDay = startDateStr !== endDateStr;
+    
+    const days = [];
+    if (isMultiDay) {
+        let currentDate = new Date(startDateStr);
+        const endDate = new Date(endDateStr);
+        let dayCount = 1;
+        while (currentDate <= endDate) {
+            const y = currentDate.getFullYear();
+            const m = String(currentDate.getMonth() + 1).padStart(2, '0');
+            const d = String(currentDate.getDate()).padStart(2, '0');
+            days.push({
+                dayNumber: dayCount,
+                dateStr: `${y}-${m}-${d}`,
+                formattedDate: currentDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }),
+            });
+            currentDate.setDate(currentDate.getDate() + 1);
+            dayCount++;
+        }
+    }
+    
+    return (
+        <div className="event-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: 16 }}>
+                <div className="event-info" style={{ flex: 1 }}>
+                    <span className="status-badge" style={
+                        tab === 'past' ? { background: darkMode ? 'rgba(100,116,139,0.2)' : '#f1f5f9', color: darkMode ? '#94a3b8' : '#475569', border: darkMode ? '1px solid rgba(100,116,139,0.3)' : 'none' } :
+                            tab === 'live' ? { background: darkMode ? 'rgba(22,163,74,0.2)' : '#dcfce7', color: darkMode ? '#4ade80' : '#16a34a', border: darkMode ? '1px solid rgba(22,163,74,0.3)' : 'none' } : {}
+                    }>
+                        {tab === 'past' ? 'Past' : tab === 'live' ? '🔴 Live' : 'Confirmed'}
+                    </span>
+                    {event.category && (
+                        <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.color || '#64748b', textTransform: 'capitalize' }}>
+                            {event.category}
+                        </span>
+                    )}
+                    <h3 className="event-title" style={{ marginTop: 8 }}>{event.title}</h3>
+                    <div className="event-meta" style={{ marginTop: 8 }}>
+                        <div className="meta-item">
+                            <Calendar size={14} className="text-blue" />
+                            <span>
+                                {new Date(event.event_date).toLocaleDateString('en-GB')}
+                                {isMultiDay && ` - ${new Date(event.end_date).toLocaleDateString('en-GB')}`}
+                            </span>
+                        </div>
+                        <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
+                        <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
+                    </div>
+                </div>
+                <div className="event-actions" style={{ flexShrink: 0 }}>
+                    <div className="tooltip-wrap">
+                        <button onClick={() => onPreview(event)} className="btn-icon preview"><ClosedEyeIcon size={20} /></button>
+                        <span className="tooltip-text">Preview</span>
+                    </div>
+                    {onEdit && (
+                        <div className="tooltip-wrap">
+                            <button onClick={() => onEdit(event)} className="btn-icon edit"><Pencil size={18} /></button>
+                            <span className="tooltip-text">Edit</span>
+                        </div>
+                    )}
+                    {onDelete && (
+                        <div className="tooltip-wrap">
+                            <button onClick={() => onDelete(event.event_id)} className="btn-icon delete"><Trash2 size={20} /></button>
+                            <span className="tooltip-text">Delete</span>
+                        </div>
+                    )}
+                </div>
             </div>
-        </div>
-        <div className="event-actions">
-            <div className="tooltip-wrap">
-                <button onClick={() => onPreview(event)} className="btn-icon preview"><ClosedEyeIcon size={20} /></button>
-                <span className="tooltip-text">Preview</span>
-            </div>
-            {onEdit && (
-                <div className="tooltip-wrap">
-                    <button onClick={() => onEdit(event)} className="btn-icon edit"><Pencil size={18} /></button>
-                    <span className="tooltip-text">Edit</span>
+            
+            {isMultiDay && (
+                <div style={{ width: '100%' }}>
+                    <button 
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} 
+                        className="btn-secondary" 
+                        style={{ width: '100%', justifyContent: 'center', gap: 6, fontSize: 13, padding: '8px 12px', background: darkMode ? 'rgba(255,255,255,0.05)' : '#f8fafc', border: '1px dashed var(--border)', borderRadius: 8 }}
+                    >
+                        {expanded ? '▲ Hide Daily Schedule' : `▼ Show Daily Schedule (${days.length} Days)`}
+                    </button>
+                    
+                    {expanded && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12, paddingLeft: 12, borderLeft: '3px solid var(--blue)' }}>
+                            {days.map(d => (
+                                <div key={d.dayNumber} className="sub-event-card" style={{
+                                    background: darkMode ? 'rgba(255,255,255,0.03)' : '#f8fafc',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: 8,
+                                    padding: '10px 12px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    gap: 16
+                                }}>
+                                    <div style={{ flex: 1 }}>
+                                        <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>Day {d.dayNumber}: {d.formattedDate}</span>
+                                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
+                                            <span>🕐 {formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
+                                            <span>📍 {event.venue}</span>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        type="button"
+                                        className="btn-icon" 
+                                        style={{ padding: 4, height: 26, width: 26, flexShrink: 0 }} 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onPreview({
+                                                ...event,
+                                                title: `${event.title} : Day ${d.dayNumber}`,
+                                                event_date: d.dateStr
+                                            });
+                                        }}
+                                    >
+                                        <ClosedEyeIcon size={14} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
-            {onDelete && (
-                <div className="tooltip-wrap">
-                    <button onClick={() => onDelete(event.event_id)} className="btn-icon delete"><Trash2 size={20} /></button>
-                    <span className="tooltip-text">Delete</span>
-                </div>
-            )}
         </div>
-    </div>
-);
+    );
+};
 
-const CustomTimeInput = ({ value, onChange }) => {
+const CustomTimeInput = ({ value, onChange, compact = false }) => {
     const parseTime = (val) => {
         if (!val) return { h: 12, m: 0, p: 'AM' };
         let [h, m] = val.split(':').map(Number);
@@ -439,7 +561,11 @@ const CustomTimeInput = ({ value, onChange }) => {
                 <span className="input-label-sm">HRS</span>
             </div>
 
-            <span className="time-separator">:</span>
+            <span className="time-separator" style={{
+                display: 'inline-block',
+                transform: compact ? 'translateY(-5px)' : 'translateY(-8px)',
+                marginTop: 0
+            }}>:</span>
 
             <div className="time-column">
                 <button type="button" onClick={() => handleArrow('m', 'up')} className="arrow-btn">▲</button>
@@ -627,7 +753,8 @@ const AdminDashboard = () => {
     const [deleting, setDeleting] = useState(false);
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
     const [calendarConnected, setCalendarConnected] = useState(true);
-    const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', end_date: '', start_time: '00:00', end_time: '00:00', category: 'General' });
+    const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', end_date: '', start_time: '00:00', end_time: '00:00', category: 'General', event_span: 'single' });
+    const [subDays, setSubDays] = useState([]);
     const [attendees, setAttendees] = useState([]);
     const [currentAttendee, setCurrentAttendee] = useState({ name: '', email: '' });
     const [showAttendeesModal, setShowAttendeesModal] = useState(false);
@@ -638,6 +765,22 @@ const AdminDashboard = () => {
     const PAGE_SIZE = 5;
     const navigate = useNavigate();
     const adminEmail = getAuthData('userEmail');
+
+    const prevTimesRef = useRef({ start: formData.start_time, end: formData.end_time });
+
+    useEffect(() => {
+        const prevTimes = prevTimesRef.current;
+        if (formData.start_time !== prevTimes.start || formData.end_time !== prevTimes.end) {
+            setSubDays(prev => 
+                prev.map(day => ({
+                    ...day,
+                    start_time: formData.start_time || '00:00',
+                    end_time: formData.end_time || '00:00'
+                }))
+            );
+            prevTimesRef.current = { start: formData.start_time, end: formData.end_time };
+        }
+    }, [formData.start_time, formData.end_time]);
     const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
     const [viewMode, setViewMode] = useState('list');
     const [calendarView, setCalendarView] = useState('month');
@@ -688,6 +831,101 @@ const AdminDashboard = () => {
             window.history.replaceState({}, '', '/admin-dashboard');
         }
     }, []);
+
+    useEffect(() => {
+        if (formData.event_span === 'multiple' && formData.event_date && formData.end_date) {
+            const startDateStr = formData.event_date;
+            const endDateStr = formData.end_date;
+            
+            const startDate = new Date(startDateStr);
+            const endDate = new Date(endDateStr);
+            
+            if (startDate <= endDate) {
+                const dateList = [];
+                let currentDate = new Date(startDateStr);
+                while (currentDate <= endDate) {
+                    const y = currentDate.getFullYear();
+                    const m = String(currentDate.getMonth() + 1).padStart(2, '0');
+                    const d = String(currentDate.getDate()).padStart(2, '0');
+                    dateList.push(`${y}-${m}-${d}`);
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+                
+                setSubDays(prev => {
+                    return dateList.map((dt, idx) => {
+                        const existing = prev.find(p => p.date === dt);
+                        if (existing && existing.customized) {
+                            return existing;
+                        }
+                        
+                        return {
+                            date: dt,
+                            dayNumber: idx + 1,
+                            title: `Day ${idx + 1}`,
+                            description: '',
+                            start_time: formData.start_time || '00:00',
+                            end_time: formData.end_time || '00:00',
+                            attendees: [...attendees],
+                            currentAttendee: { name: '', email: '' },
+                            expanded: existing ? existing.expanded : false,
+                            customized: false
+                        };
+                    });
+                });
+            } else {
+                setSubDays([]);
+            }
+        } else {
+            setSubDays([]);
+        }
+    }, [formData.event_date, formData.end_date, formData.event_span, formData.title, formData.start_time, formData.end_time, formData.description, attendees]);
+
+    const updateSubDay = (idx, key, val) => {
+        setSubDays(prev => {
+            const next = [...prev];
+            next[idx] = { ...next[idx], [key]: val, customized: true };
+            return next;
+        });
+    };
+
+    const updateSubDayCurrentAttendee = (idx, key, val) => {
+        setSubDays(prev => {
+            const next = [...prev];
+            next[idx] = {
+                ...next[idx],
+                currentAttendee: { ...next[idx].currentAttendee, [key]: val }
+            };
+            return next;
+        });
+    };
+
+    const addSubDayAttendee = (idx) => {
+        const day = subDays[idx];
+        if (day.currentAttendee.name.trim() && day.currentAttendee.email.trim()) {
+            setSubDays(prev => {
+                const next = [...prev];
+                next[idx] = {
+                    ...next[idx],
+                    attendees: [...next[idx].attendees, { ...day.currentAttendee }],
+                    currentAttendee: { name: '', email: '' },
+                    customized: true
+                };
+                return next;
+            });
+        } else {
+            alert('Please enter both Name and Email.');
+        }
+    };
+
+    const removeSubDayAttendee = (dayIdx, attIdx) => {
+        setSubDays(prev => {
+            const next = [...prev];
+            const nextAttendees = [...next[dayIdx].attendees];
+            nextAttendees.splice(attIdx, 1);
+            next[dayIdx] = { ...next[dayIdx], attendees: nextAttendees, customized: true };
+            return next;
+        });
+    };
 
     useEffect(() => {
         if (!queryModalOpen) return;
@@ -884,19 +1122,48 @@ const AdminDashboard = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (attendees.length === 0) {
-            showToast('At least one guest must be invited.', 'error');
-            return;
+        
+        if (formData.event_span === 'multiple') {
+            if (subDays.length === 0) {
+                showToast('Please select a valid date range for Multiple Days.', 'error');
+                return;
+            }
+            for (let i = 0; i < subDays.length; i++) {
+                const d = subDays[i];
+                if (!d.title.trim()) {
+                    showToast(`Please enter a title for Day ${d.dayNumber}.`, 'error');
+                    return;
+                }
+                if (!d.start_time || !d.end_time) {
+                    showToast(`Please specify start and end times for Day ${d.dayNumber}.`, 'error');
+                    return;
+                }
+                if (d.end_time <= d.start_time) {
+                    showToast(`End time must be strictly after start time on Day ${d.dayNumber} (${d.date}).`, 'error');
+                    return;
+                }
+                if (d.attendees.length === 0) {
+                    showToast(`At least one guest must be invited for Day ${d.dayNumber}.`, 'error');
+                    return;
+                }
+            }
+        } else {
+            if (attendees.length === 0) {
+                showToast('At least one guest must be invited.', 'error');
+                return;
+            }
+            if (formData.end_time <= formData.start_time) {
+                showToast('End time must be strictly after start time.', 'error');
+                return;
+            }
         }
-        if (formData.start_time === formData.end_time) {
-            showToast('Start time and end time cannot be the same.', 'error');
-            return;
-        }
+
         setSubmitting(true);
         try {
-            await axios.post('/api/events', { ...formData, attendees });
-            setFormData({ title: '', description: '', venue: '', event_date: '', end_date: '', start_time: '00:00', end_time: '00:00', category: 'General' });
+            await axios.post('/api/events', { ...formData, attendees, days: subDays });
+            setFormData({ title: '', description: '', venue: '', event_date: '', end_date: '', start_time: '00:00', end_time: '00:00', category: 'General', event_span: 'single' });
             setAttendees([]);
+            setSubDays([]);
             fetchEvents();
             showToast('Event created successfully!');
         } catch (e) { showToast('Failed to schedule.', 'error'); }
@@ -944,6 +1211,45 @@ const AdminDashboard = () => {
         reader.readAsBinaryString(file);
     };
 
+    const handleSubDayExcelImport = async (idx, e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const XLSX = await import('xlsx');
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const wb = XLSX.read(evt.target.result, { type: 'binary' });
+            const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+            const parsed = rows
+                .map(r => ({
+                    name: String(r.name || r.Name || r.NAME || '').trim(),
+                    email: String(r.email || r.Email || r.EMAIL || '').trim().toLowerCase(),
+                }))
+                .filter(r => r.name && r.email && /^[^@]+@[^@]+\.[^@]+$/.test(r.email));
+
+            if (parsed.length === 0) {
+                alert('No valid rows found. Make sure the sheet has "name" and "email" columns.');
+                e.target.value = '';
+                return;
+            }
+
+            // Merge into subDays[idx].attendees
+            setSubDays(prev => {
+                const next = [...prev];
+                const day = next[idx];
+                const existing = new Set(day.attendees.map(a => a.email));
+                const newOnes = parsed.filter(a => !existing.has(a.email));
+                next[idx] = {
+                    ...day,
+                    attendees: [...day.attendees, ...newOnes],
+                    customized: true
+                };
+                return next;
+            });
+            e.target.value = '';
+        };
+        reader.readAsBinaryString(file);
+    };
+
     return (
         <div className="dashboard-container">
             <style>{`
@@ -951,6 +1257,39 @@ const AdminDashboard = () => {
               html.dark .rbc-off-range-bg { background-color: #1a202c !important; }
               html.dark .rbc-month-view .rbc-off-range-bg { background-color: #1a202c !important; }
               html.dark .rbc-month-view .rbc-off-range { color: #9ca3af !important; opacity: 0.8 !important; }
+              
+              .sub-day-card {
+                  border: 1px solid var(--border);
+                  border-radius: 12px;
+                  padding: 16px;
+                  margin-top: 12px;
+                  background: var(--bg-muted);
+                  display: flex;
+                  flex-direction: column;
+                  gap: 12px;
+              }
+              .guest-badge {
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 6px;
+                  background: var(--bg-card);
+                  border: 1px solid var(--border);
+                  border-radius: 8px;
+                  padding: 4px 10px;
+                  font-size: 12px;
+                  color: var(--text-primary);
+                  font-weight: 500;
+              }
+              .guest-badge button {
+                  background: none;
+                  border: none;
+                  color: #ef4444;
+                  cursor: pointer;
+                  padding: 0;
+                  font-size: 13px;
+                  display: flex;
+                  align-items: center;
+              }
             `}</style>
             {previewEvent && <PreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} onDownload={handleDownload} onAttendeesChange={fetchEvents} showToast={showToast} />}
             {deleting && (
@@ -1264,64 +1603,115 @@ const AdminDashboard = () => {
                         <div className="floating-card">
                             <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 0, paddingBottom: '16px' }}><PlusCircle color="#2563eb" />Create Event</h2>
                             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    <input type="text" placeholder="Event Title" className="custom-input" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
-                                    <textarea placeholder="Description" className="custom-input" style={{ minHeight: '90px', resize: 'none' }} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+                                {/* 1. Title */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Event Title" 
+                                        className="custom-input" 
+                                        value={formData.title} 
+                                        onChange={e => setFormData({ ...formData, title: e.target.value })} 
+                                        required 
+                                    />
                                 </div>
 
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                    <PlaceAutocompleteInput
-                                        apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
-                                        value={formData.venue}
-                                        onChange={(value) => setFormData({ ...formData, venue: value })}
-                                        onPlaceSelected={(place) => setFormData({ ...formData, venue: place.name ? `${place.name}, ${place.formatted_address || ''}`.replace(/, $/, '') : place.formatted_address })}
-                                        placeholder="Venue"
-                                        className="custom-input"
-                                        style={{ flex: 1, height: '42px', boxSizing: 'border-box' }}
-                                        required
+                                {/* 2. Description (optional) */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <textarea 
+                                        placeholder="Description" 
+                                        className="custom-input" 
+                                        style={{ minHeight: '90px', resize: 'none' }} 
+                                        value={formData.description} 
+                                        onChange={e => setFormData({ ...formData, description: e.target.value })} 
                                     />
-                                    <button type="button" onClick={async () => {
-                                        if (!calendarConnected) { showToast('Connect Google Calendar first to generate a Meet link.', 'error'); return; }
-                                        setMeetLoading(true);
-                                        try {
-                                            const res = await axios.post('/api/auth/meet/generate', { email: adminEmail });
-                                            setFormData(prev => ({ ...prev, venue: res.data.meetLink }));
-                                        } catch { showToast('Failed to generate Meet link.', 'error'); }
-                                        finally { setMeetLoading(false); }
-                                    }} className="btn-secondary" disabled={meetLoading} style={{ whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: calendarConnected ? 1 : 0.5, height: '42px', width: '90px', boxSizing: 'border-box' }}>
-                                        {meetLoading ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg> : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" /></svg>}
-                                        {meetLoading ? 'Loading' : 'Meet'}
-                                    </button>
                                 </div>
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                        <label className="input-label" style={{ fontSize: 12, marginBottom: 4, color: 'var(--text-secondary)' }}>Start Date</label>
-                                        <input type="date" className="custom-input" value={formData.event_date} onChange={e => setFormData({ ...formData, event_date: e.target.value })} required />
-                                    </div>
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                        <label className="input-label" style={{ fontSize: 12, marginBottom: 4, color: 'var(--text-secondary)' }}>End Date (Optional)</label>
-                                        <input type="date" className="custom-input" value={formData.end_date} onChange={e => setFormData({ ...formData, end_date: e.target.value })} min={formData.event_date} />
-                                    </div>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <Tag size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                                    <select className="custom-input" style={{ flex: 1 }} value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
-                                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+
+                                {/* 3. Event Span */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <select 
+                                        className="custom-input" 
+                                        style={{ width: '100%' }}
+                                        value={formData.event_span} 
+                                        onChange={e => setFormData({ ...formData, event_span: e.target.value })}
+                                    >
+                                        <option value="single">Single Day</option>
+                                        <option value="multiple">Multiple Days</option>
                                     </select>
                                 </div>
 
+                                {/* 4. Location */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                        <PlaceAutocompleteInput
+                                            apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+                                            value={formData.venue}
+                                            onChange={(value) => setFormData({ ...formData, venue: value })}
+                                            onPlaceSelected={(place) => setFormData({ ...formData, venue: place.name ? `${place.name}, ${place.formatted_address || ''}`.replace(/, $/, '') : place.formatted_address })}
+                                            placeholder="Venue"
+                                            className="custom-input"
+                                            style={{ flex: 1, height: '42px', boxSizing: 'border-box' }}
+                                            required
+                                        />
+                                        <button type="button" onClick={async () => {
+                                            if (!calendarConnected) { showToast('Connect Google Calendar first to generate a Meet link.', 'error'); return; }
+                                            setMeetLoading(true);
+                                            try {
+                                                const res = await axios.post('/api/auth/meet/generate', { email: adminEmail });
+                                                setFormData(prev => ({ ...prev, venue: res.data.meetLink }));
+                                            } catch { showToast('Failed to generate Meet link.', 'error'); }
+                                            finally { setMeetLoading(false); }
+                                        }} className="btn-secondary" disabled={meetLoading} style={{ whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: calendarConnected ? 1 : 0.5, height: '42px', width: '90px', boxSizing: 'border-box' }}>
+                                            {meetLoading ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg> : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" /></svg>}
+                                            {meetLoading ? 'Loading' : 'Meet'}
+                                        </button>
+                                    </div>
+                                </div>
 
+                                {/* 5. Dates */}
+                                {formData.event_span === 'single' ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <input 
+                                            type="date" 
+                                            className="custom-input" 
+                                            value={formData.event_date} 
+                                            onChange={e => setFormData({ ...formData, event_date: e.target.value, end_date: e.target.value })} 
+                                            required 
+                                        />
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <input 
+                                                type="date" 
+                                                className="custom-input" 
+                                                value={formData.event_date} 
+                                                onChange={e => setFormData({ ...formData, event_date: e.target.value })} 
+                                                required 
+                                            />
+                                        </div>
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <input 
+                                                type="date" 
+                                                className="custom-input" 
+                                                value={formData.end_date} 
+                                                onChange={e => setFormData({ ...formData, end_date: e.target.value })} 
+                                                min={formData.event_date} 
+                                                required 
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 6. Times (Defaults/Base) */}
                                 <div className="time-row">
                                     <div className="time-field">
-                                        <label className="input-label">Start Time</label>
                                         <CustomTimeInput
                                             value={formData.start_time}
                                             onChange={(value) => setFormData(prev => ({ ...prev, start_time: value }))}
                                         />
                                     </div>
-                                    <span className="time-row-divider">→</span>
+                                    <span className="time-row-divider" style={{ alignSelf: 'center', marginTop: '0px' }}>→</span>
                                     <div className="time-field">
-                                        <label className="input-label">End Time</label>
                                         <CustomTimeInput
                                             value={formData.end_time}
                                             onChange={(value) => setFormData(prev => ({ ...prev, end_time: value }))}
@@ -1329,8 +1719,17 @@ const AdminDashboard = () => {
                                     </div>
                                 </div>
 
+                                {/* 7. Category */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <Tag size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                                    <select className="custom-input" style={{ flex: 1 }} value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+                                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+
                                 <hr style={{ border: 'none', borderTop: '1px solid #f1f5f9', margin: '5px 0' }} />
 
+                                {/* 8. Attendees List (Main) */}
                                 <div className="attendee-logic">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                                         <label style={{ fontWeight: '600', fontSize: '13px', color: '#475569' }}>Invite Guests</label>
@@ -1362,6 +1761,199 @@ const AdminDashboard = () => {
                                         </button>
                                     )}
                                 </div>
+
+                                {/* 9. Sub forms (only for Multiple Days) */}
+                                {formData.event_span === 'multiple' && subDays.length > 0 && (
+                                    <div style={{ marginTop: '10px', borderTop: '1px solid var(--border)', paddingTop: '15px' }}>
+                                        <h3 style={{ fontSize: '14px', fontWeight: '700', margin: '0 0 10px', color: 'var(--text-primary)' }}>Daily Schedule Details</h3>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '450px', overflowY: 'auto', paddingRight: '4px' }}>
+                                            {subDays.map((day, idx) => {
+                                                const formattedDate = new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                                                const isExpanded = day.expanded;
+                                                return (
+                                                    <div key={day.date} className="sub-day-card" style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '12px', background: 'var(--bg-muted)' }}>
+                                                        {/* Collapsed Header */}
+                                                        <div 
+                                                            onClick={() => {
+                                                                setSubDays(prev => {
+                                                                    const next = [...prev];
+                                                                    next[idx] = { ...next[idx], expanded: !next[idx].expanded };
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                            style={{ 
+                                                                display: 'flex', 
+                                                                justifyContent: 'space-between', 
+                                                                alignItems: 'center', 
+                                                                cursor: 'pointer',
+                                                                userSelect: 'none'
+                                                            }}
+                                                        >
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                                                    {isExpanded ? '▼' : '▶'}
+                                                                </span>
+                                                                <span style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-primary)' }}>
+                                                                    📅 Day {day.dayNumber} - {formattedDate}
+                                                                </span>
+                                                                {day.title && (
+                                                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                        ({day.title})
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', background: 'var(--bg-card)', padding: '2px 8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                                                                {isExpanded ? 'Collapse' : 'Expand & Edit'}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Expanded Form Fields */}
+                                                        {isExpanded && (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+                                                                {/* Sub Day Title */}
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                                    <input 
+                                                                        type="text" 
+                                                                        placeholder={`Day ${day.dayNumber} Title`} 
+                                                                        className="custom-input" 
+                                                                        value={day.title} 
+                                                                        onChange={e => updateSubDay(idx, 'title', e.target.value)} 
+                                                                        required 
+                                                                    />
+                                                                </div>
+
+                                                                {/* Sub Day Description */}
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                                    <textarea 
+                                                                        placeholder={`Day ${day.dayNumber} Description`} 
+                                                                        className="custom-input" 
+                                                                        style={{ minHeight: '60px', resize: 'none' }} 
+                                                                        value={day.description} 
+                                                                        onChange={e => updateSubDay(idx, 'description', e.target.value)} 
+                                                                    />
+                                                                </div>
+
+                                                                {/* Sub Day Times */}
+                                                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '4px' }}>
+                                                                    <div style={{ flex: 1 }}>
+                                                                        <CustomTimeInput
+                                                                            value={day.start_time}
+                                                                            onChange={(value) => updateSubDay(idx, 'start_time', value)}
+                                                                            compact={true}
+                                                                        />
+                                                                    </div>
+                                                                    <span style={{ fontSize: '16px', fontWeight: '600', color: 'var(--text-muted)', userSelect: 'none', position: 'relative', top: '-6px' }}>→</span>
+                                                                    <div style={{ flex: 1 }}>
+                                                                        <CustomTimeInput
+                                                                            value={day.end_time}
+                                                                            onChange={(value) => updateSubDay(idx, 'end_time', value)}
+                                                                            compact={true}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Sub Day Attendees Section */}
+                                                                <div style={{ marginTop: '8px', borderTop: '1px solid var(--border)', paddingTop: '10px' }}>
+                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                                                                        <label style={{ fontWeight: '600', fontSize: '12px', color: 'var(--text-primary)' }}>Invite Guests</label>
+                                                                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                                                            {/* Import Excel */}
+                                                                            <div className="tooltip-wrap">
+                                                                                <label className="btn-secondary" style={{ cursor: 'pointer', padding: '4px 8px', fontSize: '11px', height: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                                    <FileSpreadsheet size={12} />
+                                                                                    Import Excel
+                                                                                    <input
+                                                                                        type="file"
+                                                                                        accept=".xlsx,.xls"
+                                                                                        style={{ display: 'none' }}
+                                                                                        onChange={(e) => handleSubDayExcelImport(idx, e)}
+                                                                                    />
+                                                                                </label>
+                                                                                <span className="tooltip-text">Columns: name, email</span>
+                                                                            </div>
+
+                                                                            {idx === 0 && attendees.length > 0 && (
+                                                                                <button 
+                                                                                    type="button" 
+                                                                                    className="btn-secondary" 
+                                                                                    style={{ fontSize: '10px', padding: '3px 8px', height: 'auto' }}
+                                                                                    onClick={() => {
+                                                                                        updateSubDay(idx, 'attendees', [...day.attendees, ...attendees]);
+                                                                                    }}
+                                                                                >
+                                                                                    Copy Main Guests
+                                                                                </button>
+                                                                            )}
+                                                                            {idx > 0 && subDays[idx - 1].attendees.length > 0 && (
+                                                                                <button 
+                                                                                    type="button" 
+                                                                                    className="btn-secondary" 
+                                                                                    style={{ fontSize: '10px', padding: '3px 8px', height: 'auto' }}
+                                                                                    onClick={() => {
+                                                                                        updateSubDay(idx, 'attendees', [...day.attendees, ...subDays[idx - 1].attendees]);
+                                                                                    }}
+                                                                                >
+                                                                                    Copy Day {idx} Guests
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div style={{ display: 'flex', gap: '6px', flexDirection: 'column' }}>
+                                                                        <div className="attendee-input-row" style={{ display: 'flex', gap: '6px' }}>
+                                                                            <input 
+                                                                                type="text" 
+                                                                                placeholder="Guest Name" 
+                                                                                className="custom-input" 
+                                                                                style={{ flex: 1, height: '34px', fontSize: '12px' }} 
+                                                                                value={day.currentAttendee?.name || ''} 
+                                                                                onChange={e => updateSubDayCurrentAttendee(idx, 'name', e.target.value)} 
+                                                                            />
+                                                                            <input 
+                                                                                type="email" 
+                                                                                placeholder="Guest Email" 
+                                                                                className="custom-input" 
+                                                                                style={{ flex: 1, height: '34px', fontSize: '12px' }} 
+                                                                                value={day.currentAttendee?.email || ''} 
+                                                                                onChange={e => updateSubDayCurrentAttendee(idx, 'email', e.target.value)} 
+                                                                            />
+                                                                            <button 
+                                                                                type="button" 
+                                                                                className="btn-secondary" 
+                                                                                style={{ height: '34px', padding: '0 10px' }}
+                                                                                onClick={() => addSubDayAttendee(idx)}
+                                                                            >
+                                                                                <UserPlus size={14} />
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Sub Day Attendee Badges List */}
+                                                                    {day.attendees && day.attendees.length > 0 && (
+                                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                                                                            {day.attendees.map((att, attIdx) => (
+                                                                                <div key={attIdx} className="guest-badge">
+                                                                                    <span>{att.name} ({att.email})</span>
+                                                                                    <button 
+                                                                                        type="button" 
+                                                                                        onClick={() => removeSubDayAttendee(idx, attIdx)}
+                                                                                        title="Remove guest"
+                                                                                    >
+                                                                                        ×
+                                                                                    </button>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                                 <button type="submit" className="btn-primary" disabled={submitting} style={{ opacity: submitting ? 0.8 : 1, cursor: submitting ? 'not-allowed' : 'pointer' }}>
                                     {submitting ? (
                                         <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
@@ -1463,30 +2055,35 @@ const AdminDashboard = () => {
                                 <div className="schedule-list">
                                     {(() => {
                                         const now = new Date();
-                                        const filtered = unrollEvents(events).filter(e => {
-                                            const date = e.event_date.slice(0, 10);
-                                            const [sH, sM] = e.start_time.split(':');
-                                            const [eH, eM] = e.end_time.split(':');
-                                            const start = new Date(date); start.setHours(+sH, +sM, 0, 0);
-                                            const end = new Date(date); end.setHours(+eH, +eM, 0, 0);
-                                            const tabMatch = activeTab === 'upcoming' ? now < start : activeTab === 'live' ? now >= start && now <= end : end < now;
-                                            const searchMatch = !search || e.title.toLowerCase().startsWith(search.toLowerCase());
-                                            const dateMatch = !filterDate || date === filterDate;
-                                            const catMatch = !filterCategory || (e.category || 'General').toLowerCase() === filterCategory.toLowerCase();
-                                            return tabMatch && searchMatch && dateMatch && catMatch;
-                                        }).sort((a, b) => {
-                                            const dateA = a.event_date.slice(0, 10);
-                                            const [sHa, sMa] = a.start_time.split(':');
-                                            const startA = new Date(dateA); startA.setHours(+sHa, +sMa, 0, 0);
-                                            const endA = new Date(dateA); endA.setHours(+a.end_time.split(':')[0], +a.end_time.split(':')[1], 0, 0);
-                                            const dateB = b.event_date.slice(0, 10);
-                                            const [sHb, sMb] = b.start_time.split(':');
-                                            const startB = new Date(dateB); startB.setHours(+sHb, +sMb, 0, 0);
-                                            const endB = new Date(dateB); endB.setHours(+b.end_time.split(':')[0], +b.end_time.split(':')[1], 0, 0);
-                                            if (activeTab === 'upcoming') return startA - startB;
-                                            if (activeTab === 'live') return endA - endB;
-                                            return startB - startA;
-                                        });
+                                        const filtered = groupMultiDaySpans(events).filter(e => {
+                                             const date = e.event_date.slice(0, 10);
+                                             const endDate = e.end_date ? e.end_date.slice(0, 10) : date;
+                                             const [sH, sM] = e.start_time.split(':');
+                                             const [eH, eM] = e.end_time.split(':');
+                                             const start = new Date(date); start.setHours(+sH, +sM, 0, 0);
+                                             const end = new Date(endDate); end.setHours(+eH, +eM, 0, 0);
+                                             const tabMatch = activeTab === 'upcoming' ? now < start : activeTab === 'live' ? now >= start && now <= end : end < now;
+                                             const searchMatch = !search || e.title.toLowerCase().startsWith(search.toLowerCase());
+                                             const dateMatch = !filterDate || (filterDate >= date && filterDate <= endDate);
+                                             const catMatch = !filterCategory || (e.category || 'General').toLowerCase() === filterCategory.toLowerCase();
+                                             return tabMatch && searchMatch && dateMatch && catMatch;
+                                         }).sort((a, b) => {
+                                             const dateA = a.event_date.slice(0, 10);
+                                             const endDateA = a.end_date ? a.end_date.slice(0, 10) : dateA;
+                                             const [sHa, sMa] = a.start_time.split(':');
+                                             const startA = new Date(dateA); startA.setHours(+sHa, +sMa, 0, 0);
+                                             const endA = new Date(endDateA); endA.setHours(+a.end_time.split(':')[0], +a.end_time.split(':')[1], 0, 0);
+                                             
+                                             const dateB = b.event_date.slice(0, 10);
+                                             const endDateB = b.end_date ? b.end_date.slice(0, 10) : dateB;
+                                             const [sHb, sMb] = b.start_time.split(':');
+                                             const startB = new Date(dateB); startB.setHours(+sHb, +sMb, 0, 0);
+                                             const endB = new Date(endDateB); endB.setHours(+b.end_time.split(':')[0], +b.end_time.split(':')[1], 0, 0);
+                                             
+                                             if (activeTab === 'upcoming') return startA - startB;
+                                             if (activeTab === 'live') return endA - endB;
+                                             return startB - startA;
+                                         });
                                         if (filtered.length === 0)
                                             return <div className="empty-state-card">No {activeTab} events found.</div>;
                                         const totalPages = Math.ceil(filtered.length / PAGE_SIZE);

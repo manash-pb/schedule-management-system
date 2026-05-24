@@ -63,6 +63,40 @@ const toCalendarEvents = (unrolledEvents) => unrolledEvents.map(e => {
     return { title: e.title, start, end, resource: e };
 });
 
+const groupMultiDaySpans = (eventsList) => {
+    const grouped = [];
+    const spanMap = {};
+    
+    eventsList.forEach(e => {
+        if (e.span_id) {
+            if (!spanMap[e.span_id]) {
+                spanMap[e.span_id] = [];
+            }
+            spanMap[e.span_id].push(e);
+        } else {
+            grouped.push(e);
+        }
+    });
+    
+    Object.keys(spanMap).forEach(spanId => {
+        const group = spanMap[spanId];
+        group.sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
+        
+        const firstEvent = group[0];
+        const lastEvent = group[group.length - 1];
+        
+        grouped.push({
+            ...firstEvent,
+            event_date: firstEvent.event_date,
+            end_date: lastEvent.event_date,
+            isMultiDaySpan: true,
+            days: group
+        });
+    });
+    
+    return grouped;
+};
+
 const CustomCalendarToolbar = ({ label, onNavigate, onView, view, date, setCalendarDate }) => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8, padding: '4px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -140,32 +174,116 @@ const PreviewModal = ({ event, onClose }) => (
 );
 
 const UserEventCard = ({ event, onPreview, tab }) => {
+    const [expanded, setExpanded] = useState(false);
+    
+    const startDateStr = event.event_date.slice(0, 10);
+    const endDateStr = event.end_date ? event.end_date.slice(0, 10) : startDateStr;
+    const isMultiDay = startDateStr !== endDateStr;
+    
+    const days = [];
+    if (isMultiDay) {
+        let currentDate = new Date(startDateStr);
+        const endDate = new Date(endDateStr);
+        let dayCount = 1;
+        while (currentDate <= endDate) {
+            const y = currentDate.getFullYear();
+            const m = String(currentDate.getMonth() + 1).padStart(2, '0');
+            const d = String(currentDate.getDate()).padStart(2, '0');
+            days.push({
+                dayNumber: dayCount,
+                dateStr: `${y}-${m}-${d}`,
+                formattedDate: currentDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }),
+            });
+            currentDate.setDate(currentDate.getDate() + 1);
+            dayCount++;
+        }
+    }
+    
     return (
-        <div className="event-card">
-            <div className="event-info">
-                <span className="status-badge" style={tab === 'past' ? { background: '#f1f5f9', color: '#64748b' } : tab === 'live' ? { background: '#dcfce7', color: '#16a34a' } : {}}>
-                    {tab === 'past' ? 'Past' : tab === 'live' ? '🔴 Live' : 'Confirmed'}
-                </span>
-                {event.category && (
-                    <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.color || '#64748b', textTransform: 'capitalize' }}>
-                        {event.category}
+        <div className="event-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: 16 }}>
+                <div className="event-info" style={{ flex: 1 }}>
+                    <span className="status-badge" style={tab === 'past' ? { background: '#f1f5f9', color: '#64748b' } : tab === 'live' ? { background: '#dcfce7', color: '#16a34a' } : {}}>
+                        {tab === 'past' ? 'Past' : tab === 'live' ? '🔴 Live' : 'Confirmed'}
                     </span>
-                )}
-                <h3 className="event-title">{event.title}</h3>
-                <div className="event-meta">
-                    <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString('en-GB')}</span></div>
-                    <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
-                    <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
-
+                    {event.category && (
+                        <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.color || '#64748b', textTransform: 'capitalize' }}>
+                            {event.category}
+                        </span>
+                    )}
+                    <h3 className="event-title" style={{ marginTop: 8 }}>{event.title}</h3>
+                    <div className="event-meta" style={{ marginTop: 8 }}>
+                        <div className="meta-item">
+                            <Calendar size={14} className="text-blue" />
+                            <span>
+                                {new Date(event.event_date).toLocaleDateString('en-GB')}
+                                {isMultiDay && ` - ${new Date(event.end_date).toLocaleDateString('en-GB')}`}
+                            </span>
+                        </div>
+                        <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
+                        <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
+                    </div>
+                </div>
+                <div className="event-actions" style={{ flexShrink: 0 }}>
+                    <div className="tooltip-wrap">
+                        <button onClick={() => onPreview(event)} className="btn-icon preview"><ClosedEyeIcon size={20} /></button>
+                        <span className="tooltip-text">Preview</span>
+                    </div>
                 </div>
             </div>
-            <div className="event-actions" style={{ flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-                <div className="tooltip-wrap">
-                    <button onClick={() => onPreview(event)} className="btn-icon preview"><ClosedEyeIcon size={20} /></button>
-                    <span className="tooltip-text">Preview</span>
+            
+            {isMultiDay && (
+                <div style={{ width: '100%' }}>
+                    <button 
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} 
+                        className="btn-secondary" 
+                        style={{ width: '100%', justifyContent: 'center', gap: 6, fontSize: 13, padding: '8px 12px', background: 'var(--bg-muted)', border: '1px dashed var(--border)', borderRadius: 8 }}
+                    >
+                        {expanded ? '▲ Hide Daily Schedule' : `▼ Show Daily Schedule (${days.length} Days)`}
+                    </button>
+                    
+                    {expanded && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12, paddingLeft: 12, borderLeft: '3px solid var(--blue)' }}>
+                            {days.map(d => (
+                                <div key={d.dayNumber} className="sub-event-card" style={{
+                                    background: 'var(--bg-muted)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: 8,
+                                    padding: '10px 12px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    gap: 16
+                                }}>
+                                    <div style={{ flex: 1 }}>
+                                        <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>Day {d.dayNumber}: {d.formattedDate}</span>
+                                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
+                                            <span>🕐 {formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
+                                            <span>📍 {event.venue}</span>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        type="button"
+                                        className="btn-icon" 
+                                        style={{ padding: 4, height: 26, width: 26, flexShrink: 0 }} 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onPreview({
+                                                ...event,
+                                                title: `${event.title} : Day ${d.dayNumber}`,
+                                                event_date: d.dateStr
+                                            });
+                                        }}
+                                    >
+                                        <ClosedEyeIcon size={14} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
-                {/* RSVP removed */}
-            </div>
+            )}
         </div>
     );
 };
@@ -320,29 +438,32 @@ const UserDashboard = () => {
                                 <div className="schedule-list">
                                 {(() => {
                                     const now = new Date();
-                                    const filtered = unrollEvents(events).filter(e => {
+                                    const filtered = groupMultiDaySpans(events).filter(e => {
                                         const date = e.event_date.slice(0, 10);
+                                        const endDate = e.end_date ? e.end_date.slice(0, 10) : date;
                                         const [sH, sM] = e.start_time.split(':');
                                         const [eH, eM] = e.end_time.split(':');
                                         const start = new Date(date); start.setHours(+sH, +sM, 0, 0);
-                                        const end   = new Date(date); end.setHours(+eH, +eM, 0, 0);
+                                        const end   = new Date(endDate); end.setHours(+eH, +eM, 0, 0);
                                         const tabMatch = activeTab === 'upcoming' ? now < start : activeTab === 'live' ? now >= start && now <= end : end < now;
                                         const searchMatch = !search || e.title.toLowerCase().startsWith(search.toLowerCase());
-                                        const dateMatch = !filterDate || date === filterDate;
+                                        const dateMatch = !filterDate || (filterDate >= date && filterDate <= endDate);
                                         const catMatch = !filterCategory || (e.category || 'General').toLowerCase() === filterCategory.toLowerCase();
                                         return tabMatch && searchMatch && dateMatch && catMatch;
                                     }).sort((a, b) => {
                                         const dateA = a.event_date.slice(0, 10);
+                                        const endDateA = a.end_date ? a.end_date.slice(0, 10) : dateA;
                                         const [sHa, sMa] = a.start_time.split(':');
                                         const [eHa, eMa] = a.end_time.split(':');
                                         const startA = new Date(dateA); startA.setHours(+sHa, +sMa, 0, 0);
-                                        const endA = new Date(dateA); endA.setHours(+eHa, +eMa, 0, 0);
+                                        const endA = new Date(endDateA); endA.setHours(+eHa, +eMa, 0, 0);
 
                                         const dateB = b.event_date.slice(0, 10);
+                                        const endDateB = b.end_date ? b.end_date.slice(0, 10) : dateB;
                                         const [sHb, sMb] = b.start_time.split(':');
                                         const [eHb, eMb] = b.end_time.split(':');
                                         const startB = new Date(dateB); startB.setHours(+sHb, +sMb, 0, 0);
-                                        const endB = new Date(dateB); endB.setHours(+eHb, +eMb, 0, 0);
+                                        const endB = new Date(endDateB); endB.setHours(+eHb, +eMb, 0, 0);
 
                                         if (activeTab === 'upcoming') return startA - startB;
                                         if (activeTab === 'live') return endA - endB;

@@ -1,6 +1,6 @@
 const pool = require('../db');
 const { createGoogleEvent, deleteGoogleEvent, updateGoogleEvent } = require('../googleCalendar');
-const { sendInviteEmail, sendCancellationEmail, sendRemovalEmail } = require('../utils/mailer');
+const { sendInviteEmail, sendCancellationEmail, sendRemovalEmail, sendMultiDayInviteEmail, sendDaySpecificInviteEmail } = require('../utils/mailer');
 
 const getAdminTokens = async (adminEmail) => {
     if (adminEmail) {
@@ -31,15 +31,20 @@ const cleanTime = (t) => {
 };
 
 exports.createEvent = async (req, res) => {
-    let { title = null, description = null, venue = null, event_date = null, end_date = null,
-        start_time = null, end_time = null, attendees = [], adminEmail = null, category = 'General' } = req.body;
-
-    const mysqlStart = cleanTime(start_time);
-    const mysqlEnd = cleanTime(end_time);
-
-    if (!event_date || !mysqlStart || !mysqlEnd) {
-        return res.status(400).json({ error: 'Missing date or time fields' });
-    }
+    let { 
+        title = null, 
+        description = null, 
+        venue = null, 
+        event_date = null, 
+        end_date = null,
+        start_time = null, 
+        end_time = null, 
+        attendees = [], 
+        adminEmail = null, 
+        category = 'General',
+        event_span = 'single',
+        days = [] 
+    } = req.body;
 
     const tokens = await getAdminTokens(adminEmail);
     if (!tokens) return res.status(401).json({ error: 'No Google connection found. Please connect Google Calendar.' });
@@ -49,73 +54,157 @@ exports.createEvent = async (req, res) => {
         connection = await pool.getConnection();
         await connection.beginTransaction();
 
-        // Calculate date range
-        const startDateObj = new Date(event_date);
-        const endDateObj = end_date ? new Date(end_date) : new Date(event_date);
-        if (endDateObj < startDateObj) {
-            return res.status(400).json({ error: 'End date cannot be before start date' });
-        }
+        const createdEventIds = [];
 
-        const dateList = [];
-        let currentDate = new Date(startDateObj);
-        while (currentDate <= endDateObj) {
-            // Fix timezone issue when extracting YYYY-MM-DD
-            const yyyy = currentDate.getFullYear();
-            const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
-            const dd = String(currentDate.getDate()).padStart(2, '0');
-            dateList.push(`${yyyy}-${mm}-${dd}`);
-            currentDate.setDate(currentDate.getDate() + 1);
-        }
+        if (event_span === 'multiple' && Array.isArray(days) && days.length > 0) {
+            // Generate a unique span_id for this multi-day event group
+            const spanId = `span-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-        // --- 1. Create a single row in the database ---
-        const finalEndDate = dateList[dateList.length - 1]; // Ensures end_date is properly formatted
-        const [eventResult] = await connection.execute(
-            `INSERT INTO events (title, description, venue, event_date, end_date, start_time, end_time, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [title, description, venue, event_date, finalEndDate, mysqlStart, mysqlEnd, category]
-        );
-        const newEventId = eventResult.insertId;
+            // Let's identify global attendees and normalize them
+            const globalAttendees = Array.isArray(attendees) ? attendees : [];
+            const globalEmails = new Set(globalAttendees.map(g => g.email.toLowerCase().trim()));
 
-        // --- 2. Attach Attendees to this single event ---
-        for (const person of attendees) {
-            const attendeeEmail = person.email.toLowerCase().trim();
-            await connection.execute(`INSERT IGNORE INTO Attendees (name, email) VALUES (?, ?)`, [person.name || 'Guest', attendeeEmail]);
-            const [rec] = await connection.execute(`SELECT attendee_id FROM Attendees WHERE email = ?`, [attendeeEmail]);
-            await connection.execute(`INSERT INTO Event_Attendees (event_id, attendee_id) VALUES (?, ?)`, [newEventId, rec[0].attendee_id]);
-        }
+            for (const day of days) {
+                const dayDate = day.date;
+                const dayTitle = day.title || title;
+                const dayDescription = day.description || description;
+                const dayStart = cleanTime(day.start_time || start_time);
+                const dayEnd = cleanTime(day.end_time || end_time);
+                
+                // Day-specific guests
+                const daySpecificAttendees = Array.isArray(day.attendees) ? day.attendees.filter(g => g && g.email) : [];
+                
+                // Deduplicate combined invitees for GCal and Database event attendees
+                const combinedMap = new Map();
+                globalAttendees.forEach(g => combinedMap.set(g.email.toLowerCase().trim(), g));
+                daySpecificAttendees.forEach(g => {
+                    const email = g.email.toLowerCase().trim();
+                    if (!combinedMap.has(email)) {
+                        combinedMap.set(email, g);
+                    }
+                });
+                const dayAllInvitees = Array.from(combinedMap.values());
 
-        // --- 3. Loop over dates for Google Calendar & Emails ---
-        const googleEventIds = [];
-        const isMultiDay = dateList.length > 1;
+                if (!dayDate || !dayStart || !dayEnd) {
+                    throw new Error(`Missing date or time fields for one of the days`);
+                }
 
-        for (let i = 0; i < dateList.length; i++) {
-            const currentDateStr = dateList[i];
-            const googleStart = `${currentDateStr}T${mysqlStart}`;
-            const googleEnd = `${currentDateStr}T${mysqlEnd}`;
-            const eventTitle = isMultiDay ? `${title} : Day ${i + 1}` : title;
+                if (dayEnd <= dayStart) {
+                    throw new Error(`End time must be strictly after start time on ${dayDate}`);
+                }
 
-            // Create individual Google event
-            const googleEventId = await createGoogleEvent({ title: eventTitle, description, venue, startISO: googleStart, endISO: googleEnd }, attendees, tokens);
-            if (googleEventId) googleEventIds.push(googleEventId);
+                // Create individual day event row
+                const [eventResult] = await connection.execute(
+                    `INSERT INTO events (title, description, venue, event_date, end_date, start_time, end_time, category, span_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [dayTitle, dayDescription, venue, dayDate, dayDate, dayStart, dayEnd, category, spanId]
+                );
+                const newEventId = eventResult.insertId;
+                createdEventIds.push(newEventId);
 
-            // Send invite emails for this specific day
+                // Attach Attendees to this individual day (both global and day-specific)
+                for (const person of dayAllInvitees) {
+                    const attendeeEmail = person.email.toLowerCase().trim();
+                    await connection.execute(`INSERT IGNORE INTO Attendees (name, email) VALUES (?, ?)`, [person.name || 'Guest', attendeeEmail]);
+                    const [rec] = await connection.execute(`SELECT attendee_id FROM Attendees WHERE email = ?`, [attendeeEmail]);
+                    await connection.execute(`INSERT INTO Event_Attendees (event_id, attendee_id) VALUES (?, ?)`, [newEventId, rec[0].attendee_id]);
+                }
+
+                // Sync with Google Calendar for this specific day (inviting all dayAllInvitees)
+                const googleStart = `${dayDate}T${dayStart}`;
+                const googleEnd = `${dayDate}T${dayEnd}`;
+                const googleEventId = await createGoogleEvent({ title: dayTitle, description: dayDescription, venue, startISO: googleStart, endISO: googleEnd }, dayAllInvitees, tokens);
+                if (googleEventId) {
+                    await connection.execute(`UPDATE events SET google_event_id = ? WHERE event_id = ?`, [googleEventId, newEventId]);
+                }
+
+                // Send day-specific invite emails to day-specific guests ONLY (those not in globalAttendees)
+                for (const person of daySpecificAttendees) {
+                    const email = person.email.toLowerCase().trim();
+                    if (globalEmails.has(email)) continue; // skip if they are already in the global/all-days list
+
+                    try {
+                        await sendDaySpecificInviteEmail({
+                            person,
+                            globalTitle: title,
+                            globalDescription: description,
+                            dayTitle,
+                            dayDescription,
+                            venue,
+                            event_date: dayDate,
+                            mysqlStart: dayStart,
+                            mysqlEnd: dayEnd,
+                            newEventId
+                        });
+                    } catch (e) {
+                        console.error(`❌ Failed to send day-specific invite to ${person.email} for ${dayDate}:`, e.message);
+                    }
+                }
+            }
+
+            // Send single multi-day invite email to each global attendee containing the full event schedule and multi-day ICS
+            for (const person of globalAttendees) {
+                try {
+                    await sendMultiDayInviteEmail({
+                        person,
+                        title,
+                        description,
+                        venue,
+                        days,
+                        createdEventIds
+                    });
+                } catch (e) {
+                    console.error(`❌ Failed to send multi-day invite to ${person.email}:`, e.message);
+                }
+            }
+
+        } else {
+            // Single Day Event Logic (original)
+            const mysqlStart = cleanTime(start_time);
+            const mysqlEnd = cleanTime(end_time);
+
+            if (!event_date || !mysqlStart || !mysqlEnd) {
+                return res.status(400).json({ error: 'Missing date or time fields' });
+            }
+
+            if (mysqlEnd <= mysqlStart) {
+                return res.status(400).json({ error: 'End time must be strictly after start time' });
+            }
+
+            const [eventResult] = await connection.execute(
+                `INSERT INTO events (title, description, venue, event_date, end_date, start_time, end_time, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [title, description, venue, event_date, event_date, mysqlStart, mysqlEnd, category]
+            );
+            const newEventId = eventResult.insertId;
+            createdEventIds.push(newEventId);
+
+            // Attach Attendees
+            for (const person of attendees) {
+                const attendeeEmail = person.email.toLowerCase().trim();
+                await connection.execute(`INSERT IGNORE INTO Attendees (name, email) VALUES (?, ?)`, [person.name || 'Guest', attendeeEmail]);
+                const [rec] = await connection.execute(`SELECT attendee_id FROM Attendees WHERE email = ?`, [attendeeEmail]);
+                await connection.execute(`INSERT INTO Event_Attendees (event_id, attendee_id) VALUES (?, ?)`, [newEventId, rec[0].attendee_id]);
+            }
+
+            // Sync with Google Calendar
+            const googleStart = `${event_date}T${mysqlStart}`;
+            const googleEnd = `${event_date}T${mysqlEnd}`;
+            const googleEventId = await createGoogleEvent({ title, description, venue, startISO: googleStart, endISO: googleEnd }, attendees, tokens);
+            if (googleEventId) {
+                await connection.execute(`UPDATE events SET google_event_id = ? WHERE event_id = ?`, [googleEventId, newEventId]);
+            }
+
+            // Send invite emails
             for (const person of attendees) {
                 try {
-                    await sendInviteEmail({ person, title: eventTitle, description, venue, event_date: currentDateStr, mysqlStart, mysqlEnd, newEventId });
-                    console.log(`✅ Invite sent to ${person.email} for ${currentDateStr}`);
+                    await sendInviteEmail({ person, title: description, venue, event_date, mysqlStart, mysqlEnd, newEventId });
                 } catch (e) {
-                    console.error(`❌ Failed to send invite to ${person.email} for ${currentDateStr}:`, e.message);
+                    console.error(`❌ Failed to send invite to ${person.email}:`, e.message);
                 }
             }
         }
 
-        // --- 4. Update the DB with the comma-separated Google Event IDs ---
-        if (googleEventIds.length > 0) {
-            await connection.execute(`UPDATE events SET google_event_id = ? WHERE event_id = ?`, [googleEventIds.join(','), newEventId]);
-        }
-
         await connection.commit();
-
-        res.status(201).json({ message: 'Success!', eventId: newEventId, googleEventIds });
+        res.status(201).json({ message: 'Success!', eventIds: createdEventIds });
     } catch (error) {
         if (connection) await connection.rollback();
         console.error('Event creation error:', error.message);
