@@ -3,290 +3,22 @@ import axios from 'axios';
 import { Calendar, Clock, MapPin, X, Check, XCircle, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutList, CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getAuthData } from '../utils/authStorage';
+import { io } from 'socket.io-client';
+import toast, { Toaster } from 'react-hot-toast';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
-const CATEGORIES = ['General', 'Meeting', 'Workshop', 'Holiday', 'Training', 'Social'];
-const CATEGORY_COLORS = {
-    General:  { bg: '#eff6ff', color: '#2563eb' },
-    Meeting:  { bg: '#fef3c7', color: '#d97706' },
-    Workshop: { bg: '#f0fdf4', color: '#16a34a' },
-    Holiday:  { bg: '#fce7f3', color: '#db2777' },
-    Training: { bg: '#f5f3ff', color: '#7c3aed' },
-    Social:   { bg: '#fff7ed', color: '#ea580c' },
-};
+// Extracted Components & Utils
+import { CATEGORIES, CATEGORY_COLORS } from '../utils/constants';
+import { unrollEvents, toCalendarEvents, groupMultiDaySpans } from '../utils/eventUtils';
+import CustomCalendarToolbar from '../components/CustomCalendarToolbar';
+import UserPreviewModal from '../components/UserPreviewModal';
+import UserEventCard from '../components/UserEventCard';
 
 const locales = { 'en-US': enUS };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
-
-const unrollEvents = (events) => {
-    const unrolled = [];
-    events.forEach(e => {
-        const startDateStr = e.event_date.slice(0, 10);
-        const endDateStr = e.end_date ? e.end_date.slice(0, 10) : startDateStr;
-        
-        const startDate = new Date(startDateStr);
-        const endDate = new Date(endDateStr);
-        
-        const isMultiDay = startDate.getTime() !== endDate.getTime();
-        
-        let currentDate = new Date(startDateStr);
-        let dayCount = 1;
-        
-        while (currentDate <= endDate) {
-            const y = currentDate.getFullYear();
-            const m = String(currentDate.getMonth() + 1).padStart(2, '0');
-            const d = String(currentDate.getDate()).padStart(2, '0');
-            
-            unrolled.push({
-                ...e,
-                title: isMultiDay ? `${e.title} : Day ${dayCount}` : e.title,
-                event_date: `${y}-${m}-${d}`,
-                _listKey: `${e.event_id || e.id}_day${dayCount}`
-            });
-            
-            currentDate.setDate(currentDate.getDate() + 1);
-            dayCount++;
-        }
-    });
-    return unrolled;
-};
-
-const toCalendarEvents = (unrolledEvents) => unrolledEvents.map(e => {
-    const date = e.event_date.slice(0, 10);
-    const [sH, sM] = e.start_time.split(':');
-    const [eH, eM] = e.end_time.split(':');
-    const start = new Date(date); start.setHours(+sH, +sM, 0, 0);
-    const end = new Date(date); end.setHours(+eH, +eM, 0, 0);
-    return { title: e.title, start, end, resource: e };
-});
-
-const groupMultiDaySpans = (eventsList) => {
-    const grouped = [];
-    const spanMap = {};
-    
-    eventsList.forEach(e => {
-        if (e.span_id) {
-            if (!spanMap[e.span_id]) {
-                spanMap[e.span_id] = [];
-            }
-            spanMap[e.span_id].push(e);
-        } else {
-            grouped.push(e);
-        }
-    });
-    
-    Object.keys(spanMap).forEach(spanId => {
-        const group = spanMap[spanId];
-        group.sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
-        
-        const firstEvent = group[0];
-        const lastEvent = group[group.length - 1];
-        
-        grouped.push({
-            ...firstEvent,
-            event_date: firstEvent.event_date,
-            end_date: lastEvent.event_date,
-            isMultiDaySpan: true,
-            days: group
-        });
-    });
-    
-    return grouped;
-};
-
-const CustomCalendarToolbar = ({ label, onNavigate, onView, view, date, setCalendarDate }) => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8, padding: '4px 8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {view === 'day' && (
-                <button 
-                    onClick={() => onView('month')} 
-                    className="btn-icon" 
-                    style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s', marginRight: 4 }}
-                    title="Back to month view"
-                >
-                    <ChevronLeft size={16} />
-                </button>
-            )}
-            <button onClick={() => setCalendarDate && setCalendarDate(new Date(date.getFullYear() - 1, date.getMonth(), date.getDate()))} className="btn-icon" style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s' }} title="Previous Year">
-                <ChevronsLeft size={16} />
-            </button>
-            <button onClick={() => onNavigate('PREV')} className="btn-icon" style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s' }} title="Previous Month">
-                <ChevronLeft size={16} />
-            </button>
-            <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', minWidth: 160, textAlign: 'center' }}>{label}</span>
-            <button onClick={() => onNavigate('NEXT')} className="btn-icon" style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s' }} title="Next Month">
-                <ChevronRight size={16} />
-            </button>
-            <button onClick={() => setCalendarDate && setCalendarDate(new Date(date.getFullYear() + 1, date.getMonth(), date.getDate()))} className="btn-icon" style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s' }} title="Next Year">
-                <ChevronsRight size={16} />
-            </button>
-        </div>
-    </div>
-);
-
-const ClosedEyeIcon = ({ size = 20, color = 'currentColor' }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M4 8 Q12 16 20 8" stroke={color} strokeWidth="2" strokeLinecap="round" fill="none"/>
-    <line x1="7.5" y1="11.5" x2="6.5" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round"/>
-    <line x1="10.5" y1="13" x2="10" y2="15.5" stroke={color} strokeWidth="2" strokeLinecap="round"/>
-    <line x1="13.5" y1="13" x2="14" y2="15.5" stroke={color} strokeWidth="2" strokeLinecap="round"/>
-    <line x1="16.5" y1="11.5" x2="17.5" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round"/>
-  </svg>
-);
-
-const formatTime = (timeStr) => {
-    if (!timeStr) return "";
-    const [hours, minutes] = timeStr.split(':');
-    let h = parseInt(hours);
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    h = h % 12 || 12;
-    return `${String(h).padStart(2, '0')}:${minutes} ${ampm}`;
-};
-
-const PreviewModal = ({ event, onClose }) => (
-    <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-                <div>
-                    <span className="status-badge">Confirmed</span>
-                    <h2 className="event-title" style={{ marginBottom: 4 }}>{event.title}</h2>
-                </div>
-                <button className="btn-icon" onClick={onClose}><X size={20} /></button>
-            </div>
-
-            <div className="event-meta" style={{ marginBottom: 16 }}>
-                <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString('en-GB')}</span></div>
-                <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
-                <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
-
-            </div>
-
-            {event.description && (
-                <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
-                    <p style={{ margin: 0, fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{event.description}</p>
-                </div>
-            )}
-        </div>
-    </div>
-);
-
-const UserEventCard = ({ event, onPreview, tab }) => {
-    const [expanded, setExpanded] = useState(false);
-    
-    const startDateStr = event.event_date.slice(0, 10);
-    const endDateStr = event.end_date ? event.end_date.slice(0, 10) : startDateStr;
-    const isMultiDay = startDateStr !== endDateStr;
-    
-    const days = [];
-    if (isMultiDay) {
-        let currentDate = new Date(startDateStr);
-        const endDate = new Date(endDateStr);
-        let dayCount = 1;
-        while (currentDate <= endDate) {
-            const y = currentDate.getFullYear();
-            const m = String(currentDate.getMonth() + 1).padStart(2, '0');
-            const d = String(currentDate.getDate()).padStart(2, '0');
-            days.push({
-                dayNumber: dayCount,
-                dateStr: `${y}-${m}-${d}`,
-                formattedDate: currentDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }),
-            });
-            currentDate.setDate(currentDate.getDate() + 1);
-            dayCount++;
-        }
-    }
-    
-    return (
-        <div className="event-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: 16 }}>
-                <div className="event-info" style={{ flex: 1 }}>
-                    <span className="status-badge" style={tab === 'past' ? { background: '#f1f5f9', color: '#64748b' } : tab === 'live' ? { background: '#dcfce7', color: '#16a34a' } : {}}>
-                        {tab === 'past' ? 'Past' : tab === 'live' ? '🔴 Live' : 'Confirmed'}
-                    </span>
-                    {event.category && (
-                        <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.color || '#64748b', textTransform: 'capitalize' }}>
-                            {event.category}
-                        </span>
-                    )}
-                    <h3 className="event-title" style={{ marginTop: 8 }}>{event.title}</h3>
-                    <div className="event-meta" style={{ marginTop: 8 }}>
-                        <div className="meta-item">
-                            <Calendar size={14} className="text-blue" />
-                            <span>
-                                {new Date(event.event_date).toLocaleDateString('en-GB')}
-                                {isMultiDay && ` - ${new Date(event.end_date).toLocaleDateString('en-GB')}`}
-                            </span>
-                        </div>
-                        <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
-                        <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
-                    </div>
-                </div>
-                <div className="event-actions" style={{ flexShrink: 0 }}>
-                    <div className="tooltip-wrap">
-                        <button onClick={() => onPreview(event)} className="btn-icon preview"><ClosedEyeIcon size={20} /></button>
-                        <span className="tooltip-text">Preview</span>
-                    </div>
-                </div>
-            </div>
-            
-            {isMultiDay && (
-                <div style={{ width: '100%' }}>
-                    <button 
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} 
-                        className="btn-secondary" 
-                        style={{ width: '100%', justifyContent: 'center', gap: 6, fontSize: 13, padding: '8px 12px', background: 'var(--bg-muted)', border: '1px dashed var(--border)', borderRadius: 8 }}
-                    >
-                        {expanded ? '▲ Hide Daily Schedule' : `▼ Show Daily Schedule (${days.length} Days)`}
-                    </button>
-                    
-                    {expanded && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12, paddingLeft: 12, borderLeft: '3px solid var(--blue)' }}>
-                            {days.map(d => (
-                                <div key={d.dayNumber} className="sub-event-card" style={{
-                                    background: 'var(--bg-muted)',
-                                    border: '1px solid var(--border)',
-                                    borderRadius: 8,
-                                    padding: '10px 12px',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    gap: 16
-                                }}>
-                                    <div style={{ flex: 1 }}>
-                                        <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>Day {d.dayNumber}: {d.formattedDate}</span>
-                                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
-                                            <span>🕐 {formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
-                                            <span>📍 {event.venue}</span>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        type="button"
-                                        className="btn-icon" 
-                                        style={{ padding: 4, height: 26, width: 26, flexShrink: 0 }} 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onPreview({
-                                                ...event,
-                                                title: `${event.title} : Day ${d.dayNumber}`,
-                                                event_date: d.dateStr
-                                            });
-                                        }}
-                                    >
-                                        <ClosedEyeIcon size={14} />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-};
 
 const UserDashboard = () => {
     const [events, setEvents] = useState([]);
@@ -335,19 +67,38 @@ const UserDashboard = () => {
     // RSVP removed
 
     useEffect(() => {
-        if (userEmail) fetchEvents();
-        else navigate('/');
+        if (userEmail) {
+            fetchEvents();
+            const socket = io('http://localhost:3000', { withCredentials: true });
+            socket.on('calendar_events_updated', (data) => {
+                fetchEvents();
+                if (data) {
+                    const userEmailLower = userEmail.toLowerCase().trim();
+                    if (data.action === 'created' && data.attendees && data.attendees.includes(userEmailLower)) {
+                        toast.success(`You've been invited to a new event: ${data.title}`);
+                    } else if (data.action === 'added_attendee' && data.email === userEmailLower) {
+                        toast.success(`You've been added to an event: ${data.title || 'Check your calendar!'}`);
+                    } else if (data.action === 'removed_attendee' && data.email === userEmailLower) {
+                        toast.error(`You were removed from an event.`);
+                    }
+                }
+            });
+            return () => socket.disconnect();
+        } else {
+            navigate('/');
+        }
     }, [userEmail]);
 
     return (
         <div className="dashboard-container">
+            <Toaster position="top-center" />
             <style>{`
               .rbc-off-range-bg { background-color: #e5e7eb !important; }
               html.dark .rbc-off-range-bg { background-color: #1a202c !important; }
               html.dark .rbc-month-view .rbc-off-range-bg { background-color: #1a202c !important; }
               html.dark .rbc-month-view .rbc-off-range { color: #9ca3af !important; opacity: 0.8 !important; }
             `}</style>
-            {previewEvent && <PreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} />}
+            {previewEvent && <UserPreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} />}
             <div className="dashboard-wrapper">
                 <h2 style={{ margin: '10px 0 20px 0', fontSize: 24 }}>Welcome, {userName}</h2>
 
@@ -428,7 +179,15 @@ const UserDashboard = () => {
                                             const rawCat = e.resource?.category || 'General';
                                             const cat = rawCat.charAt(0).toUpperCase() + rawCat.slice(1).toLowerCase();
                                             const c = CATEGORY_COLORS[cat];
-                                            return { style: { backgroundColor: c?.color || '#2563eb', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600 } };
+                                            
+                                            const now = new Date();
+                                            const isPast = now > e.end;
+                                            const isLive = now >= e.start && now <= e.end;
+                                            
+                                            let className = '';
+                                            if (isLive) className = 'event-live';
+
+                                            return { className, style: { backgroundColor: c?.color || '#2563eb', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600 } };
                                         }}
                                         components={{ toolbar: (props) => <CustomCalendarToolbar {...props} setCalendarDate={setCalendarDate} /> }}
                                         style={{ height: '100%' }}

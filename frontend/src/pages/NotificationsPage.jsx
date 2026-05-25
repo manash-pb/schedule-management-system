@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 import { useNavigate } from 'react-router-dom';
 import { getAuthData } from '../utils/authStorage';
 import { Trash2, Bell, ArrowLeft, Paperclip } from 'lucide-react';
@@ -23,6 +24,34 @@ const NotificationsPage = () => {
 
     useEffect(() => {
         fetchNotifications();
+
+        // 2. CONNECT TO SOCKET.IO SERVER
+        const socket = io('http://localhost:3000', {
+            withCredentials: true // Needed because of HttpOnly cookies!
+        });
+
+        // 3. LISTEN FOR NEW NOTIFICATIONS
+        socket.on('new_notification_posted', (newNotification) => {
+            console.log("Real-time notification received!", newNotification);
+            
+            // Format the notification to match the UI's expected structure
+            const formattedNotif = {
+                id: newNotification.id,
+                subject: newNotification.subject,
+                text: newNotification.message,
+                time: new Date().toLocaleString(),
+                attachments: [],
+                read: false
+            };
+
+            // Add the new notification to the TOP of the current list in React State
+            setNotifications((prevNotifications) => [formattedNotif, ...prevNotifications]);
+        });
+
+        // 4. CLEANUP ON DISCONNECT
+        return () => {
+            socket.disconnect();
+        };
     }, []);
 
     const confirmDelete = async () => {

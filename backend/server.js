@@ -1,31 +1,50 @@
+// ==========================================
+// 1. Environment Variables & Built-in Modules
+// ==========================================
 require('dotenv').config();
+const http = require('http');
+const path = require('path');
+const fs = require('fs');
+
+// ==========================================
+// 2. Third-Party Dependencies
+// ==========================================
 const express = require('express');
 const cors = require('cors');
 const compression = require('compression');
 const cookieParser = require('cookie-parser');
+const multer = require('multer');
+const { Server } = require('socket.io');
+
+// ==========================================
+// 3. Local Imports
+// ==========================================
 const pool = require('./db');
 const { startCronJobs } = require('./cronJobs');
-
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-
 const eventRoutes = require('./routes/events');
-const authRoutes  = require('./routes/auth');
+const authRoutes = require('./routes/auth');
 const notificationRoutes = require('./routes/notifications');
 const queryRoutes = require('./routes/queries');
 
+// ==========================================
+// 4. Express App & Middleware Initialization
+// ==========================================
 const app = express();
+
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    origin: function (origin, callback) {
+        callback(null, true);
+    },
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT'],
     credentials: true,
 }));
 app.use(compression());
 app.use(express.json());
 app.use(cookieParser());
 
-// Verify DB connection on startup
+// ==========================================
+// 5. Database Connection & Schema Setup
+// ==========================================
 pool.getConnection()
     .then(async (conn) => {
         console.log('✅ Connected to MySQL Database!');
@@ -85,26 +104,26 @@ pool.getConnection()
                 // Ignore if it already exists
             }
 
-
         } catch (err) {
             console.error('❌ user_queries table creation failed:', err);
         }
     })
-    .catch(err  => console.error('❌ Database connection error:', err));
+    .catch(err => console.error('❌ Database connection error:', err));
 
-// Start cron jobs
+// ==========================================
+// 6. Cron Jobs
+// ==========================================
 startCronJobs();
 
-// Make the 'uploads' folder publicly accessible to the frontend
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Ensure the 'uploads' directory actually exists
+// ==========================================
+// 7. Static Files & Multer Upload Config
+// ==========================================
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir);
 }
+app.use('/uploads', express.static(uploadDir));
 
-// Configure Multer storage
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, 'uploads/');
@@ -116,10 +135,14 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
+// ==========================================
+// 8. API Routes
+// ==========================================
+// User Upload Routes
 app.post('/api/users/upload-pic', upload.single('profilePic'), async (req, res) => {
     try {
         const email = req.body.email;
-        
+
         if (!req.file) {
             return res.status(400).json({ success: false, message: 'No file uploaded' });
         }
@@ -129,7 +152,7 @@ app.post('/api/users/upload-pic', upload.single('profilePic'), async (req, res) 
         const oldImageUrl = rows[0]?.profile_picture;
 
         if (oldImageUrl && oldImageUrl.includes('/uploads/')) {
-            // Extract the filename from the URL (e.g., "profile-123.jpg")
+            // Extract the filename from the URL
             const filename = oldImageUrl.split('/').pop();
             const oldFilePath = path.join(__dirname, 'uploads', filename);
 
@@ -137,7 +160,6 @@ app.post('/api/users/upload-pic', upload.single('profilePic'), async (req, res) 
             fs.unlink(oldFilePath, (err) => {
                 if (err) {
                     console.error("Could not delete old file:", err);
-                    // We don't stop the process; the new upload should still proceed
                 } else {
                     console.log(`✅ Deleted old profile pic: ${filename}`);
                 }
@@ -149,7 +171,7 @@ app.post('/api/users/upload-pic', upload.single('profilePic'), async (req, res) 
         await pool.execute('UPDATE users SET profile_picture = ? WHERE email = ?', [imageUrl, email]);
 
         res.json({ success: true, message: 'Profile picture updated', imageUrl });
-        
+
     } catch (error) {
         console.error('Upload Error:', error);
         res.status(500).json({ success: false, message: 'Failed to upload image' });
@@ -186,12 +208,40 @@ app.post('/api/users/delete-pic', async (req, res) => {
     }
 });
 
-// Mount routes
+// Main App Routes
 app.use('/api/events', eventRoutes);
-app.use('/auth',       authRoutes);
-app.use('/api/auth',   authRoutes);
+app.use('/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/queries', queryRoutes);
 
+// ==========================================
+// 9. Server & Socket.io Initialization
+// ==========================================
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: function (origin, callback) {
+            callback(null, true);
+        },
+        credentials: true // Crucial: This allows our new HttpOnly cookies to pass!
+    }
+});
+
+app.set('io', io);
+
+io.on('connection', (socket) => {
+    console.log('A user connected:', socket.id);
+
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+    });
+});
+
+// ==========================================
+// 10. Start Server
+// ==========================================
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});

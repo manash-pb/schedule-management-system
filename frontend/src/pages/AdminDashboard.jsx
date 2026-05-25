@@ -4,742 +4,25 @@ import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, C
 import toast, { Toaster } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { getAuthData } from '../utils/authStorage';
+import { io } from 'socket.io-client';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
+// Extracted Components & Utils
+import { CATEGORIES, CATEGORY_COLORS } from '../utils/constants';
+import { unrollEvents, toCalendarEvents, groupMultiDaySpans, formatTime } from '../utils/eventUtils';
+import CustomCalendarToolbar from '../components/CustomCalendarToolbar';
+import PlaceAutocompleteInput from '../components/PlaceAutocompleteInput';
+import CustomTimeInput from '../components/CustomTimeInput';
+import AttendeesModal from '../components/AttendeesModal';
+import EditModal from '../components/EditModal';
+import AdminPreviewModal from '../components/AdminPreviewModal';
+import EventCard from '../components/EventCard';
+
 const locales = { 'en-US': enUS };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
-
-const unrollEvents = (events) => {
-    const unrolled = [];
-    events.forEach(e => {
-        const startDateStr = e.event_date.slice(0, 10);
-        const endDateStr = e.end_date ? e.end_date.slice(0, 10) : startDateStr;
-        
-        const startDate = new Date(startDateStr);
-        const endDate = new Date(endDateStr);
-        
-        const isMultiDay = startDate.getTime() !== endDate.getTime();
-        
-        let currentDate = new Date(startDateStr);
-        let dayCount = 1;
-        
-        while (currentDate <= endDate) {
-            const y = currentDate.getFullYear();
-            const m = String(currentDate.getMonth() + 1).padStart(2, '0');
-            const d = String(currentDate.getDate()).padStart(2, '0');
-            
-            unrolled.push({
-                ...e,
-                title: isMultiDay ? `${e.title} : Day ${dayCount}` : e.title,
-                event_date: `${y}-${m}-${d}`,
-                _listKey: `${e.event_id || e.id}_day${dayCount}`
-            });
-            
-            currentDate.setDate(currentDate.getDate() + 1);
-            dayCount++;
-        }
-    });
-    return unrolled;
-};
-
-const toCalendarEvents = (unrolledEvents) => unrolledEvents.map(e => {
-    const date = e.event_date.slice(0, 10);
-    const [sH, sM] = e.start_time.split(':');
-    const [eH, eM] = e.end_time.split(':');
-    const start = new Date(date); start.setHours(+sH, +sM, 0, 0);
-    const end = new Date(date); end.setHours(+eH, +eM, 0, 0);
-    return { title: e.title, start, end, resource: e };
-});
-
-const groupMultiDaySpans = (eventsList) => {
-    const grouped = [];
-    const spanMap = {};
-    
-    eventsList.forEach(e => {
-        if (e.span_id) {
-            if (!spanMap[e.span_id]) {
-                spanMap[e.span_id] = [];
-            }
-            spanMap[e.span_id].push(e);
-        } else {
-            grouped.push(e);
-        }
-    });
-    
-    Object.keys(spanMap).forEach(spanId => {
-        const group = spanMap[spanId];
-        group.sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
-        
-        const firstEvent = group[0];
-        const lastEvent = group[group.length - 1];
-        
-        grouped.push({
-            ...firstEvent,
-            event_date: firstEvent.event_date,
-            end_date: lastEvent.event_date,
-            isMultiDaySpan: true,
-            days: group
-        });
-    });
-    
-    return grouped;
-};
-
-const CATEGORIES = ['General', 'Meeting', 'Workshop', 'Holiday', 'Training', 'Social'];
-
-let googleMapsScriptPromise = null;
-const loadGoogleMapsScript = (apiKey) => {
-    if (!apiKey) return Promise.reject(new Error('Google Maps API key is required'));
-    if (window.google && window.google.maps && window.google.maps.places) return Promise.resolve();
-    if (googleMapsScriptPromise) return googleMapsScriptPromise;
-
-    googleMapsScriptPromise = new Promise((resolve, reject) => {
-        const existingScript = document.querySelector('script[data-google-maps-script]');
-        if (existingScript) {
-            existingScript.addEventListener('load', resolve);
-            existingScript.addEventListener('error', () => reject(new Error('Google Maps script failed to load')));
-            return;
-        }
-
-        const callbackName = 'initGoogleMapsAPI';
-        window[callbackName] = () => {
-            resolve();
-            delete window[callbackName];
-        };
-
-        const script = document.createElement('script');
-        script.setAttribute('data-google-maps-script', 'true');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&callback=${callbackName}`;
-        script.async = true;
-        script.defer = true;
-        script.onerror = () => reject(new Error('Google Maps script failed to load'));
-        document.head.appendChild(script);
-    });
-
-    return googleMapsScriptPromise;
-};
-
-const PlaceAutocompleteInput = ({ apiKey, value, onChange, onPlaceSelected, placeholder, className, style, required }) => {
-    const inputRef = useRef(null);
-    const autocompleteRef = useRef(null);
-
-    const onPlaceSelectedRef = useRef(onPlaceSelected);
-    useEffect(() => {
-        onPlaceSelectedRef.current = onPlaceSelected;
-    }, [onPlaceSelected]);
-
-    useEffect(() => {
-        let mounted = true;
-        if (!apiKey) return;
-
-        loadGoogleMapsScript(apiKey)
-            .then(() => {
-                if (!mounted || !inputRef.current) return;
-                if (autocompleteRef.current) return;
-
-                const createAutocomplete = () => {
-                    const element = new window.google.maps.places.Autocomplete(inputRef.current, {
-                        fields: ['name', 'formatted_address'],
-                    });
-
-                    element.addListener('place_changed', () => {
-                        const place = element.getPlace();
-                        if (place && onPlaceSelectedRef.current) {
-                            onPlaceSelectedRef.current(place);
-                        }
-                    });
-
-                    autocompleteRef.current = element;
-                };
-
-                if (window.google && window.google.maps && window.google.maps.places) {
-                    createAutocomplete();
-                }
-            })
-            .catch((error) => {
-                console.error('Error loading Google Maps script:', error);
-            });
-
-        return () => {
-            mounted = false;
-        };
-    }, [apiKey]);
-
-    const handleKeyDown = (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-        }
-    };
-
-    return (
-        <input
-            ref={inputRef}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            className={className}
-            style={style}
-            required={required}
-        />
-    );
-};
-const CATEGORY_COLORS = {
-    General: { bg: '#eff6ff', color: '#2563eb' },
-    Meeting: { bg: '#fef3c7', color: '#d97706' },
-    Workshop: { bg: '#f0fdf4', color: '#16a34a' },
-    Holiday: { bg: '#fce7f3', color: '#db2777' },
-    Training: { bg: '#f5f3ff', color: '#7c3aed' },
-    Social: { bg: '#fff7ed', color: '#ea580c' },
-};
-
-const ClosedEyeIcon = ({ size = 20, color = 'currentColor' }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M4 8 Q12 16 20 8" stroke={color} strokeWidth="2" strokeLinecap="round" fill="none" />
-        <line x1="7.5" y1="11.5" x2="6.5" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round" />
-        <line x1="10.5" y1="13" x2="10" y2="15.5" stroke={color} strokeWidth="2" strokeLinecap="round" />
-        <line x1="13.5" y1="13" x2="14" y2="15.5" stroke={color} strokeWidth="2" strokeLinecap="round" />
-        <line x1="16.5" y1="11.5" x2="17.5" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </svg>
-);
-
-const formatTime = (timeStr) => {
-    if (!timeStr) return "";
-    const [hours, minutes] = timeStr.split(':');
-    let h = parseInt(hours);
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    h = h % 12 || 12;
-    return `${String(h).padStart(2, '0')}:${minutes} ${ampm}`;
-};
-
-const PreviewModal = ({ event, onClose, onDownload, onAttendeesChange, showToast }) => {
-    const [newAttendee, setNewAttendee] = useState({ name: '', email: '' });
-    const [attendees, setAttendees] = useState(event.attendees || []);
-    const [saving, setSaving] = useState(false);
-    const [removing, setRemoving] = useState(null);
-    const [confirmRemoveEmail, setConfirmRemoveEmail] = useState(null);
-
-    const handleAdd = async () => {
-        if (!newAttendee.name.trim() || !newAttendee.email.trim()) return;
-        setSaving(true);
-        try {
-            await axios.post(`/api/events/${event.event_id}/attendees`, newAttendee);
-            const updated = [...attendees, { ...newAttendee }];
-            setAttendees(updated);
-            showToast(`${newAttendee.email} added to this event.`);
-            setNewAttendee({ name: '', email: '' });
-            onAttendeesChange();
-        } catch (e) { showToast(e.response?.data?.error || 'Failed to add attendee.', 'error'); }
-        finally { setSaving(false); }
-    };
-
-    const handleRemove = async (email) => {
-        setRemoving(email);
-        try {
-            await axios.delete(`/api/events/${event.event_id}/attendees/${encodeURIComponent(email)}`);
-            setAttendees(attendees.filter(a => a.email !== email));
-            onAttendeesChange();
-            showToast(`${email} removed from this event.`);
-        } catch { showToast('Failed to remove attendee.', 'error'); }
-        finally { setRemoving(null); }
-    };
-
-    return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-card" onClick={e => e.stopPropagation()}>
-                <div className="modal-header">
-                    <div>
-                        <span className="status-badge">Confirmed</span>
-                        <h2 className="event-title" style={{ marginBottom: 4 }}>{event.title}</h2>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <div className="tooltip-wrap">
-                            <button className="btn-icon excel" onClick={() => onDownload(event)}>
-                                <Download size={20} />
-                            </button>
-                            <span className="tooltip-text">Download Excel</span>
-                        </div>
-                        <button className="btn-icon" onClick={onClose}><X size={20} /></button>
-                    </div>
-                </div>
-
-                <div className="event-meta" style={{ marginBottom: 16 }}>
-                    <div className="meta-item"><Calendar size={14} className="text-blue" /><span>{new Date(event.event_date).toLocaleDateString('en-GB')}</span></div>
-                    <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
-                    <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
-
-                </div>
-
-                {event.description && (
-                    <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
-                        <p style={{ margin: 0, fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{event.description}</p>
-                    </div>
-                )}
-
-                <div className="modal-attendees">
-                    <p className="modal-attendees-title">Attendees ({attendees.length})</p>
-                    <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-                        <input className="custom-input" style={{ flex: 1 }} placeholder="Name" value={newAttendee.name} onChange={e => setNewAttendee({ ...newAttendee, name: e.target.value })} />
-                        <input className="custom-input" style={{ flex: 1 }} placeholder="Email" value={newAttendee.email} onChange={e => setNewAttendee({ ...newAttendee, email: e.target.value })} />
-                        <button className="btn-secondary" onClick={handleAdd} disabled={saving}>
-                            {saving ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg> : <UserPlus size={16} />}
-                        </button>
-                    </div>
-                    {attendees.length === 0 ? (
-                        <p style={{ color: '#94a3b8', fontSize: 13 }}>No attendees added.</p>
-                    ) : (
-                        <div className="modal-attendees-list">
-                            {attendees.map((a, i) => (
-                                <div key={i} className="modal-attendee-row">
-                                    <div className="attendee-avatar">{a.name?.[0]?.toUpperCase() || '?'}</div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 600, fontSize: 13 }}>{a.name}</div>
-                                        <div style={{ fontSize: 12, color: '#64748b' }}>{a.email}</div>
-                                    </div>
-                                    {/* RSVP status removed */}
-                                    <button onClick={() => setConfirmRemoveEmail(a.email)} disabled={removing === a.email} style={{ background: 'none', border: 'none', cursor: removing === a.email ? 'not-allowed' : 'pointer', color: '#ef4444', marginLeft: 4, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                        {removing === a.email ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg> : <X size={14} />}
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
-            {confirmRemoveEmail && (
-                <div className="modal-overlay" onClick={() => setConfirmRemoveEmail(null)}>
-                    <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 400, textAlign: 'center' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
-                            <div style={{ width: 50, height: 50, borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <X size={22} color="#ef4444" />
-                            </div>
-                        </div>
-                        <h2 style={{ margin: '0 0 8px', fontSize: 18, color: 'var(--text-primary)' }}>Remove Attendee?</h2>
-                        <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                            <strong>{confirmRemoveEmail}</strong> will be removed from this event.
-                        </p>
-                        <div style={{ display: 'flex', gap: 10 }}>
-                            <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmRemoveEmail(null)}>Cancel</button>
-                            <button onClick={() => { handleRemove(confirmRemoveEmail); setConfirmRemoveEmail(null); }} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 0', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 14, background: '#ef4444', color: '#fff' }}>
-                                <X size={14} /> Remove
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
-const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => {
-    const [expanded, setExpanded] = useState(false);
-    
-    const startDateStr = event.event_date.slice(0, 10);
-    const endDateStr = event.end_date ? event.end_date.slice(0, 10) : startDateStr;
-    const isMultiDay = startDateStr !== endDateStr;
-    
-    const days = [];
-    if (isMultiDay) {
-        let currentDate = new Date(startDateStr);
-        const endDate = new Date(endDateStr);
-        let dayCount = 1;
-        while (currentDate <= endDate) {
-            const y = currentDate.getFullYear();
-            const m = String(currentDate.getMonth() + 1).padStart(2, '0');
-            const d = String(currentDate.getDate()).padStart(2, '0');
-            days.push({
-                dayNumber: dayCount,
-                dateStr: `${y}-${m}-${d}`,
-                formattedDate: currentDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }),
-            });
-            currentDate.setDate(currentDate.getDate() + 1);
-            dayCount++;
-        }
-    }
-    
-    return (
-        <div className="event-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: 16 }}>
-                <div className="event-info" style={{ flex: 1 }}>
-                    <span className="status-badge" style={
-                        tab === 'past' ? { background: darkMode ? 'rgba(100,116,139,0.2)' : '#f1f5f9', color: darkMode ? '#94a3b8' : '#475569', border: darkMode ? '1px solid rgba(100,116,139,0.3)' : 'none' } :
-                            tab === 'live' ? { background: darkMode ? 'rgba(22,163,74,0.2)' : '#dcfce7', color: darkMode ? '#4ade80' : '#16a34a', border: darkMode ? '1px solid rgba(22,163,74,0.3)' : 'none' } : {}
-                    }>
-                        {tab === 'past' ? 'Past' : tab === 'live' ? '🔴 Live' : 'Confirmed'}
-                    </span>
-                    {event.category && (
-                        <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.color || '#64748b', textTransform: 'capitalize' }}>
-                            {event.category}
-                        </span>
-                    )}
-                    <h3 className="event-title" style={{ marginTop: 8 }}>{event.title}</h3>
-                    <div className="event-meta" style={{ marginTop: 8 }}>
-                        <div className="meta-item">
-                            <Calendar size={14} className="text-blue" />
-                            <span>
-                                {new Date(event.event_date).toLocaleDateString('en-GB')}
-                                {isMultiDay && ` - ${new Date(event.end_date).toLocaleDateString('en-GB')}`}
-                            </span>
-                        </div>
-                        <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
-                        <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
-                    </div>
-                </div>
-                <div className="event-actions" style={{ flexShrink: 0 }}>
-                    <div className="tooltip-wrap">
-                        <button onClick={() => onPreview(event)} className="btn-icon preview"><ClosedEyeIcon size={20} /></button>
-                        <span className="tooltip-text">Preview</span>
-                    </div>
-                    {onEdit && (
-                        <div className="tooltip-wrap">
-                            <button onClick={() => onEdit(event)} className="btn-icon edit"><Pencil size={18} /></button>
-                            <span className="tooltip-text">Edit</span>
-                        </div>
-                    )}
-                    {onDelete && (
-                        <div className="tooltip-wrap">
-                            <button onClick={() => onDelete(event.event_id)} className="btn-icon delete"><Trash2 size={20} /></button>
-                            <span className="tooltip-text">Delete</span>
-                        </div>
-                    )}
-                </div>
-            </div>
-            
-            {isMultiDay && (
-                <div style={{ width: '100%' }}>
-                    <button 
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} 
-                        className="btn-secondary" 
-                        style={{ width: '100%', justifyContent: 'center', gap: 6, fontSize: 13, padding: '8px 12px', background: darkMode ? 'rgba(255,255,255,0.05)' : '#f8fafc', border: '1px dashed var(--border)', borderRadius: 8 }}
-                    >
-                        {expanded ? '▲ Hide Daily Schedule' : `▼ Show Daily Schedule (${days.length} Days)`}
-                    </button>
-                    
-                    {expanded && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12, paddingLeft: 12, borderLeft: '3px solid var(--blue)' }}>
-                            {days.map(d => (
-                                <div key={d.dayNumber} className="sub-event-card" style={{
-                                    background: darkMode ? 'rgba(255,255,255,0.03)' : '#f8fafc',
-                                    border: '1px solid var(--border)',
-                                    borderRadius: 8,
-                                    padding: '10px 12px',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    gap: 16
-                                }}>
-                                    <div style={{ flex: 1 }}>
-                                        <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>Day {d.dayNumber}: {d.formattedDate}</span>
-                                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
-                                            <span>🕐 {formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
-                                            <span>📍 {event.venue}</span>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        type="button"
-                                        className="btn-icon" 
-                                        style={{ padding: 4, height: 26, width: 26, flexShrink: 0 }} 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onPreview({
-                                                ...event,
-                                                title: `${event.title} : Day ${d.dayNumber}`,
-                                                event_date: d.dateStr
-                                            });
-                                        }}
-                                    >
-                                        <ClosedEyeIcon size={14} />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-};
-
-const CustomTimeInput = ({ value, onChange, compact = false }) => {
-    const parseTime = (val) => {
-        if (!val) return { h: 12, m: 0, p: 'AM' };
-        let [h, m] = val.split(':').map(Number);
-        const p = h >= 12 ? 'PM' : 'AM';
-        h = h % 12 || 12;
-        return { h, m, p };
-    };
-
-    const { h, m, p } = parseTime(value);
-    const [displayH, setDisplayH] = useState(String(h).padStart(2, '0'));
-    const [displayM, setDisplayM] = useState(String(m).padStart(2, '0'));
-    const mRef = useRef(null);
-    const ampmRef = useRef(null);
-
-    useEffect(() => {
-        setDisplayH(String(h).padStart(2, '0'));
-        setDisplayM(String(m).padStart(2, '0'));
-    }, [h, m]);
-
-    const update = (newH, newM, newP) => {
-        let finalH = newP === 'PM' ? (newH % 12) + 12 : newH % 12;
-        onChange(`${String(finalH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`);
-    };
-
-    const handleArrow = (type, direction) => {
-        if (type === 'h') update(direction === 'up' ? (h === 12 ? 1 : h + 1) : (h === 1 ? 12 : h - 1), m, p);
-        else if (type === 'm') update(h, direction === 'up' ? (m === 59 ? 0 : m + 1) : (m === 0 ? 59 : m - 1), p);
-        else if (type === 'p') update(h, m, p === 'AM' ? 'PM' : 'AM');
-    };
-
-    const commitH = (raw) => {
-        let num = parseInt(raw);
-        if (isNaN(num) || num < 1) num = 1;
-        if (num > 12) num = 12;
-        setDisplayH(String(num).padStart(2, '0'));
-        update(num, m, p);
-    };
-
-    const commitM = (raw) => {
-        let num = parseInt(raw);
-        if (isNaN(num)) num = 0;
-        if (num > 59) num = 59;
-        setDisplayM(String(num).padStart(2, '0'));
-        update(h, num, p);
-    };
-
-    const handleHInput = (e) => {
-        const raw = e.target.value.replace(/\D/g, '').slice(-2);
-        setDisplayH(raw);
-        // auto-advance: 2 digits entered, or first digit > 1 (can't be valid start of 12-hr hour)
-        if (raw.length === 2 || (raw.length === 1 && parseInt(raw) > 1)) {
-            let num = parseInt(raw);
-            if (isNaN(num) || num < 1) num = 1;
-            if (num > 12) num = 12;
-            update(num, m, p);
-            mRef.current?.focus();
-            mRef.current?.select();
-        }
-    };
-
-    const handleMInput = (e) => {
-        const raw = e.target.value.replace(/\D/g, '').slice(-2);
-        setDisplayM(raw);
-        // auto-advance: 2 digits, or first digit > 5 (minutes max is 59)
-        if (raw.length === 2 || (raw.length === 1 && parseInt(raw) > 5)) {
-            let num = parseInt(raw);
-            if (isNaN(num)) num = 0;
-            if (num > 59) num = 59;
-            update(h, num, p);
-            ampmRef.current?.focus();
-        }
-    };
-
-    return (
-        <div className="hybrid-time-picker">
-            <div className="time-column">
-                <button type="button" onClick={() => handleArrow('h', 'up')} className="arrow-btn">▲</button>
-                <input
-                    type="text"
-                    className="time-type-input"
-                    value={displayH}
-                    inputMode="numeric"
-                    maxLength={2}
-                    style={{ caretColor: 'currentColor' }}
-                    onFocus={e => e.target.select()}
-                    onChange={handleHInput}
-                    onBlur={(e) => commitH(e.target.value)}
-                    onKeyDown={e => {
-                        if (e.key === 'ArrowUp') { e.preventDefault(); handleArrow('h', 'up'); }
-                        if (e.key === 'ArrowDown') { e.preventDefault(); handleArrow('h', 'down'); }
-                    }}
-                />
-                <button type="button" onClick={() => handleArrow('h', 'down')} className="arrow-btn">▼</button>
-                <span className="input-label-sm">HRS</span>
-            </div>
-
-            <span className="time-separator" style={{
-                display: 'inline-block',
-                transform: compact ? 'translateY(-5px)' : 'translateY(-8px)',
-                marginTop: 0
-            }}>:</span>
-
-            <div className="time-column">
-                <button type="button" onClick={() => handleArrow('m', 'up')} className="arrow-btn">▲</button>
-                <input
-                    ref={mRef}
-                    type="text"
-                    className="time-type-input"
-                    value={displayM}
-                    inputMode="numeric"
-                    maxLength={2}
-                    style={{ caretColor: 'currentColor' }}
-                    onFocus={e => e.target.select()}
-                    onChange={handleMInput}
-                    onBlur={(e) => commitM(e.target.value)}
-                    onKeyDown={e => {
-                        if (e.key === 'ArrowUp') { e.preventDefault(); handleArrow('m', 'up'); }
-                        if (e.key === 'ArrowDown') { e.preventDefault(); handleArrow('m', 'down'); }
-                    }}
-                />
-                <button type="button" onClick={() => handleArrow('m', 'down')} className="arrow-btn">▼</button>
-                <span className="input-label-sm">MIN</span>
-            </div>
-
-            <div className="time-column">
-                <button type="button" onClick={() => handleArrow('p', 'up')} className="arrow-btn">▲</button>
-                <div
-                    ref={ampmRef}
-                    className="time-type-input ampm"
-                    tabIndex={0}
-                    onClick={() => handleArrow('p', 'up')}
-                    onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') handleArrow('p', 'up'); }}
-                >{p}</div>
-                <button type="button" onClick={() => handleArrow('p', 'down')} className="arrow-btn">▼</button>
-                <span className="input-label-sm">AM/PM</span>
-            </div>
-        </div>
-    );
-};
-
-const AttendeesModal = ({ attendees, onRemove, onClearAll, onClose }) => (
-    <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
-            <div className="modal-header">
-                <h2 style={{ margin: 0, fontSize: 17 }}>Invited Guests ({attendees.length})</h2>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    {attendees.length > 0 && (
-                        <button className="btn-secondary" style={{ fontSize: 12, padding: '5px 12px', color: '#ef4444', borderColor: '#fca5a5' }} onClick={onClearAll}>Clear All</button>
-                    )}
-                    <button className="btn-icon" onClick={onClose}><X size={20} /></button>
-                </div>
-            </div>
-            {attendees.length === 0 ? (
-                <p style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>No guests added yet.</p>
-            ) : (
-                <div className="modal-attendees-list" style={{ maxHeight: 360 }}>
-                    {attendees.map((p, i) => (
-                        <div key={i} className="modal-attendee-row">
-                            <div className="attendee-avatar">{p.name?.[0]?.toUpperCase() || '?'}</div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</div>
-                                <div style={{ fontSize: 12, color: '#64748b' }}>{p.email}</div>
-                            </div>
-                            <button onClick={() => onRemove(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}><X size={14} /></button>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    </div>
-);
-
-const EditModal = ({ event, onClose, onSave, showToast }) => {
-    const [form, setForm] = useState({
-        title: event.title || '',
-        description: event.description || '',
-        venue: event.venue || '',
-        event_date: event.event_date?.slice(0, 10) || '',
-        start_time: event.start_time?.slice(0, 5) || '',
-        end_time: event.end_time?.slice(0, 5) || '',
-        category: event.category || 'General',
-    });
-    const [saving, setSaving] = useState(false);
-
-    const handleSave = async (e) => {
-        e.preventDefault();
-        if (form.start_time === form.end_time) {
-            showToast('Start time and end time cannot be the same.', 'error');
-            return;
-        }
-        setSaving(true);
-        try {
-            await axios.patch(`/api/events/${event.event_id}`, form);
-            onSave();
-            onClose();
-        } catch { /* handled by parent toast */ }
-        finally { setSaving(false); }
-    };
-
-    return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-card" onClick={e => e.stopPropagation()}>
-                <div className="modal-header">
-                    <h2 style={{ margin: 0, fontSize: 18 }}>Edit Event</h2>
-                    <button className="btn-icon" onClick={onClose}><X size={20} /></button>
-                </div>
-                <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 16 }}>
-                    <input className="custom-input" placeholder="Event Title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required />
-                    <textarea className="custom-input" placeholder="Description" style={{ minHeight: 80, resize: 'none' }} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
-                    <PlaceAutocompleteInput
-                        apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
-                        value={form.venue}
-                        onChange={(value) => setForm({ ...form, venue: value })}
-                        onPlaceSelected={(place) => setForm({ ...form, venue: place.name ? `${place.name}, ${place.formatted_address || ''}`.replace(/, $/, '') : place.formatted_address })}
-                        className="custom-input"
-                        placeholder="Venue"
-                        required
-                    />
-                    <input type="date" className="custom-input" value={form.event_date} onChange={e => setForm({ ...form, event_date: e.target.value })} required />
-                    <select className="custom-input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
-                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-
-                    <div className="time-row">
-                        <div className="time-field">
-                            <label className="input-label">Start Time</label>
-                            <CustomTimeInput value={form.start_time} onChange={v => setForm({ ...form, start_time: v })} />
-                        </div>
-                        <span className="time-row-divider">→</span>
-                        <div className="time-field">
-                            <label className="input-label">End Time</label>
-                            <CustomTimeInput value={form.end_time} onChange={v => setForm({ ...form, end_time: v })} />
-                        </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                        <button type="button" className="btn-secondary" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
-                        <button type="submit" className="btn-primary" style={{ flex: 2, marginTop: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} disabled={saving}>
-                            {saving ? 'Saving...' : 'Save Changes'}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-};
-
-const CustomCalendarToolbar = ({ label, onNavigate, onView, view, date, setCalendarDate }) => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8, padding: '4px 8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {view === 'day' && (
-                <button
-                    onClick={() => onView('month')}
-                    className="btn-icon"
-                    style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s', marginRight: 4 }}
-                    title="Back to month view"
-                >
-                    <ChevronLeft size={16} />
-                </button>
-            )}
-            <button onClick={() => setCalendarDate && setCalendarDate(new Date(date.getFullYear() - 1, date.getMonth(), date.getDate()))} className="btn-icon" style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s' }} title="Previous Year">
-                <ChevronsLeft size={16} />
-            </button>
-            <button onClick={() => onNavigate('PREV')} className="btn-icon" style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s' }} title="Previous Month">
-                <ChevronLeft size={16} />
-            </button>
-            <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', minWidth: 160, textAlign: 'center' }}>{label}</span>
-            <button onClick={() => onNavigate('NEXT')} className="btn-icon" style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s' }} title="Next Month">
-                <ChevronRight size={16} />
-            </button>
-            <button onClick={() => setCalendarDate && setCalendarDate(new Date(date.getFullYear() + 1, date.getMonth(), date.getDate()))} className="btn-icon" style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', background: 'var(--bg-hover)', cursor: 'pointer', transition: 'all 0.2s' }} title="Next Year">
-                <ChevronsRight size={16} />
-            </button>
-        </div>
-    </div>
-);
 
 // ... then your Dashboard component starts below ...
 
@@ -861,8 +144,8 @@ const AdminDashboard = () => {
                         return {
                             date: dt,
                             dayNumber: idx + 1,
-                            title: `Day ${idx + 1}`,
-                            description: '',
+                            title: formData.title,
+                            description: formData.description || '',
                             start_time: formData.start_time || '00:00',
                             end_time: formData.end_time || '00:00',
                             attendees: [...attendees],
@@ -928,10 +211,12 @@ const AdminDashboard = () => {
     };
 
     useEffect(() => {
-        if (!queryModalOpen) return;
-        const intervalId = window.setInterval(() => fetchQueries({ background: true }), 15000);
-        return () => window.clearInterval(intervalId);
-    }, [queryModalOpen]);
+        const socket = io(window.location.origin, { path: '/socket.io' });
+        socket.on('support_queries_updated', () => {
+            fetchQueries({ background: true });
+        });
+        return () => socket.disconnect();
+    }, []);
 
     const fetchQueries = async ({ background = false } = {}) => {
         if (!background) setQueryLoading(true);
@@ -1130,10 +415,6 @@ const AdminDashboard = () => {
             }
             for (let i = 0; i < subDays.length; i++) {
                 const d = subDays[i];
-                if (!d.title.trim()) {
-                    showToast(`Please enter a title for Day ${d.dayNumber}.`, 'error');
-                    return;
-                }
                 if (!d.start_time || !d.end_time) {
                     showToast(`Please specify start and end times for Day ${d.dayNumber}.`, 'error');
                     return;
@@ -1252,6 +533,7 @@ const AdminDashboard = () => {
 
     return (
         <div className="dashboard-container">
+            <Toaster position="top-center" />
             <style>{`
               .rbc-off-range-bg { background-color: #e5e7eb !important; }
               html.dark .rbc-off-range-bg { background-color: #1a202c !important; }
@@ -1291,7 +573,7 @@ const AdminDashboard = () => {
                   align-items: center;
               }
             `}</style>
-            {previewEvent && <PreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} onDownload={handleDownload} onAttendeesChange={fetchEvents} showToast={showToast} />}
+            {previewEvent && <AdminPreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} onDownload={handleDownload} onAttendeesChange={fetchEvents} showToast={showToast} />}
             {deleting && (
                 <div style={{
                     position: 'fixed', inset: 0, zIndex: 9998,
@@ -1750,7 +1032,7 @@ const AdminDashboard = () => {
                                     <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
                                         <div className="attendee-input-row">
                                             <input type="text" placeholder="Guest Name" className="custom-input" style={{ flex: 1 }} value={currentAttendee.name} onChange={e => setCurrentAttendee({ ...currentAttendee, name: e.target.value })} />
-                                            <input type="email" placeholder="Guest Email" className="custom-input" style={{ flex: 1 }} value={currentAttendee.email} onChange={e => setCurrentAttendee({ ...currentAttendee, email: e.target.value })} />
+                                            <input type="email" placeholder="Guest Email" className="custom-input" style={{ flex: 1 }} value={currentAttendee.email} onChange={e => setCurrentAttendee({ ...currentAttendee, email: e.target.value.toLowerCase() })} />
                                             <button type="button" className="btn-secondary" onClick={handleAddAttendee}><UserPlus size={18} /></button>
                                         </div>
                                     </div>
@@ -1909,13 +1191,13 @@ const AdminDashboard = () => {
                                                                                 value={day.currentAttendee?.name || ''} 
                                                                                 onChange={e => updateSubDayCurrentAttendee(idx, 'name', e.target.value)} 
                                                                             />
-                                                                            <input 
+                                                                                <input 
                                                                                 type="email" 
                                                                                 placeholder="Guest Email" 
                                                                                 className="custom-input" 
                                                                                 style={{ flex: 1, height: '34px', fontSize: '12px' }} 
                                                                                 value={day.currentAttendee?.email || ''} 
-                                                                                onChange={e => updateSubDayCurrentAttendee(idx, 'email', e.target.value)} 
+                                                                                onChange={e => updateSubDayCurrentAttendee(idx, 'email', e.target.value.toLowerCase())} 
                                                                             />
                                                                             <button 
                                                                                 type="button" 
@@ -2045,7 +1327,15 @@ const AdminDashboard = () => {
                                             const rawCat = e.resource?.category || 'General';
                                             const cat = rawCat.charAt(0).toUpperCase() + rawCat.slice(1).toLowerCase();
                                             const c = CATEGORY_COLORS[cat];
-                                            return { style: { backgroundColor: c?.color || '#2563eb', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600 } };
+                                            
+                                            const now = new Date();
+                                            const isPast = now > e.end;
+                                            const isLive = now >= e.start && now <= e.end;
+                                            
+                                            let className = '';
+                                            if (isLive) className = 'event-live';
+
+                                            return { className, style: { backgroundColor: c?.color || '#2563eb', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600 } };
                                         }}
                                         components={{ toolbar: (props) => <CustomCalendarToolbar {...props} setCalendarDate={setCalendarDate} /> }}
                                         style={{ height: '100%' }}

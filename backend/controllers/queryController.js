@@ -30,6 +30,9 @@ exports.sendUserQuery = async (req, res) => {
       message: message.trim(),
     });
 
+    const io = req.app.get('io');
+    if (io) io.emit('support_queries_updated');
+
     return res.json({ success: true, id: result.insertId, message: 'Your query has been sent to admin.' });
   } catch (error) {
     console.error('Failed to send user query:', error.message || error);
@@ -114,6 +117,9 @@ exports.replyToQuery = async (req, res) => {
       [reply.trim(), adminEmail || adminName, 'answered', queryId]
     );
 
+    const io = req.app.get('io');
+    if (io) io.emit('support_queries_updated');
+
     return res.json({ success: true, message: 'Reply sent successfully.' });
   } catch (error) {
     console.error('Failed to reply to query:', error.message || error);
@@ -136,6 +142,9 @@ exports.markQueryAsRead = async (req, res) => {
         [queryId]
       );
     }
+
+    const io = req.app.get('io');
+    if (io) io.emit('support_queries_updated');
 
     return res.json({ success: true, message: 'Query marked as read.' });
   } catch (error) {
@@ -172,6 +181,9 @@ exports.deleteQuery = async (req, res) => {
 
     await pool.execute('DELETE FROM user_queries WHERE deleted_by_user = 1 AND deleted_by_admin = 1');
 
+    const io = req.app.get('io');
+    if (io) io.emit('support_queries_updated');
+
     return res.json({ success: true, message: 'Query deleted successfully.' });
   } catch (error) {
     console.error('Failed to delete query:', error.message || error);
@@ -189,6 +201,8 @@ exports.clearMyHistory = async (req, res) => {
   try {
     await pool.execute('UPDATE user_queries SET deleted_by_user = 1 WHERE user_email = ?', [userEmail]);
     await pool.execute('DELETE FROM user_queries WHERE deleted_by_user = 1 AND deleted_by_admin = 1');
+    const io = req.app.get('io');
+    if (io) io.emit('support_queries_updated');
     return res.json({ success: true, message: 'Your support history has been cleared.' });
   } catch (error) {
     console.error('Failed to clear queries history:', error.message || error);
@@ -200,6 +214,8 @@ exports.clearAllHistory = async (req, res) => {
   try {
     await pool.execute('UPDATE user_queries SET deleted_by_admin = 1');
     await pool.execute('DELETE FROM user_queries WHERE deleted_by_user = 1 AND deleted_by_admin = 1');
+    const io = req.app.get('io');
+    if (io) io.emit('support_queries_updated');
     return res.json({ success: true, message: 'All support queries have been cleared from admin view.' });
   } catch (error) {
     console.error('Failed to clear all queries:', error.message || error);

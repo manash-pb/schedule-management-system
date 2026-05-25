@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 import { Sun, Moon, Bell, Paperclip, MessageCircle, X, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import gauhatiLogo from '../assets/logo1.png';
 import { getAuthData } from '../utils/authStorage';
@@ -104,8 +105,13 @@ const Layout = ({ children }) => {
   useEffect(() => {
     if (role !== 'admin') {
       fetchMyQueries({ background: true });
-      const interval = setInterval(() => fetchMyQueries({ background: true }), 15000);
-      return () => clearInterval(interval);
+      const socket = io(window.location.origin, { path: '/socket.io' });
+      socket.on('support_queries_updated', () => {
+        fetchMyQueries({ background: true });
+      });
+      return () => {
+        socket.disconnect();
+      };
     }
   }, [role]);
 
@@ -216,7 +222,28 @@ const Layout = ({ children }) => {
     
     // Optional: poll for new notifications every minute
     const interval = setInterval(fetchNotifications, 60000);
-    return () => clearInterval(interval);
+
+    // Socket.io connection for real-time bell updates
+    const socket = io('http://localhost:3000', {
+        withCredentials: true
+    });
+
+    socket.on('new_notification_posted', (newNotification) => {
+        const formattedNotif = {
+            id: newNotification.id,
+            subject: newNotification.subject,
+            text: newNotification.message,
+            time: new Date().toLocaleString(),
+            attachments: [],
+            read: false
+        };
+        setNotifications(prev => [formattedNotif, ...prev]);
+    });
+
+    return () => {
+      clearInterval(interval);
+      socket.disconnect();
+    };
   }, []);
 
   // Handle clicking outside to close notifications

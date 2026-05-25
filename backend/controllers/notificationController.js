@@ -85,7 +85,18 @@ exports.createNotification = async (req, res) => {
             );
         }
 
-        res.status(201).json({ id: notificationId, subject, message, success: true });
+        const newNotification = { id: notificationId, subject, message, success: true };
+
+        // --- NEW SOCKET.IO LOGIC ---
+        // Grab the 'io' instance we saved in server.js
+        const io = req.app.get('io');
+        if (io) {
+            // Broadcast the new notification to all connected users
+            io.emit('new_notification_posted', newNotification);
+        }
+        // ---------------------------
+
+        res.status(201).json(newNotification);
     } catch (error) {
         console.error('Error creating notification:', error);
         res.status(500).json({ error: 'Failed to create notification' });

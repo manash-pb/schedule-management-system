@@ -1,0 +1,136 @@
+import React, { useState } from 'react';
+import { Calendar, Clock, MapPin } from 'lucide-react';
+import ClosedEyeIcon from './ClosedEyeIcon';
+import { CATEGORY_COLORS } from '../utils/constants';
+import { formatTime } from '../utils/eventUtils';
+
+const UserEventCard = ({ event, onPreview, tab }) => {
+    const [expanded, setExpanded] = useState(false);
+    
+    const startDateStr = event.event_date.slice(0, 10);
+    const endDateStr = event.end_date ? event.end_date.slice(0, 10) : startDateStr;
+    const isMultiDay = startDateStr !== endDateStr;
+    
+    let days = [];
+    if (isMultiDay) {
+        if (event.isMultiDaySpan && event.days) {
+            days = event.days.map((d, idx) => ({
+                dayNumber: idx + 1,
+                dateStr: d.event_date.slice(0, 10),
+                formattedDate: new Date(d.event_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }),
+                start_time: d.start_time,
+                end_time: d.end_time,
+                venue: d.venue || event.venue,
+                title: d.title || event.title,
+                originalEvent: d
+            }));
+        } else {
+            let currentDate = new Date(startDateStr);
+            const endDate = new Date(endDateStr);
+            let dayCount = 1;
+            while (currentDate <= endDate) {
+                const y = currentDate.getFullYear();
+                const m = String(currentDate.getMonth() + 1).padStart(2, '0');
+                const d = String(currentDate.getDate()).padStart(2, '0');
+                days.push({
+                    dayNumber: dayCount,
+                    dateStr: `${y}-${m}-${d}`,
+                    formattedDate: currentDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }),
+                    start_time: event.start_time,
+                    end_time: event.end_time,
+                    venue: event.venue,
+                    title: event.title,
+                    originalEvent: event
+                });
+                currentDate.setDate(currentDate.getDate() + 1);
+                dayCount++;
+            }
+        }
+    }
+    
+    return (
+        <div className="event-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: 16 }}>
+                <div className="event-info" style={{ flex: 1 }}>
+                    <span className="status-badge" style={tab === 'past' ? { background: '#f1f5f9', color: '#64748b' } : tab === 'live' ? { background: '#dcfce7', color: '#16a34a' } : {}}>
+                        {tab === 'past' ? 'Past' : tab === 'live' ? '🔴 Live' : 'Confirmed'}
+                    </span>
+                    {event.category && (
+                        <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.color || '#64748b', textTransform: 'capitalize' }}>
+                            {event.category}
+                        </span>
+                    )}
+                    <h3 className="event-title" style={{ marginTop: 8 }}>{event.title}</h3>
+                    <div className="event-meta" style={{ marginTop: 8 }}>
+                        <div className="meta-item">
+                            <Calendar size={14} className="text-blue" />
+                            <span>
+                                {new Date(event.event_date).toLocaleDateString('en-GB')}
+                                {isMultiDay && ` - ${new Date(event.end_date).toLocaleDateString('en-GB')}`}
+                            </span>
+                        </div>
+                        <div className="meta-item"><Clock size={14} className="text-blue" /><span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span></div>
+                        <div className="meta-item venue"><MapPin size={14} /><span>{event.venue}</span></div>
+                    </div>
+                </div>
+                <div className="event-actions" style={{ flexShrink: 0 }}>
+                    <div className="tooltip-wrap">
+                        <button onClick={() => onPreview(event)} className="btn-icon preview"><ClosedEyeIcon size={20} /></button>
+                        <span className="tooltip-text">Preview</span>
+                    </div>
+                </div>
+            </div>
+            
+            {isMultiDay && (
+                <div style={{ width: '100%' }}>
+                    <button 
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} 
+                        className="btn-secondary" 
+                        style={{ width: '100%', justifyContent: 'center', gap: 6, fontSize: 13, padding: '8px 12px', background: 'var(--bg-muted)', border: '1px dashed var(--border)', borderRadius: 8 }}
+                    >
+                        {expanded ? '▲ Hide Daily Schedule' : `▼ Show Daily Schedule (${days.length} Days)`}
+                    </button>
+                    
+                    {expanded && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12, paddingLeft: 12, borderLeft: '3px solid var(--blue)' }}>
+                            {days.map(d => (
+                                <div key={d.dayNumber} className="sub-event-card" style={{
+                                    background: 'var(--bg-muted)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: 8,
+                                    padding: '10px 12px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    gap: 16
+                                }}>
+                                    <div style={{ flex: 1 }}>
+                                        <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>Day {d.dayNumber}: {d.formattedDate}</span>
+                                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
+                                            <span>🕐 {formatTime(d.start_time)} - {formatTime(d.end_time)}</span>
+                                            <span>📍 {d.venue}</span>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        type="button"
+                                        className="btn-icon" 
+                                        style={{ padding: 4, height: 26, width: 26, flexShrink: 0 }} 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onPreview(d.originalEvent);
+                                        }}
+                                    >
+                                        <ClosedEyeIcon size={14} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default UserEventCard;

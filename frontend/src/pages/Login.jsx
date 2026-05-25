@@ -152,7 +152,7 @@ const Login = () => {
           {isSignUpMode && (
             <input autoComplete="name" type="text" placeholder="Full Name" className="custom-input" value={manualName} onChange={e => setManualName(e.target.value)} required style={{ textAlign: 'center', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
           )}
-          <input autoComplete="email" type="email" placeholder="Email Address" className="custom-input" value={manualEmail} onChange={e => setManualEmail(e.target.value)} required style={{ textAlign: 'center', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+          <input autoComplete="email" type="email" placeholder="Email Address" className="custom-input" value={manualEmail} onChange={e => setManualEmail(e.target.value.toLowerCase())} required style={{ textAlign: 'center', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
           <div style={{ position: 'relative', width: '100%' }}>
             <input
               autoComplete={isSignUpMode ? 'new-password' : 'current-password'}

@@ -204,6 +204,26 @@ exports.createEvent = async (req, res) => {
         }
 
         await connection.commit();
+
+        const allEmailsSet = new Set();
+        if (event_span === 'multiple' && Array.isArray(days)) {
+            if (Array.isArray(attendees)) attendees.forEach(a => allEmailsSet.add(a.email.toLowerCase().trim()));
+            for (const day of days) {
+                if (Array.isArray(day.attendees)) day.attendees.forEach(a => { if (a && a.email) allEmailsSet.add(a.email.toLowerCase().trim()); });
+            }
+        } else {
+            if (Array.isArray(attendees)) attendees.forEach(a => allEmailsSet.add(a.email.toLowerCase().trim()));
+        }
+
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('calendar_events_updated', {
+                action: 'created',
+                title: title,
+                attendees: Array.from(allEmailsSet)
+            });
+        }
+
         res.status(201).json({ message: 'Success!', eventIds: createdEventIds });
     } catch (error) {
         if (connection) await connection.rollback();
@@ -310,6 +330,9 @@ exports.deleteEvent = async (req, res) => {
             }
         }
 
+        const io = req.app.get('io');
+        if (io) io.emit('calendar_events_updated');
+
         res.status(200).json({ message: 'Event deleted successfully!' });
     } catch (error) {
         console.error('Error deleting event:', error);
@@ -387,6 +410,15 @@ exports.addAttendee = async (req, res) => {
             }
         }
 
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('calendar_events_updated', {
+                action: 'added_attendee',
+                email: attendeeEmail,
+                title: eventRows[0]?.title
+            });
+        }
+
         res.status(201).json({ message: 'Attendee added and invited' });
     } catch (error) {
         if (connection) await connection.rollback();
@@ -415,6 +447,14 @@ exports.removeAttendee = async (req, res) => {
             } catch (e) {
                 console.error(`❌ Failed to send removal email to ${decodedEmail}:`, e.message);
             }
+        }
+
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('calendar_events_updated', {
+                action: 'removed_attendee',
+                email: decodedEmail
+            });
         }
 
         res.json({ message: 'Attendee removed' });
@@ -450,6 +490,9 @@ exports.updateEvent = async (req, res) => {
         if (eventRows[0].google_event_id) {
             await updateGoogleEvent(eventRows[0].google_event_id, { ...eventRows[0], ...updates });
         }
+
+        const io = req.app.get('io');
+        if (io) io.emit('calendar_events_updated');
 
         res.status(200).json({ message: 'Event updated successfully!' });
     } catch (error) {
