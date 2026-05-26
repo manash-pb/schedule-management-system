@@ -18,7 +18,7 @@ const formatTime12 = (t) => {
     return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
 };
 
-const buildICS = ({ event_date, mysqlStart, mysqlEnd, title, description, venue, newEventId }) => {
+const buildICS = ({ event_date, mysqlStart, mysqlEnd, title, description, venue, newEventId, recipientEmail }) => {
     const toICSDate = (d, t) => {
         const timeStr = t.split(':').length === 2 ? `${t}:00` : t;
         return d.replace(/-/g, '') + 'T' + timeStr.replace(/:/g, '').slice(0, 6);
@@ -36,7 +36,9 @@ const buildICS = ({ event_date, mysqlStart, mysqlEnd, title, description, venue,
         description ? `DESCRIPTION:${description.replace(/\\n/g, '\\\\n')}` : '',
         `LOCATION:${venue || ''}`,
         `ORGANIZER;CN=Schedule Manager:mailto:${process.env.SMTP_USER}`,
+        `ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:${recipientEmail}`,
         'STATUS:CONFIRMED',
+        'TRANSP:OPAQUE',
         'SEQUENCE:0',
         'BEGIN:VALARM',
         'TRIGGER:-PT30M',
@@ -48,7 +50,7 @@ const buildICS = ({ event_date, mysqlStart, mysqlEnd, title, description, venue,
     ].filter(Boolean).join('\r\n');
 };
 
-const buildCancelICS = ({ eventId, title }) => [
+const buildCancelICS = ({ eventId, title, recipientEmail }) => [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     'PRODID:-//Schedule Manager//EN',
@@ -56,6 +58,8 @@ const buildCancelICS = ({ eventId, title }) => [
     'BEGIN:VEVENT',
     `UID:cancel-${eventId}@schedulemanager`,
     `SUMMARY:${title}`,
+    `ORGANIZER;CN=Schedule Manager:mailto:${process.env.SMTP_USER}`,
+    `ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:${recipientEmail}`,
     'STATUS:CANCELLED',
     'SEQUENCE:1',
     'END:VEVENT',
@@ -65,7 +69,7 @@ const buildCancelICS = ({ eventId, title }) => [
 const sendInviteEmail = async ({ person, title, description, venue, event_date, mysqlStart, mysqlEnd, newEventId }) => {
     const isVideoLink = venue && /^https?:\/\//i.test(venue.trim());
     const formattedDate = new Date(event_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const icsContent = buildICS({ event_date, mysqlStart, mysqlEnd, title, description, venue, newEventId });
+    const icsContent = buildICS({ event_date, mysqlStart, mysqlEnd, title, description, venue, newEventId, recipientEmail: person.email });
 
     // RSVP links removed — no accept/decline via email anymore
 
@@ -128,14 +132,17 @@ const sendInviteEmail = async ({ person, title, description, venue, event_date, 
         subject: `You're invited: ${title}`,
         html,
         headers: { 'X-Priority': '1', 'Importance': 'high' },
-        alternatives: [{ contentType: 'text/calendar; method=REQUEST; charset=UTF-8', content: icsContent }],
-        attachments: [{ filename: 'invite.ics', content: icsContent, contentType: 'text/calendar; method=REQUEST; charset=UTF-8', contentDisposition: 'attachment' }],
+        icalEvent: {
+            filename: 'invite.ics',
+            method: 'request',
+            content: icsContent
+        }
     });
 };
 
 const sendCancellationEmail = async ({ name, email, event }) => {
     const formattedDate = new Date(event.event_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const icsCancel = buildCancelICS({ eventId: event.event_id, title: event.title });
+    const icsCancel = buildCancelICS({ eventId: event.event_id, title: event.title, recipientEmail: email });
 
     const html = `
 <!DOCTYPE html>
@@ -187,7 +194,11 @@ const sendCancellationEmail = async ({ name, email, event }) => {
         subject: `Event Cancelled: ${event.title}`,
         html,
         headers: { 'X-Priority': '1', 'Importance': 'high' },
-        attachments: [{ filename: 'cancel.ics', content: icsCancel, contentType: 'text/calendar; method=CANCEL; charset=UTF-8', contentDisposition: 'attachment' }],
+        icalEvent: {
+            filename: 'cancel.ics',
+            method: 'cancel',
+            content: icsCancel
+        }
     });
 };
 
@@ -315,7 +326,7 @@ const sendUserReplyEmail = async ({ toName, toEmail, querySubject, originalMessa
     });
 };
 
-const buildMultiDayICS = ({ title, description, venue, days, createdEventIds }) => {
+const buildMultiDayICS = ({ title, description, venue, days, createdEventIds, recipientEmail }) => {
     const toICSDate = (d, t) => {
         const timeStr = t.split(':').length === 2 ? `${t}:00` : t;
         return d.replace(/-/g, '') + 'T' + timeStr.replace(/:/g, '').slice(0, 6);
@@ -344,7 +355,9 @@ const buildMultiDayICS = ({ title, description, venue, days, createdEventIds }) 
             dayDescription ? `DESCRIPTION:${dayDescription.replace(/\\n/g, '\\\\n')}` : '',
             `LOCATION:${venue || ''}`,
             `ORGANIZER;CN=Schedule Manager:mailto:${process.env.SMTP_USER}`,
+            `ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:${recipientEmail}`,
             'STATUS:CONFIRMED',
+            'TRANSP:OPAQUE',
             'SEQUENCE:0',
             'BEGIN:VALARM',
             'TRIGGER:-PT30M',
@@ -361,7 +374,7 @@ const buildMultiDayICS = ({ title, description, venue, days, createdEventIds }) 
 
 const sendMultiDayInviteEmail = async ({ person, title, description, venue, days, createdEventIds }) => {
     const isVideoLink = venue && /^https?:\/\//i.test(venue.trim());
-    const icsContent = buildMultiDayICS({ title, description, venue, days, createdEventIds });
+    const icsContent = buildMultiDayICS({ title, description, venue, days, createdEventIds, recipientEmail: person.email });
 
     const venueRow = isVideoLink
         ? `<tr><td style="padding:8px 0;color:#64748b;font-size:14px;width:110px;">📹 <strong>Link</strong></td><td style="padding:8px 0;"><a href="${venue}" style="color:#2563eb;">${venue}</a></td></tr>`
@@ -435,8 +448,11 @@ const sendMultiDayInviteEmail = async ({ person, title, description, venue, days
         subject: `Invite (All Days): ${title}`,
         html,
         headers: { 'X-Priority': '1', 'Importance': 'high' },
-        alternatives: [{ contentType: 'text/calendar; method=REQUEST; charset=UTF-8', content: icsContent }],
-        attachments: [{ filename: 'invite.ics', content: icsContent, contentType: 'text/calendar; method=REQUEST; charset=UTF-8', contentDisposition: 'attachment' }],
+        icalEvent: {
+            filename: 'invite.ics',
+            method: 'request',
+            content: icsContent
+        }
     });
 };
 
