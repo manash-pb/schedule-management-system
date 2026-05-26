@@ -69,7 +69,7 @@ const UserDashboard = () => {
     useEffect(() => {
         if (userEmail) {
             fetchEvents();
-            const socket = io('http://localhost:3000', { withCredentials: true });
+            const socket = io(window.location.origin, { path: '/socket.io' });
             socket.on('calendar_events_updated', (data) => {
                 fetchEvents();
                 if (data) {
@@ -238,7 +238,7 @@ const UserDashboard = () => {
                                     return (
                                         <>
                                             {paginated.map(item => (
-                                                <UserEventCard key={item._listKey || item.event_id || item.id} event={item} onPreview={setPreviewEvent} tab={activeTab} />
+                                                <UserEventCard key={item._listKey || item.event_id || item.id} event={item} onPreview={setPreviewEvent} tab={activeTab} darkMode={darkMode} />
                                             ))}
                                             {totalPages > 1 && (
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 }}>

@@ -224,9 +224,7 @@ const Layout = ({ children }) => {
     const interval = setInterval(fetchNotifications, 60000);
 
     // Socket.io connection for real-time bell updates
-    const socket = io('http://localhost:3000', {
-        withCredentials: true
-    });
+    const socket = io(window.location.origin, { path: '/socket.io' });
 
     socket.on('new_notification_posted', (newNotification) => {
         const formattedNotif = {

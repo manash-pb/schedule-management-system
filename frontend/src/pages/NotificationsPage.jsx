@@ -26,7 +26,8 @@ const NotificationsPage = () => {
         fetchNotifications();
 
         // 2. CONNECT TO SOCKET.IO SERVER
-        const socket = io('http://localhost:3000', {
+        const socket = io(window.location.origin, {
+            path: '/socket.io',
             withCredentials: true // Needed because of HttpOnly cookies!
         });
 

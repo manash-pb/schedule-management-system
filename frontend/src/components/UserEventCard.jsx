@@ -4,7 +4,7 @@ import ClosedEyeIcon from './ClosedEyeIcon';
 import { CATEGORY_COLORS } from '../utils/constants';
 import { formatTime } from '../utils/eventUtils';
 
-const UserEventCard = ({ event, onPreview, tab }) => {
+const UserEventCard = ({ event, onPreview, tab, darkMode }) => {
     const [expanded, setExpanded] = useState(false);
     
     const startDateStr = event.event_date.slice(0, 10);
@@ -53,15 +53,21 @@ const UserEventCard = ({ event, onPreview, tab }) => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: 16 }}>
                 <div className="event-info" style={{ flex: 1 }}>
                     {tab === 'live' && (
-                        <span className="status-badge" style={{ background: '#dcfce7', color: '#16a34a' }}>
+                        <span className="status-badge" style={{ background: darkMode ? 'rgba(22,163,74,0.2)' : '#dcfce7', color: darkMode ? '#4ade80' : '#16a34a', border: darkMode ? '1px solid rgba(22,163,74,0.3)' : 'none' }}>
                             🔴 Live
                         </span>
                     )}
-                    {event.category && (
-                        <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.color || '#64748b', textTransform: 'capitalize', marginLeft: tab === 'live' ? undefined : 0 }}>
-                            {event.category}
-                        </span>
-                    )}
+                    {event.category && (() => {
+                        const styleConfig = CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()] || { bg: '#f1f5f9', color: '#64748b' };
+                        const bg = darkMode && styleConfig.darkBg ? styleConfig.darkBg : styleConfig.bg;
+                        const color = darkMode && styleConfig.darkColor ? styleConfig.darkColor : styleConfig.color;
+                        const border = darkMode && styleConfig.borderDark ? `1px solid ${styleConfig.borderDark}` : 'none';
+                        return (
+                            <span className="category-badge" style={{ background: bg, color: color, border: border, textTransform: 'capitalize', marginLeft: tab === 'live' ? undefined : 0 }}>
+                                {event.category}
+                            </span>
+                        );
+                    })()}
                     <h3 className="event-title" style={{ marginTop: 8 }}>{event.title}</h3>
                     <div className="event-meta" style={{ marginTop: 8 }}>
                         <div className="meta-item">

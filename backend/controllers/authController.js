@@ -118,7 +118,11 @@ exports.googleAuthRedirect = (req, res) => {
         'https://www.googleapis.com/auth/userinfo.profile',
         'https://www.googleapis.com/auth/userinfo.email',
     ];
-    if (requestedRole === 'admin') scopes.push('https://www.googleapis.com/auth/calendar');
+    if (requestedRole === 'admin') {
+        scopes.push('https://www.googleapis.com/auth/calendar');
+        scopes.push('https://www.googleapis.com/auth/forms.body');
+        scopes.push('https://www.googleapis.com/auth/forms.responses.readonly');
+    }
 
     const url = oauth2Client.generateAuthUrl({
         access_type: 'offline',
