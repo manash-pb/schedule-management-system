@@ -52,11 +52,13 @@ const UserEventCard = ({ event, onPreview, tab }) => {
         <div className="event-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: 16 }}>
                 <div className="event-info" style={{ flex: 1 }}>
-                    <span className="status-badge" style={tab === 'past' ? { background: '#f1f5f9', color: '#64748b' } : tab === 'live' ? { background: '#dcfce7', color: '#16a34a' } : {}}>
-                        {tab === 'past' ? 'Past' : tab === 'live' ? '🔴 Live' : 'Confirmed'}
-                    </span>
+                    {tab === 'live' && (
+                        <span className="status-badge" style={{ background: '#dcfce7', color: '#16a34a' }}>
+                            🔴 Live
+                        </span>
+                    )}
                     {event.category && (
-                        <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.color || '#64748b', textTransform: 'capitalize' }}>
+                        <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.color || '#64748b', textTransform: 'capitalize', marginLeft: tab === 'live' ? undefined : 0 }}>
                             {event.category}
                         </span>
                     )}

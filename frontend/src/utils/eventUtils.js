@@ -62,8 +62,25 @@ export const groupMultiDaySpans = (eventsList) => {
         const firstEvent = group[0];
         const lastEvent = group[group.length - 1];
         
+        let displayTitle = firstEvent.title || 'Event';
+        if (spanId.includes('_')) {
+            const parts = spanId.split('_');
+            if (parts.length > 1) {
+                try {
+                    displayTitle = decodeURIComponent(parts.slice(1).join('_'));
+                } catch (e) {
+                    console.error('Failed to decode title from span_id');
+                }
+            }
+        } else {
+            // Fallback for older events saved before the span_id update
+            displayTitle = displayTitle.replace(/(?:^|\s*[:-]\s*)Day\s*\d+$/i, '').trim();
+            if (!displayTitle) displayTitle = 'Multi-Day Event';
+        }
+        
         grouped.push({
             ...firstEvent,
+            title: displayTitle,
             event_date: firstEvent.event_date,
             end_date: lastEvent.event_date,
             isMultiDaySpan: true,

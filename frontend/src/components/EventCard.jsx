@@ -52,14 +52,13 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => {
         <div className="event-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: 16 }}>
                 <div className="event-info" style={{ flex: 1 }}>
-                    <span className="status-badge" style={
-                        tab === 'past' ? { background: darkMode ? 'rgba(100,116,139,0.2)' : '#f1f5f9', color: darkMode ? '#94a3b8' : '#475569', border: darkMode ? '1px solid rgba(100,116,139,0.3)' : 'none' } :
-                            tab === 'live' ? { background: darkMode ? 'rgba(22,163,74,0.2)' : '#dcfce7', color: darkMode ? '#4ade80' : '#16a34a', border: darkMode ? '1px solid rgba(22,163,74,0.3)' : 'none' } : {}
-                    }>
-                        {tab === 'past' ? 'Past' : tab === 'live' ? '🔴 Live' : 'Confirmed'}
-                    </span>
+                    {tab === 'live' && (
+                        <span className="status-badge" style={{ background: darkMode ? 'rgba(22,163,74,0.2)' : '#dcfce7', color: darkMode ? '#4ade80' : '#16a34a', border: darkMode ? '1px solid rgba(22,163,74,0.3)' : 'none' }}>
+                            🔴 Live
+                        </span>
+                    )}
                     {event.category && (
-                        <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.color || '#64748b', textTransform: 'capitalize' }}>
+                        <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.color || '#64748b', textTransform: 'capitalize', marginLeft: tab === 'live' ? undefined : 0 }}>
                             {event.category}
                         </span>
                     )}

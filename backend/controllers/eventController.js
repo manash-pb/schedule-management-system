@@ -57,8 +57,8 @@ exports.createEvent = async (req, res) => {
         const createdEventIds = [];
 
         if (event_span === 'multiple' && Array.isArray(days) && days.length > 0) {
-            // Generate a unique span_id for this multi-day event group
-            const spanId = `span-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            // Generate a unique span_id and embed the overarching title to avoid a database schema migration
+            const spanId = `span-${Date.now()}-${Math.random().toString(36).substr(2, 9)}_${encodeURIComponent(title || 'Event')}`;
 
             // Let's identify global attendees and normalize them
             const globalAttendees = Array.isArray(attendees) ? attendees : [];
