@@ -307,8 +307,6 @@ const Layout = ({ children }) => {
     localStorage.setItem('darkMode', darkMode);
   }, [darkMode]);
 
-  const dashboardPath = role === 'admin' ? '/admin-dashboard' : '/user-dashboard';
-  const links = [{ to: dashboardPath, label: 'Dashboard' }];
 
   return (
     <div className="app-shell">
@@ -321,18 +319,6 @@ const Layout = ({ children }) => {
               <div className="brand-subtitle">Schedule Management System</div>
             </div>
           </div>
-
-          <nav className="nav-links">
-            {links.map(link => (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-              >
-                {link.label}
-              </NavLink>
-            ))}
-          </nav>
 
           <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             <button onClick={() => setDarkMode(d => !d)} className="btn-secondary theme-btn" style={{ padding: '8px' }}>
