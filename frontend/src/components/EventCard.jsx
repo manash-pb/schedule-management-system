@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, MapPin, Trash2, Pencil, FileText, Send, BarChart2, CheckCircle } from 'lucide-react';
+import { Calendar, Clock, MapPin, Trash2, Pencil, FileText, Send, BarChart2, CheckCircle, Copy } from 'lucide-react';
 import ClosedEyeIcon from './ClosedEyeIcon';
 import { CATEGORY_COLORS } from '../utils/constants';
 import { formatTime } from '../utils/eventUtils';
@@ -134,17 +134,11 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => {
                             🔴 Live
                         </span>
                     )}
-                    {event.category && (() => {
-                        const styleConfig = CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()] || { bg: '#f1f5f9', color: '#64748b' };
-                        const bg = darkMode && styleConfig.darkBg ? styleConfig.darkBg : styleConfig.bg;
-                        const color = darkMode && styleConfig.darkColor ? styleConfig.darkColor : styleConfig.color;
-                        const border = darkMode && styleConfig.borderDark ? `1px solid ${styleConfig.borderDark}` : 'none';
-                        return (
-                            <span className="category-badge" style={{ background: bg, color: color, border: border, textTransform: 'capitalize', marginLeft: tab === 'live' ? undefined : 0 }}>
-                                {event.category}
-                            </span>
-                        );
-                    })()}
+                    {event.category && (
+                        <span className="category-badge" style={{ background: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.bg || '#f1f5f9', color: CATEGORY_COLORS[event.category.charAt(0).toUpperCase() + event.category.slice(1).toLowerCase()]?.color || '#64748b', textTransform: 'capitalize', marginLeft: tab === 'live' ? undefined : 0 }}>
+                            {event.category}
+                        </span>
+                    )}
                     <h3 className="event-title" style={{ marginTop: 8 }}>{event.title}</h3>
                     <div className="event-meta" style={{ marginTop: 8 }}>
                         <div className="meta-item">
@@ -191,15 +185,24 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => {
                                 </button>
                             ) : (
                                 <>
-                                    {sentStatus && <span style={{ color: '#16a34a', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, marginRight: 4 }}><CheckCircle size={14} /> {sentStatus}</span>}
                                     <button 
                                         className="btn-secondary" 
                                         onClick={handleSendFeedback}
-                                        disabled={sending}
-                                        style={{ fontSize: 13, padding: '6px 12px', display: 'flex', gap: 6, alignItems: 'center', borderColor: '#2563eb', color: '#2563eb' }}
+                                        disabled={sending || !!sentStatus}
+                                        style={{ 
+                                            fontSize: 13, 
+                                            padding: '6px 12px', 
+                                            display: 'flex', 
+                                            gap: 6, 
+                                            alignItems: 'center', 
+                                            justifyContent: 'center',
+                                            minWidth: 175,
+                                            borderColor: sentStatus ? '#16a34a' : '#2563eb', 
+                                            color: sentStatus ? '#16a34a' : '#2563eb' 
+                                        }}
                                     >
-                                        {sending ? <Clock size={14} /> : <Send size={14} />}
-                                        {sending ? 'Sending...' : 'Send to Attendees'}
+                                        {sentStatus ? <CheckCircle size={14} /> : sending ? <Clock size={14} /> : <Send size={14} />}
+                                        {sentStatus ? sentStatus : sending ? 'Sending...' : 'Send to Attendees'}
                                     </button>
                                     <a 
                                         href={`https://docs.google.com/forms/d/${formId}/edit`} 

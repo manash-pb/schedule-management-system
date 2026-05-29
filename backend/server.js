@@ -25,6 +25,7 @@ const eventRoutes = require('./routes/events');
 const authRoutes = require('./routes/auth');
 const notificationRoutes = require('./routes/notifications');
 const queryRoutes = require('./routes/queries');
+const feedbackRoutes = require('./routes/feedbackRoutes');
 
 // ==========================================
 // 4. Express App & Middleware Initialization
@@ -214,6 +215,7 @@ app.use('/auth', authRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/queries', queryRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 // ==========================================
 // 9. Server & Socket.io Initialization

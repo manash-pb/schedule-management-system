@@ -528,4 +528,49 @@ const sendDaySpecificInviteEmail = async ({ person, globalTitle, globalDescripti
     });
 };
 
-module.exports = { transporter, sendInviteEmail, sendCancellationEmail, sendRemovalEmail, sendQueryToAdmins, sendUserReplyEmail, sendMultiDayInviteEmail, sendDaySpecificInviteEmail };
+const sendFeedbackEmail = async ({ email, name, eventTitle, formUrl }) => {
+    const html = `
+<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);padding:32px 36px;">
+            <p style="margin:0 0 4px 0;font-size:13px;color:#ddd6fe;letter-spacing:0.08em;text-transform:uppercase;">We Value Your Feedback</p>
+            <h1 style="margin:0;font-size:24px;color:#ffffff;font-weight:700;">${eventTitle}</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px 36px;">
+            <p style="margin:0 0 6px 0;font-size:15px;color:#0f172a;">Hi <strong>${name}</strong>,</p>
+            <p style="margin:0 0 24px 0;font-size:14px;color:#64748b;">Thank you for attending <strong>${eventTitle}</strong>! We would love to hear your thoughts so we can improve future events.</p>
+            
+            <div style="text-align:center;margin-top:28px;margin-bottom:28px;">
+                <a href="${formUrl}" style="display:inline-block;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-size:15px;font-weight:600;">Fill Out Feedback Form</a>
+            </div>
+            
+            <p style="margin:0;font-size:13px;color:#94a3b8;text-align:center;">This form is anonymous and only takes a minute.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 36px;text-align:center;">
+            <p style="margin:0;font-size:12px;color:#94a3b8;">This message was sent by <strong>Schedule Manager</strong>.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    await transporter.sendMail({
+        from: `"Schedule Manager" <${process.env.SMTP_USER}>`,
+        to: email,
+        subject: `Feedback Request: ${eventTitle}`,
+        html,
+    });
+};
+
+module.exports = { transporter, sendInviteEmail, sendCancellationEmail, sendRemovalEmail, sendQueryToAdmins, sendUserReplyEmail, sendMultiDayInviteEmail, sendDaySpecificInviteEmail, sendFeedbackEmail };
