@@ -187,17 +187,27 @@ const Login = () => {
             </button>
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', paddingLeft: '5px' }}>
-            <input 
-              type="checkbox" 
-              id="rememberMe" 
-              checked={rememberMe} 
-              onChange={(e) => setRememberMe(e.target.checked)} 
-              style={{ marginRight: '8px', cursor: 'pointer' }}
-            />
-            <label htmlFor="rememberMe" style={{ fontSize: '14px', color: 'var(--text-primary)', cursor: 'pointer', userSelect: 'none' }}>
-              Remember Me
-            </label>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingLeft: '5px', paddingRight: '5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <input 
+                type="checkbox" 
+                id="rememberMe" 
+                checked={rememberMe} 
+                onChange={(e) => setRememberMe(e.target.checked)} 
+                style={{ marginRight: '8px', cursor: 'pointer' }}
+              />
+              <label htmlFor="rememberMe" style={{ fontSize: '14px', color: 'var(--text-primary)', cursor: 'pointer', userSelect: 'none' }}>
+                Remember Me
+              </label>
+            </div>
+            {!isSignUpMode && (
+              <span 
+                onClick={() => navigate('/forgot-password')} 
+                style={{ fontSize: '14px', color: '#2563eb', cursor: 'pointer', fontWeight: '500' }}
+              >
+                Forgot Password?
+              </span>
+            )}
           </div>
 
           <button type="submit" className="btn-primary" style={{ width: '100%' }}>

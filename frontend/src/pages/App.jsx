@@ -7,6 +7,8 @@ import UserProfile from './UserProfile';
 import NotificationsPage from './NotificationsPage';
 import PostNotification from './PostNotification';
 import Layout from './Layout';
+import ForgotPassword from './ForgotPassword';
+import ResetPassword from './ResetPassword';
 import { getAuthData } from '../utils/authStorage';
 
 function App() {
@@ -19,8 +21,10 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Public Login Route */}
+        {/* Public Routes */}
         <Route path="/" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Protected Admin Route */}
         <Route

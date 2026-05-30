@@ -573,4 +573,49 @@ const sendFeedbackEmail = async ({ email, name, eventTitle, formUrl }) => {
     });
 };
 
-module.exports = { transporter, sendInviteEmail, sendCancellationEmail, sendRemovalEmail, sendQueryToAdmins, sendUserReplyEmail, sendMultiDayInviteEmail, sendDaySpecificInviteEmail, sendFeedbackEmail };
+const sendPasswordResetEmail = async ({ email, name, resetLink }) => {
+    const html = `
+<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#10b981,#059669);padding:32px 36px;">
+            <p style="margin:0 0 4px 0;font-size:13px;color:#a7f3d0;letter-spacing:0.08em;text-transform:uppercase;">Account Security</p>
+            <h1 style="margin:0;font-size:24px;color:#ffffff;font-weight:700;">Reset Your Password</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px 36px;">
+            <p style="margin:0 0 6px 0;font-size:15px;color:#0f172a;">Hi <strong>${name}</strong>,</p>
+            <p style="margin:0 0 24px 0;font-size:14px;color:#64748b;">We received a request to reset your password. Click the button below to choose a new password.</p>
+            
+            <div style="text-align:center;margin-top:28px;margin-bottom:28px;">
+                <a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-size:15px;font-weight:600;">Reset Password</a>
+            </div>
+            
+            <p style="margin:0;font-size:13px;color:#64748b;text-align:center;">This link is only valid for 15 minutes. If you did not request a password reset, please ignore this email.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 36px;text-align:center;">
+            <p style="margin:0;font-size:12px;color:#94a3b8;">This message was sent securely by <strong>Schedule Manager</strong>.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    await transporter.sendMail({
+        from: `"Schedule Manager" <${process.env.SMTP_USER}>`,
+        to: email,
+        subject: `Password Reset Request`,
+        html,
+    });
+};
+
+module.exports = { transporter, sendInviteEmail, sendCancellationEmail, sendRemovalEmail, sendQueryToAdmins, sendUserReplyEmail, sendMultiDayInviteEmail, sendDaySpecificInviteEmail, sendFeedbackEmail, sendPasswordResetEmail };

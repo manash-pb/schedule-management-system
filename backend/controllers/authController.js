@@ -3,6 +3,7 @@ const { oauth2Client, generateMeetLink } = require('../googleCalendar');
 const { google } = require('googleapis');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { sendPasswordResetEmail } = require('../utils/mailer');
 require('dotenv').config();
 
 const SALT_ROUNDS = 10;
@@ -267,5 +268,116 @@ exports.generateMeet = async (req, res) => {
     } catch (e) {
         console.error('generateMeet error:', e);
         res.status(500).json({ error: 'Failed to generate Meet link' });
+    }
+};
+
+exports.forgotPassword = async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ success: false, message: 'Email required' });
+
+    const normalizedEmail = email.toLowerCase().trim();
+    try {
+        const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
+        const user = rows[0];
+
+        if (!user) {
+            // Return success even if user doesn't exist for security reasons (avoid email enumeration)
+            return res.json({ success: true, message: 'If an account exists, a reset link has been sent.' });
+        }
+
+        // Check if the user is Google-only
+        if (!user.password) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'This account uses Google Sign-in. Please log in with Google.',
+                isGoogleAccount: true 
+            });
+        }
+
+        const secret = process.env.JWT_SECRET + user.password;
+        const token = jwt.sign(
+            { email: user.email },
+            secret,
+            { expiresIn: '15m' }
+        );
+
+        const resetLink = `http://localhost:5173/reset-password?token=${token}`;
+
+        await sendPasswordResetEmail({
+            email: user.email,
+            name: user.name || 'User',
+            resetLink
+        });
+
+        res.json({ success: true, message: 'If an account exists, a reset link has been sent.' });
+    } catch (error) {
+        console.error('Forgot password error:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+exports.resetPassword = async (req, res) => {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) return res.status(400).json({ success: false, message: 'Token and new password required' });
+
+    try {
+        // Decode without verifying to get the email
+        const decoded = jwt.decode(token);
+        if (!decoded || !decoded.email) {
+            return res.status(400).json({ success: false, message: 'Invalid token.' });
+        }
+
+        const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [decoded.email]);
+        const user = rows[0];
+        
+        if (!user || !user.password) {
+            return res.status(400).json({ success: false, message: 'Invalid token.' });
+        }
+
+        const secret = process.env.JWT_SECRET + user.password;
+        
+        // Verify with the custom secret
+        jwt.verify(token, secret);
+
+        const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
+        await pool.execute('UPDATE users SET password = ? WHERE email = ?', [hashed, user.email]);
+
+        res.json({ success: true, message: 'Password has been successfully reset.' });
+    } catch (error) {
+        console.error('Reset password error:', error);
+        if (error.name === 'TokenExpiredError') {
+            return res.status(400).json({ success: false, message: 'Reset token has expired. Please request a new one.' });
+        }
+        // If signature validation fails, it means the password was already changed (secret changed)
+        res.status(400).json({ success: false, message: 'Invalid or already used reset token.' });
+    }
+};
+
+exports.verifyResetToken = async (req, res) => {
+    const { token } = req.params;
+    if (!token) return res.status(400).json({ valid: false, message: 'No token provided.' });
+
+    try {
+        const decoded = jwt.decode(token);
+        if (!decoded || !decoded.email) {
+            return res.status(400).json({ valid: false, message: 'Invalid token format.' });
+        }
+
+        const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [decoded.email]);
+        const user = rows[0];
+
+        if (!user || !user.password) {
+            return res.status(400).json({ valid: false, message: 'Invalid token.' });
+        }
+
+        const secret = process.env.JWT_SECRET + user.password;
+        jwt.verify(token, secret);
+
+        res.json({ valid: true });
+    } catch (error) {
+        if (error.name === 'TokenExpiredError') {
+            return res.status(400).json({ valid: false, message: 'Reset token has expired. Please request a new one.' });
+        }
+        res.status(400).json({ valid: false, message: 'This reset link has already been used or is invalid.' });
     }
 };
