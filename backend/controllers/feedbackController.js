@@ -5,9 +5,13 @@ const { sendFeedbackEmail } = require('../utils/mailer');
 
 // Helper to set credentials for a specific admin user
 const setGoogleAuth = async (email) => {
-    const [rows] = await pool.execute('SELECT google_tokens FROM users WHERE email = ? AND role = "admin"', [email.toLowerCase()]);
+    let [rows] = await pool.execute('SELECT google_tokens FROM users WHERE email = ? AND role = "admin"', [email ? email.toLowerCase() : '']);
     if (!rows.length || !rows[0].google_tokens) {
-        throw new Error('Admin Google tokens not found. Please reconnect Google Calendar.');
+        // Fallback to any admin with tokens
+        [rows] = await pool.execute('SELECT google_tokens FROM users WHERE role = "admin" AND google_tokens IS NOT NULL LIMIT 1');
+        if (!rows.length || !rows[0].google_tokens) {
+            throw new Error('Admin Google tokens not found. Please reconnect Google Calendar.');
+        }
     }
     const tokens = typeof rows[0].google_tokens === 'string' ? JSON.parse(rows[0].google_tokens) : rows[0].google_tokens;
     oauth2Client.setCredentials(tokens);

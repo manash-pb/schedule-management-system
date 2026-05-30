@@ -477,7 +477,7 @@ exports.updateEvent = async (req, res) => {
 
         const fields = [], values = [];
         for (const [key, value] of Object.entries(updates)) {
-            if (['title', 'description', 'venue', 'event_date', 'start_time', 'end_time', 'category'].includes(key)) {
+            if (['title', 'description', 'venue', 'event_date', 'start_time', 'end_time', 'category', 'summary'].includes(key)) {
                 fields.push(`${key} = ?`);
                 values.push(value);
             }

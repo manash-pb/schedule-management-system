@@ -30,7 +30,7 @@ const AdminDashboard = () => {
     const [events, setEvents] = useState([]);
     const [previewEvent, setPreviewEvent] = useState(null);
     const [editEvent, setEditEvent] = useState(null);
-    const [activeTab, setActiveTab] = useState('upcoming');
+    const [activeTab, setActiveTab] = useState(() => localStorage.getItem('adminActiveTab') || 'upcoming');
     const [submitting, setSubmitting] = useState(false);
     const [meetLoading, setMeetLoading] = useState(false);
     const [deleting, setDeleting] = useState(false);
@@ -65,7 +65,7 @@ const AdminDashboard = () => {
         }
     }, [formData.start_time, formData.end_time]);
     const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
-    const [viewMode, setViewMode] = useState('list');
+    const [viewMode, setViewMode] = useState(() => localStorage.getItem('adminViewMode') || 'list');
     const [calendarView, setCalendarView] = useState('month');
     const [calendarDate, setCalendarDate] = useState(new Date());
     const [queries, setQueries] = useState([]);
@@ -88,6 +88,14 @@ const AdminDashboard = () => {
         observer.observe(document.documentElement, { attributes: true });
         return () => observer.disconnect();
     }, []);
+
+    useEffect(() => {
+        localStorage.setItem('adminActiveTab', activeTab);
+    }, [activeTab]);
+
+    useEffect(() => {
+        localStorage.setItem('adminViewMode', viewMode);
+    }, [viewMode]);
 
     useEffect(() => { setPage(1); }, [search, filterDate, filterCategory, activeTab]);
 

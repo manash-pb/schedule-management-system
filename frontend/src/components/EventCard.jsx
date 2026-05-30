@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, Trash2, Pencil, FileText, Send, BarChart2, CheckCircle, Copy } from 'lucide-react';
 import ClosedEyeIcon from './ClosedEyeIcon';
+import SummaryModal from './SummaryModal';
 import { CATEGORY_COLORS } from '../utils/constants';
 import { formatTime } from '../utils/eventUtils';
 
@@ -15,6 +16,9 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => {
     const [statsLoading, setStatsLoading] = useState(false);
     const [statsError, setStatsError] = useState('');
     const [showChart, setShowChart] = useState(false);
+    const [showSummaryEditModal, setShowSummaryEditModal] = useState(false);
+    const [showSummaryViewModal, setShowSummaryViewModal] = useState(false);
+    const [localSummary, setLocalSummary] = useState(event.summary || '');
 
     useEffect(() => {
         if (tab === 'past' && formId && !stats) {
@@ -82,6 +86,29 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => {
             alert('Failed to send feedback emails.');
         }
         setSending(false);
+    };
+
+    const handleSaveSummary = async (summaryText) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/events/${event.event_id}`, {
+                method: 'PATCH',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ summary: summaryText })
+            });
+            if (res.ok) {
+                setLocalSummary(summaryText);
+                event.summary = summaryText;
+                setShowSummaryEditModal(false);
+            } else {
+                alert('Failed to save summary note.');
+            }
+        } catch (err) {
+            alert('Failed to save summary note.');
+        }
     };
 
     const startDateStr = event.event_date.slice(0, 10);
@@ -172,50 +199,73 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => {
                         )}
                     </div>
                     {tab === 'past' && (
-                        <div style={{ display: 'flex', gap: 8, marginTop: 'auto', paddingTop: 16, alignItems: 'center' }}>
-                            {!formId ? (
-                                <button 
-                                    className="btn-primary" 
-                                    onClick={handleGenerateForm} 
-                                    disabled={generating}
-                                    style={{ fontSize: 13, padding: '6px 12px', display: 'flex', gap: 6, alignItems: 'center' }}
-                                >
-                                    <FileText size={14} />
-                                    {generating ? 'Generating...' : 'Create Feedback Form'}
-                                </button>
-                            ) : (
-                                <>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto', paddingTop: 16, alignItems: 'flex-end' }}>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                {!formId ? (
+                                    <button 
+                                        className="btn-primary" 
+                                        onClick={handleGenerateForm} 
+                                        disabled={generating}
+                                        style={{ fontSize: 13, padding: '6px 12px', display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }}
+                                    >
+                                        <FileText size={14} />
+                                        {generating ? 'Generating...' : 'Create Feedback Form'}
+                                    </button>
+                                ) : (
+                                    <>
+                                        <button 
+                                            className="btn-secondary" 
+                                            onClick={handleSendFeedback}
+                                            disabled={sending || !!sentStatus}
+                                            style={{ 
+                                                fontSize: 13, 
+                                                padding: '6px 12px', 
+                                                display: 'flex', 
+                                                gap: 6, 
+                                                alignItems: 'center', 
+                                                justifyContent: 'center',
+                                                whiteSpace: 'nowrap',
+                                                minWidth: 175,
+                                                borderColor: sentStatus ? '#16a34a' : '#2563eb', 
+                                                color: sentStatus ? '#16a34a' : '#2563eb' 
+                                            }}
+                                        >
+                                            {sentStatus ? <CheckCircle size={14} /> : sending ? <Clock size={14} /> : <Send size={14} />}
+                                            {sentStatus ? sentStatus : sending ? 'Sending...' : 'Send to Attendees'}
+                                        </button>
+                                        <a 
+                                            href={`https://docs.google.com/forms/d/${formId}/edit`} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="btn-secondary"
+                                            style={{ fontSize: 13, padding: '6px 12px', display: 'flex', gap: 6, alignItems: 'center', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                                            onClick={e => e.stopPropagation()}
+                                        >
+                                            <Pencil size={14} /> Edit Form
+                                        </a>
+                                    </>
+                                )}
+                            </div>
+                            
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                {!localSummary ? (
                                     <button 
                                         className="btn-secondary" 
-                                        onClick={handleSendFeedback}
-                                        disabled={sending || !!sentStatus}
-                                        style={{ 
-                                            fontSize: 13, 
-                                            padding: '6px 12px', 
-                                            display: 'flex', 
-                                            gap: 6, 
-                                            alignItems: 'center', 
-                                            justifyContent: 'center',
-                                            minWidth: 175,
-                                            borderColor: sentStatus ? '#16a34a' : '#2563eb', 
-                                            color: sentStatus ? '#16a34a' : '#2563eb' 
-                                        }}
+                                        onClick={(e) => { e.stopPropagation(); setShowSummaryEditModal(true); }} 
+                                        style={{ fontSize: 13, padding: '6px 12px', display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }}
                                     >
-                                        {sentStatus ? <CheckCircle size={14} /> : sending ? <Clock size={14} /> : <Send size={14} />}
-                                        {sentStatus ? sentStatus : sending ? 'Sending...' : 'Send to Attendees'}
+                                        <FileText size={14} /> Create Summary Note
                                     </button>
-                                    <a 
-                                        href={`https://docs.google.com/forms/d/${formId}/edit`} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="btn-secondary"
-                                        style={{ fontSize: 13, padding: '6px 12px', display: 'flex', gap: 6, alignItems: 'center', textDecoration: 'none' }}
-                                        onClick={e => e.stopPropagation()}
+                                ) : (
+                                    <button 
+                                        className="btn-secondary" 
+                                        onClick={(e) => { e.stopPropagation(); setShowSummaryEditModal(true); }} 
+                                        style={{ fontSize: 13, padding: '6px 12px', display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }}
                                     >
-                                        <Pencil size={14} /> Edit Form
-                                    </a>
-                                </>
-                            )}
+                                        <Pencil size={14} /> Edit Summary
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -270,10 +320,20 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => {
                 </div>
             )}
 
-            {tab === 'past' && formId && (
+            {tab === 'past' && (formId || localSummary) && (
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                        <div></div> {/* Spacer */}
+                        <div>
+                            {localSummary && (
+                                <button 
+                                    className="btn-primary" 
+                                    onClick={(e) => { e.stopPropagation(); setShowSummaryViewModal(true); }} 
+                                    style={{ fontSize: 13, padding: '6px 12px', margin: 0, display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }}
+                                >
+                                    <FileText size={14} /> Summary
+                                </button>
+                            )}
+                        </div>
                         {formId && (
                             <div 
                                 style={{ display: 'flex', alignItems: 'center', gap: 8, background: darkMode ? 'rgba(255,255,255,0.05)' : '#f8fafc', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', cursor: stats && stats.totalResponses > 0 ? 'pointer' : 'default', transition: 'all 0.2s' }}
@@ -320,6 +380,23 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => {
                         </div>
                     )}
                 </div>
+            )}
+            
+            {showSummaryEditModal && (
+                <SummaryModal 
+                    event={{ ...event, summary: localSummary }} 
+                    mode="edit"
+                    onClose={() => setShowSummaryEditModal(false)}
+                    onSave={handleSaveSummary}
+                />
+            )}
+            
+            {showSummaryViewModal && (
+                <SummaryModal 
+                    event={{ ...event, summary: localSummary }} 
+                    mode="view"
+                    onClose={() => setShowSummaryViewModal(false)}
+                />
             )}
         </div>
     );

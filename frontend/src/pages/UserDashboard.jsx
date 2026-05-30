@@ -23,14 +23,14 @@ const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales
 const UserDashboard = () => {
     const [events, setEvents] = useState([]);
     const [previewEvent, setPreviewEvent] = useState(null);
-    const [activeTab, setActiveTab] = useState('upcoming');
+    const [activeTab, setActiveTab] = useState(() => localStorage.getItem('userActiveTab') || 'upcoming');
     const [search, setSearch] = useState('');
     const [filterDate, setFilterDate] = useState('');
     const [filterCategory, setFilterCategory] = useState('');
     const [page, setPage] = useState(1);
     const PAGE_SIZE = 5;
     
-    const [viewMode, setViewMode] = useState('list');
+    const [viewMode, setViewMode] = useState(() => localStorage.getItem('userViewMode') || 'list');
     const [calendarView, setCalendarView] = useState('month');
     const [calendarDate, setCalendarDate] = useState(new Date());
 
@@ -52,6 +52,14 @@ const UserDashboard = () => {
         observer.observe(document.documentElement, { attributes: true });
         return () => observer.disconnect();
     }, []);
+
+    useEffect(() => {
+        localStorage.setItem('userActiveTab', activeTab);
+    }, [activeTab]);
+
+    useEffect(() => {
+        localStorage.setItem('userViewMode', viewMode);
+    }, [viewMode]);
 
     useEffect(() => { setPage(1); }, [search, filterDate, filterCategory, activeTab]);
 
@@ -99,7 +107,7 @@ const UserDashboard = () => {
               html.dark .rbc-month-view .rbc-off-range { color: #9ca3af !important; opacity: 0.8 !important; }
             `}</style>
             {previewEvent && <UserPreviewModal event={previewEvent} onClose={() => setPreviewEvent(null)} />}
-            <div className="dashboard-wrapper">
+            <div className="dashboard-wrapper" style={{ maxWidth: '1000px', width: '100%' }}>
                 <h2 style={{ margin: '10px 0 20px 0', fontSize: 24 }}>Welcome, {userName}</h2>
 
                 <div className="main-content" style={{ gridTemplateColumns: '1fr' }}>

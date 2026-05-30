@@ -1,11 +1,41 @@
-import React, { useState } from 'react';
-import { Calendar, Clock, MapPin } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Clock, MapPin, BarChart2, FileText } from 'lucide-react';
 import ClosedEyeIcon from './ClosedEyeIcon';
+import SummaryModal from './SummaryModal';
 import { CATEGORY_COLORS } from '../utils/constants';
 import { formatTime } from '../utils/eventUtils';
 
 const UserEventCard = ({ event, onPreview, tab }) => {
     const [expanded, setExpanded] = useState(false);
+    const [stats, setStats] = useState(null);
+    const [statsLoading, setStatsLoading] = useState(false);
+    const [showChart, setShowChart] = useState(false);
+    const [showSummaryViewModal, setShowSummaryViewModal] = useState(false);
+    
+    const formId = event.google_form_id;
+
+    useEffect(() => {
+        if (tab === 'past' && formId && !stats) {
+            fetchStats();
+        }
+    }, [tab, formId]);
+
+    const fetchStats = async () => {
+        setStatsLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/feedback/stats/${event.event_id}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok && data.stats) {
+                setStats(data.stats);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+        setStatsLoading(false);
+    };
     
     const startDateStr = event.event_date.slice(0, 10);
     const endDateStr = event.end_date ? event.end_date.slice(0, 10) : startDateStr;
@@ -130,6 +160,76 @@ const UserEventCard = ({ event, onPreview, tab }) => {
                         </div>
                     )}
                 </div>
+            )}
+
+            {tab === 'past' && (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                        <div>
+                            {event.summary && (
+                                <button 
+                                    className="btn-primary" 
+                                    onClick={(e) => { e.stopPropagation(); setShowSummaryViewModal(true); }} 
+                                    style={{ fontSize: 13, padding: '6px 12px', margin: 0, display: 'flex', gap: 6, alignItems: 'center' }}
+                                >
+                                    <FileText size={14} /> Summary
+                                </button>
+                            )}
+                        </div>
+                        {formId && (
+                            <div 
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-muted)', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', cursor: stats && stats.totalResponses > 0 ? 'pointer' : 'default', transition: 'all 0.2s' }}
+                            onClick={() => { if (stats && stats.totalResponses > 0) setShowChart(!showChart); }}
+                            className={stats && stats.totalResponses > 0 ? "hover-bg-subtle" : ""}
+                        >
+                            <BarChart2 size={16} style={{ color: 'var(--blue)' }} />
+                            {statsLoading ? (
+                                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading stats...</span>
+                            ) : stats ? (
+                                <div style={{ display: 'flex', gap: 12, fontSize: 13, alignItems: 'center' }}>
+                                    <span><strong>{stats.avgRating > 0 ? stats.avgRating : 'N/A'}</strong> / {stats.maxRating || 5} avg rating</span>
+                                    <span style={{ color: 'var(--text-secondary)' }}>({stats.totalResponses} responses)</span>
+                                    {stats.totalResponses > 0 && (
+                                        <span style={{ fontSize: 10, color: 'var(--blue)', marginLeft: 4 }}>{showChart ? '▲ Hide Chart' : '▼ Show Chart'}</span>
+                                    )}
+                                </div>
+                            ) : (
+                                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>No responses yet</span>
+                            )}
+                        </div>
+                        )}
+                    </div>
+                    
+                    {showChart && stats && stats.ratingDistribution && (
+                        <div style={{ marginTop: 16, padding: 16, background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                            <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, color: 'var(--text-primary)' }}>Rating Distribution</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                {Array.from({ length: stats.maxRating || 5 }, (_, i) => (stats.maxRating || 5) - i).map(star => {
+                                    const count = stats.ratingDistribution[star] || 0;
+                                    const percentage = stats.totalResponses > 0 ? Math.round((count / stats.totalResponses) * 100) : 0;
+                                    return (
+                                        <div key={star} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, color: 'var(--text-secondary)' }}>
+                                            <span style={{ width: 28, textAlign: 'right', fontWeight: 500 }}>{star} ★</span>
+                                            <div style={{ flex: 1, height: 8, background: 'var(--bg-muted)', borderRadius: 4, overflow: 'hidden' }}>
+                                                <div style={{ width: `${percentage}%`, height: '100%', background: 'linear-gradient(90deg, #3b82f6, #2563eb)', borderRadius: 4, transition: 'width 0.5s ease-out' }}></div>
+                                            </div>
+                                            <span style={{ width: 36, fontWeight: 500 }}>{percentage}%</span>
+                                            <span style={{ width: 32, textAlign: 'right', opacity: 0.6 }}>({count})</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+            
+            {showSummaryViewModal && (
+                <SummaryModal 
+                    event={event} 
+                    mode="view"
+                    onClose={() => setShowSummaryViewModal(false)}
+                />
             )}
         </div>
     );
