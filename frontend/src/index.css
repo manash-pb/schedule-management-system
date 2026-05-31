@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Light mode autofill (bg-gray-50) */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px #f9fafb inset !important;
+    -webkit-text-fill-color: #111827 !important;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Dark mode autofill (bg-gray-900) */
+html.dark input:-webkit-autofill,
+html.dark input:-webkit-autofill:hover, 
+html.dark input:-webkit-autofill:focus, 
+html.dark input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px #111827 inset !important;
+    -webkit-text-fill-color: #f9fafb !important;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

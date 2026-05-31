@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Lock, Sun, Moon, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import moonSvg from '../assets/moon.svg';
+import sunSvg from '../assets/sun.svg';
+import { Lock, Sun, Moon, ArrowLeft, Eye, EyeOff, Loader2, ShieldCheck, ShieldAlert } from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
@@ -47,7 +50,7 @@ const ResetPassword = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match.');
+      toast.error('Passwords do not match.');
       return;
     }
 
@@ -59,195 +62,161 @@ const ResetPassword = () => {
       const res = await axios.post('/api/auth/reset-password', { token, newPassword });
 
       if (res.data.success) {
-        setMessage('Password has been successfully reset. You can now log in.');
+        const msg = 'Password has been successfully reset. You can now log in.';
+        setMessage(msg);
+        toast.success(msg);
         setNewPassword('');
         setConfirmPassword('');
       } else {
-        setError(res.data.message || 'An error occurred.');
+        const errMsg = res.data.message || 'An error occurred.';
+        setError(errMsg);
+        toast.error(errMsg);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong. Please try again.');
+      const errMsg = err.response?.data?.message || 'Something went wrong. Please try again.';
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: 'var(--bg-page)' }}>
-      <div style={{ position: 'fixed', top: 16, right: 16 }}>
-        <button onClick={() => setDarkMode(d => !d)} className="btn-secondary" style={{ minWidth: '100px', justifyContent: 'center' }}>
-          <div className="relative w-4 h-4 flex items-center justify-center">
-            <Sun size={16} className={`absolute transition-all duration-500 ${darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-0'}`} />
-            <Moon size={16} className={`absolute transition-all duration-500 ${!darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 rotate-90 scale-0'}`} />
+    <div className="flex justify-center items-center min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+
+      <Toaster position="top-center" reverseOrder={false} />
+      {/* Theme Toggle */}
+      <div className="fixed top-6 right-6">
+        <button
+          onClick={() => setDarkMode(d => !d)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-950 hover:bg-blue-900 dark:bg-sky-500 dark:hover:bg-sky-400 border border-blue-900 dark:border-sky-400 rounded-full shadow-sm transition-all text-white"
+        >
+          <div className="relative w-[22px] h-[22px] flex items-center justify-center">
+            <img 
+              src={sunSvg} 
+              alt="Sun" 
+              className={`absolute transition-all duration-500 w-[22px] h-[22px] ${darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-0'}`} 
+            />
+            <img 
+              src={moonSvg} 
+              alt="Moon" 
+              className={`absolute transition-all duration-500 w-[18px] h-[18px] ${!darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 rotate-90 scale-0'}`} 
+            />
           </div>
-          <span style={{ minWidth: '38px', textAlign: 'left' }}>
+          <span className="font-medium text-sm w-10 text-left">
             {darkMode ? 'Light' : 'Dark'}
           </span>
         </button>
       </div>
 
-      <div className="login-container" style={{ background: 'var(--bg-card)', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '520px', width: '90%', border: '1px solid var(--border)' }}>
+      <div className="w-[90%] max-w-lg bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-8 transition-colors duration-300">
 
         {isVerifying ? (
           <>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', color: 'var(--text-muted)' }}>
-              <Lock size={48} />
+            <div className="flex justify-center mb-6 text-gray-400 dark:text-gray-500">
+              <Loader2 size={48} className="animate-spin" />
             </div>
-            <h1 style={{ margin: '0 0 10px 0', color: 'var(--text-primary)', fontSize: '2rem' }}>Verifying Link</h1>
-            <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Please wait a moment...</p>
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">Verifying Link</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Please wait a moment...</p>
+            </div>
           </>
         ) : !isValidToken ? (
           <>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'center',
-                marginBottom: '24px'
-              }}
-            >
-              <div
-                style={{
-                  width: '90px',
-                  height: '90px',
-                  borderRadius: '50%',
-                  background:
-                    'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05))',
-                  border: '1px solid rgba(239,68,68,0.25)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#ef4444',
-                  boxShadow: '0 10px 30px rgba(239,68,68,0.15)'
-                }}
-              >
-                <Lock size={42} />
+            <div className="flex justify-center mb-6">
+              <div className="w-20 h-20 rounded-full bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 flex items-center justify-center text-red-500 dark:text-red-400 shadow-sm">
+                <ShieldAlert size={36} strokeWidth={1.5} />
               </div>
             </div>
 
-            <h1
-              style={{
-                margin: '0 0 12px',
-                color: 'var(--text-primary)',
-                fontSize: '2rem',
-                fontWeight: 700
-              }}
-            >
-              Reset Link Expired
-            </h1>
-
-            <p
-              style={{
-                color: 'var(--text-muted)',
-                fontSize: '15px',
-                lineHeight: '1.7',
-                marginBottom: '24px',
-                maxWidth: '380px',
-                marginInline: 'auto'
-              }}
-            >
-              This password reset link is no longer valid.
-              It may have already been used or has expired.
-            </p>
-
-            <div
-              style={{
-                background: 'rgba(239,68,68,0.08)',
-                border: '1px solid rgba(239,68,68,0.15)',
-                borderRadius: '12px',
-                padding: '14px',
-                marginBottom: '24px',
-                color: '#ef4444',
-                fontSize: '14px'
-              }}
-            >
-              For security reasons, password reset links can only be used once.
+            <div className="text-center mb-6">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3 tracking-tight">
+                Reset Link Expired
+              </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-sm mx-auto">
+                This password reset link is no longer valid. It may have already been used or has expired.
+              </p>
             </div>
+
 
             <button
               onClick={() => navigate('/forgot-password')}
-              className="btn-primary"
-              style={{
-                width: '100%'
-              }}
+              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-sm hover:shadow transition-all"
             >
               Request New Reset Link
             </button>
           </>
         ) : (
           <>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', color: '#10b981' }}>
-              <Lock size={48} />
+            <div className="flex justify-center mb-6 text-blue-600 dark:text-blue-500">
+              <ShieldCheck size={56} strokeWidth={1.5} />
             </div>
 
-            <h1 style={{ margin: '0 0 10px 0', color: 'var(--text-primary)', fontSize: '2rem' }}>
-              Create New Password
-            </h1>
-            <p style={{ color: '#64748b', marginBottom: '25px', fontSize: '14px' }}>
-              Enter a strong new password for your account.
-            </p>
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">
+                Create New Password
+              </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Enter a strong new password for your account.
+              </p>
+            </div>
 
-            {message && (
-              <div style={{ padding: '12px', background: '#d1fae5', color: '#065f46', borderRadius: '8px', marginBottom: '20px', fontSize: '14px', border: '1px solid #a7f3d0' }}>
-                {message}
-              </div>
-            )}
-
-            {error && !message && (
-              <div style={{ padding: '12px', background: '#fee2e2', color: '#991b1b', borderRadius: '8px', marginBottom: '20px', fontSize: '14px', border: '1px solid #fecaca' }}>
-                {error}
-              </div>
-            )}
-
-            {!message && (
-              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <div style={{ position: 'relative', width: '100%' }}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="New Password"
-                    className="custom-input"
-                    value={newPassword}
-                    onChange={e => setNewPassword(e.target.value)}
-                    required
-                    style={{ textAlign: 'center', paddingRight: '42px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(v => !v)}
-                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-
-                <div style={{ position: 'relative', width: '100%' }}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Confirm New Password"
-                    className="custom-input"
-                    value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
-                    required
-                    style={{ textAlign: 'center', paddingRight: '42px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-                  />
-                </div>
-
-                <button type="submit" className="btn-primary" style={{ width: '100%' }} disabled={isLoading}>
-                  {isLoading ? 'Resetting...' : 'Reset Password'}
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <div className="relative w-full">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="New Password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  required
+                  disabled={isLoading || !!message}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
-              </form>
-            )}
+              </div>
+
+              <div className="relative w-full">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Confirm New Password"
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  required
+                  disabled={isLoading || !!message}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="flex justify-center items-center gap-2 w-full py-3 px-4 mt-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-sm hover:shadow transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                disabled={isLoading || !!message}
+              >
+                {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
+                {message ? 'Password Reset Successful' : (isLoading ? 'Resetting...' : 'Reset Password')}
+              </button>
+            </form>
           </>
-        )
-        }
+        )}
 
-        <div style={{ marginTop: '25px' }}>
-          <button onClick={() => navigate('/')} className="btn-secondary" style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-            <ArrowLeft size={16} /> Back to Login
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
+          Remember your password?
+          <button
+            onClick={() => navigate('/')}
+            className="font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-500 dark:hover:text-blue-400 transition-colors ml-1"
+          >
+            Return to login
           </button>
-        </div>
+        </p>
 
-      </div >
-    </div >
+      </div>
+    </div>
   );
 };
 

@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, ExternalLink, ShieldCheck, User, Sun, Moon, Eye, EyeOff } from 'lucide-react';
+import { CalendarClock, ExternalLink, ShieldCheck, User, Sun, Moon, Eye, EyeOff } from 'lucide-react';
 import { setAuthData, getAuthData } from '../utils/authStorage';
+import CalendarScheduleSvg from '../assets/calendar-schedule.svg';
+import moonSvg from '../assets/moon.svg';
+import sunSvg from '../assets/sun.svg';
 
 const Login = () => {
   const [activeTab, setActiveTab] = useState('user');
@@ -11,17 +14,17 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', darkMode);
-    localStorage.setItem('darkMode', darkMode);
-  }, [darkMode]);
   const [manualName, setManualName] = useState('');
   const [manualEmail, setManualEmail] = useState('');
   const [manualPassword, setManualPassword] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
-    // If they are already logged in, redirect them
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('darkMode', darkMode);
+  }, [darkMode]);
+
+  useEffect(() => {
     const loggedIn = getAuthData('isAdminLoggedIn') === 'true';
     if (loggedIn) {
       const role = getAuthData('userRole');
@@ -60,8 +63,6 @@ const Login = () => {
   const handleManualLogin = async (e) => {
     e.preventDefault();
     const endpoint = isSignUpMode ? '/api/auth/signup' : '/api/auth/manual';
-
-    // Force 'user' role for sign-ups. Otherwise, use the selected tab.
     const payloadRole = isSignUpMode ? 'user' : activeTab;
 
     try {
@@ -75,7 +76,6 @@ const Login = () => {
 
       if (res.data.success) {
         const finalRole = res.data.role || payloadRole;
-
         const picture = res.data.profile_picture;
         const cleanPicture = (picture && picture !== 'null' && picture !== 'undefined') ? picture : undefined;
 
@@ -88,151 +88,176 @@ const Login = () => {
           userPicture: cleanPicture
         }, rememberMe);
 
-        if (finalRole === 'admin') {
-          window.location.href = '/admin-dashboard';
-        } else {
-          window.location.href = '/user-dashboard';
-        }
+        window.location.href = finalRole === 'admin' ? '/admin-dashboard' : '/user-dashboard';
       }
-
     } catch (error) {
-      alert(isSignUpMode ? 'Sign up failed.' : 'Incorrect email or password.');
+      alert(isSignUpMode ? 'Sign up failed. Please try again.' : 'Incorrect email or password.');
     }
   };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: 'var(--bg-page)' }}>
-      <div style={{ position: 'fixed', top: 16, right: 16 }}>
-        <button onClick={() => setDarkMode(d => !d)} className="btn-secondary" style={{ minWidth: '100px', justifyContent: 'center' }}>
-          <div className="relative w-4 h-4 flex items-center justify-center">
-            <Sun size={16} className={`absolute transition-all duration-500 ${darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-0'}`} />
-            <Moon size={16} className={`absolute transition-all duration-500 ${!darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 rotate-90 scale-0'}`} />
+    <div className="flex justify-center items-center min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+
+      {/* Theme Toggle */}
+      <div className="fixed top-6 right-6">
+        <button
+          onClick={() => setDarkMode(d => !d)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-950 hover:bg-blue-900 dark:bg-sky-500 dark:hover:bg-sky-400 border border-blue-900 dark:border-sky-400 rounded-full shadow-sm transition-all text-white"
+        >
+          <div className="relative w-[22px] h-[22px] flex items-center justify-center">
+            <img 
+              src={sunSvg} 
+              alt="Sun" 
+              className={`absolute transition-all duration-500 w-[22px] h-[22px] ${darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-0'}`} 
+            />
+            <img 
+              src={moonSvg} 
+              alt="Moon" 
+              className={`absolute transition-all duration-500 w-[18px] h-[18px] ${!darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 rotate-90 scale-0'}`} 
+            />
           </div>
-          <span style={{ minWidth: '38px', textAlign: 'left' }}>
+          <span className="font-medium text-sm w-10 text-left">
             {darkMode ? 'Light' : 'Dark'}
           </span>
         </button>
       </div>
-      <div className="login-container" style={{ background: 'var(--bg-card)', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '520px', width: '90%', border: '1px solid var(--border)' }}>
 
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', color: '#2563eb' }}>
-          <Calendar size={48} />
+      {/* Main Login Card */}
+      <div className="w-[90%] max-w-lg bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-8 transition-colors duration-300">
+
+        <div className="flex justify-center mb-6">
+          <img src={CalendarScheduleSvg} alt="Calendar Schedule" style={{ width: '56px', height: '56px' }} />
         </div>
 
-        {/* --- ROLE TABS (Hidden during Sign Up) --- */}
+        {/* Role Tabs */}
         {!isSignUpMode && (
-          <div className="tab-container">
+          <div className="flex p-1 mb-8 bg-gray-100 dark:bg-gray-900 rounded-lg">
             <button
               type="button"
-              className={`tab-btn ${activeTab === 'user' ? 'active' : ''}`}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-md transition-all ${activeTab === 'user' ? 'bg-white dark:bg-gray-800 text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
               onClick={() => setActiveTab('user')}
-              style={{ fontSize: '16px' }}
             >
               <User size={18} /> User
             </button>
             <button
               type="button"
-              className={`tab-btn ${activeTab === 'admin' ? 'active' : ''}`}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-md transition-all ${activeTab === 'admin' ? 'bg-white dark:bg-gray-800 text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
               onClick={() => setActiveTab('admin')}
-              style={{ fontSize: '16px' }}
             >
               <ShieldCheck size={18} /> Admin
             </button>
           </div>
         )}
 
-        <h1 style={{ margin: '0 0 10px 0', color: 'var(--text-primary)', fontSize: '2rem' }}>
-          {isSignUpMode ? 'Sign Up' : `${activeTab === 'admin' ? 'Admin' : 'User'} Sign In`}
-        </h1>
-        <p style={{ color: '#64748b', marginBottom: '25px', fontSize: '14px' }}>
-          {isSignUpMode ? 'Create your user account.' : 'Securely manage your schedule.'}
-        </p>
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">
+            {isSignUpMode ? 'Create Account' : `Welcome Back${activeTab === 'admin' ? ', Admin' : ''}`}
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {isSignUpMode ? 'Sign up to get started' : 'Securely manage your schedule'}
+          </p>
+        </div>
 
-        <form onSubmit={handleManualLogin} autoComplete="on" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        <form onSubmit={handleManualLogin} className="flex flex-col gap-4">
           {isSignUpMode && (
-            <input autoComplete="name" type="text" placeholder="Full Name" className="custom-input" value={manualName} onChange={e => setManualName(e.target.value)} required style={{ textAlign: 'center', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+            <input
+              autoComplete="name"
+              type="text"
+              placeholder="Full Name"
+              value={manualName}
+              onChange={e => setManualName(e.target.value)}
+              required
+              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            />
           )}
-          <input autoComplete="email" type="email" placeholder="Email Address" className="custom-input" value={manualEmail} onChange={e => setManualEmail(e.target.value.toLowerCase())} required style={{ textAlign: 'center', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
-          <div style={{ position: 'relative', width: '100%' }}>
+
+          <input
+            autoComplete="email"
+            type="email"
+            placeholder="Email Address"
+            value={manualEmail}
+            onChange={e => setManualEmail(e.target.value.toLowerCase())}
+            required
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+          />
+
+          <div className="relative">
             <input
               autoComplete={isSignUpMode ? 'new-password' : 'current-password'}
               type={showPassword ? 'text' : 'password'}
               placeholder="Password"
-              className="custom-input"
               value={manualPassword}
               onChange={e => setManualPassword(e.target.value)}
               required
-              style={{ textAlign: 'center', paddingRight: '42px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+              className="w-full px-4 py-3 pr-12 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             />
             <button
               type="button"
               onClick={() => setShowPassword(v => !v)}
-              style={{
-                position: 'absolute',
-                right: '12px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                border: 'none',
-                background: 'transparent',
-                cursor: 'pointer',
-                color: 'var(--text-muted)',
-                padding: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
           </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingLeft: '5px', paddingRight: '5px' }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <input 
-                type="checkbox" 
-                id="rememberMe" 
-                checked={rememberMe} 
-                onChange={(e) => setRememberMe(e.target.checked)} 
-                style={{ marginRight: '8px', cursor: 'pointer' }}
+
+          <div className="flex items-center justify-between px-1 mt-2">
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
               />
-              <label htmlFor="rememberMe" style={{ fontSize: '14px', color: 'var(--text-primary)', cursor: 'pointer', userSelect: 'none' }}>
+              <span className="text-sm text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-200 transition-colors">
                 Remember Me
-              </label>
-            </div>
+              </span>
+            </label>
+
             {!isSignUpMode && (
-              <span 
-                onClick={() => navigate('/forgot-password', { state: { email: manualEmail } })} 
-                style={{ fontSize: '14px', color: '#2563eb', cursor: 'pointer', fontWeight: '500' }}
+              <button
+                type="button"
+                onClick={() => navigate('/forgot-password', { state: { email: manualEmail } })}
+                className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-500 dark:hover:text-blue-400 transition-colors"
               >
                 Forgot Password?
-              </span>
+              </button>
             )}
           </div>
 
-          <button type="submit" className="btn-primary" style={{ width: '100%' }}>
+          <button
+            type="submit"
+            className="w-full py-3 px-4 mt-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-sm hover:shadow transition-all"
+          >
             {isSignUpMode ? 'Create Account' : 'Sign In'}
           </button>
         </form>
 
-        <p style={{ fontSize: '14px', color: '#64748b', marginTop: '15px' }}>
-          {isSignUpMode ? "Already have an account? " : "New here? "}
-          <span onClick={() => {
-            setIsSignUpMode(!isSignUpMode);
-            if (isSignUpMode) setActiveTab('user'); // Reset to User tab when returning to Login
-          }} style={{ color: '#2563eb', cursor: 'pointer', fontWeight: 'bold' }}>
-            {isSignUpMode ? 'Login Here' : 'Sign Up Here'}
-          </span>
-        </p>
-
-        <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0', color: '#94a3b8' }}>
-          <hr style={{ flex: 1, borderColor: '#e2e8f0' }} /> <span style={{ padding: '0 10px', fontSize: '12px', fontWeight: '600' }}>OR</span> <hr style={{ flex: 1, borderColor: '#e2e8f0' }} />
-        </div>
-
-        {/* Pass 'user' automatically if signing up, otherwise pass the active tab */}
-        <a href={`/auth/google?role=${isSignUpMode ? 'user' : activeTab}&remember=${rememberMe}`} className="btn-secondary" style={{ textDecoration: 'none', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', width: '100%', boxSizing: 'border-box' }}>
-          <ExternalLink size={18} color="#2563eb" /> Sign In with Google
+        <a
+          href={`/auth/google?role=${isSignUpMode ? 'user' : activeTab}&remember=${rememberMe}`}
+          className="flex items-center justify-center gap-3 w-full py-3 px-4 mt-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-200 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-sm transition-all"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+          </svg>
+          Continue with Google
         </a>
+
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
+          {isSignUpMode ? "Already have an account? " : "Don't have an account? "}
+          <button
+            onClick={() => {
+              setIsSignUpMode(!isSignUpMode);
+              if (isSignUpMode) setActiveTab('user');
+            }}
+            className="font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-500 transition-colors"
+          >
+            {isSignUpMode ? 'Login Here' : 'Sign up'}
+          </button>
+        </p>
       </div>
     </div>
   );
