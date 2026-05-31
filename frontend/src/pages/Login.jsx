@@ -202,7 +202,7 @@ const Login = () => {
             </div>
             {!isSignUpMode && (
               <span 
-                onClick={() => navigate('/forgot-password')} 
+                onClick={() => navigate('/forgot-password', { state: { email: manualEmail } })} 
                 style={{ fontSize: '14px', color: '#2563eb', cursor: 'pointer', fontWeight: '500' }}
               >
                 Forgot Password?
