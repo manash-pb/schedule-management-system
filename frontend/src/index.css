@@ -746,7 +746,7 @@ html.dark input:-webkit-autofill:active {
   }
 
   .form-container {
-    @apply w-full lg:sticky lg:top-8 self-start;
+    @apply w-full self-start;
   }
 
   .list-container {

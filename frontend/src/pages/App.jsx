@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Login from './Login';
 import AdminDashboard from './AdminDashboard';
 import UserDashboard from './UserDashboard';
@@ -11,6 +11,16 @@ import ForgotPassword from './ForgotPassword';
 import ResetPassword from './ResetPassword';
 import { getAuthData } from '../utils/authStorage';
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
+
 function App() {
   // --- THESE ARE THE MISSING FUNCTIONS ---
   // They check localStorage to see who is logged in before letting them view a page
@@ -20,9 +30,10 @@ function App() {
 
   return (
     <Router>
+      <ScrollToTop />
       <Routes>
         {/* Public Routes */}
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={isAuthenticated() ? <Navigate to={isAdmin() ? '/admin-dashboard' : '/user-dashboard'} replace /> : <Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
