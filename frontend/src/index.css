@@ -771,8 +771,8 @@ html.dark input:-webkit-autofill:active {
     top: 0;
     z-index: 50;
     width: 100%;
-    background: #252f4e;
-    border-bottom: 1px solid #1e243b;
+    background: #1F4D3A;
+    border-bottom: 1px solid #183d2e;
     color: #ffffff;
   }
 
@@ -897,8 +897,8 @@ html.dark input:-webkit-autofill:active {
 
   .app-footer {
     width: 100%;
-    border-top: 1px solid #1e243b;
-    background: #252f4e;
+    border-top: 1px solid #183d2e;
+    background: #1F4D3A;
   }
 
   .footer-inner {
@@ -932,8 +932,8 @@ html.dark input:-webkit-autofill:active {
   }
 
   html.dark .app-header {
-    background: #252f4e;
-    border-bottom-color: #1e243b;
+    background: #1F4D3A;
+    border-bottom-color: #183d2e;
   }
 
   html.dark .brand-mark {
@@ -950,8 +950,8 @@ html.dark input:-webkit-autofill:active {
   }
 
   html.dark .app-footer {
-    background: #252f4e;
-    border-top-color: #1e243b;
+    background: #1F4D3A;
+    border-top-color: #183d2e;
   }
 
   /* --- EMPTY STATE --- */

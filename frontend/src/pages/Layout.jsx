@@ -3,6 +3,8 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { Sun, Moon, Bell, Paperclip, MessageCircle, X, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import moonSvg from '../assets/moon.svg';
+import sunSvg from '../assets/sun.svg';
 import gauhatiLogo from '../assets/logo1.png';
 import { getAuthData } from '../utils/authStorage';
 
@@ -321,10 +323,13 @@ const Layout = ({ children }) => {
           </div>
 
           <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <button onClick={() => setDarkMode(d => !d)} className="btn-secondary theme-btn" style={{ padding: '8px' }}>
-              <div className="relative w-4 h-4 flex items-center justify-center">
-                <Sun size={16} className={`absolute transition-all duration-500 ${!darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-0'}`} />
-                <Moon size={16} className={`absolute transition-all duration-500 ${darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 rotate-90 scale-0'}`} />
+            <button
+              onClick={() => setDarkMode(d => !d)}
+              className="flex items-center justify-center w-[38px] h-[38px] bg-blue-950 hover:bg-blue-900 dark:bg-sky-500 dark:hover:bg-sky-400 border border-blue-900 dark:border-sky-400 rounded-full shadow-sm transition-all text-white"
+            >
+              <div className="relative w-[22px] h-[22px] flex items-center justify-center">
+                <img src={sunSvg} alt="Sun" className={`absolute transition-all duration-500 w-[22px] h-[22px] ${darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-0'}`} />
+                <img src={moonSvg} alt="Moon" className={`absolute transition-all duration-500 w-[18px] h-[18px] ${!darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 rotate-90 scale-0'}`} />
               </div>
             </button>
 
