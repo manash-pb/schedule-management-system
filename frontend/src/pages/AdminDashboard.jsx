@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { DateInput } from '@mantine/dates';
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
+dayjs.extend(customParseFormat);
 import { Calendar, Trash2, PlusCircle, UserPlus, X, Download, FileSpreadsheet, Clock, MapPin, AlertTriangle, Pencil, Search, Tag, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutList, CalendarDays, MessageCircle } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -36,6 +40,7 @@ const AdminDashboard = () => {
     const [deleting, setDeleting] = useState(false);
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
     const [calendarConnected, setCalendarConnected] = useState(true);
+    const [openPicker, setOpenPicker] = useState(null);
     const [formData, setFormData] = useState({ title: '', description: '', venue: '', event_date: '', end_date: '', start_time: '00:00', end_time: '00:00', category: 'General', event_span: 'single' });
     const [subDays, setSubDays] = useState([]);
     const [attendees, setAttendees] = useState([]);
@@ -54,7 +59,7 @@ const AdminDashboard = () => {
     useEffect(() => {
         const prevTimes = prevTimesRef.current;
         if (formData.start_time !== prevTimes.start || formData.end_time !== prevTimes.end) {
-            setSubDays(prev => 
+            setSubDays(prev =>
                 prev.map(day => ({
                     ...day,
                     start_time: formData.start_time || '00:00',
@@ -127,10 +132,10 @@ const AdminDashboard = () => {
         if (formData.event_span === 'multiple' && formData.event_date && formData.end_date) {
             const startDateStr = formData.event_date;
             const endDateStr = formData.end_date;
-            
+
             const startDate = new Date(startDateStr);
             const endDate = new Date(endDateStr);
-            
+
             if (startDate <= endDate) {
                 const dateList = [];
                 let currentDate = new Date(startDateStr);
@@ -141,14 +146,14 @@ const AdminDashboard = () => {
                     dateList.push(`${y}-${m}-${d}`);
                     currentDate.setDate(currentDate.getDate() + 1);
                 }
-                
+
                 setSubDays(prev => {
                     return dateList.map((dt, idx) => {
                         const existing = prev.find(p => p.date === dt);
                         if (existing && existing.customized) {
                             return existing;
                         }
-                        
+
                         return {
                             date: dt,
                             dayNumber: idx + 1,
@@ -415,7 +420,7 @@ const AdminDashboard = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         if (formData.event_span === 'multiple') {
             if (subDays.length === 0) {
                 showToast('Please select a valid date range for Multiple Days.', 'error');
@@ -890,38 +895,55 @@ const AdminDashboard = () => {
 
                 <div className="main-content">
                     <div className="form-container">
-                        <div className="floating-card">
-                            <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 0, paddingBottom: '16px' }}><PlusCircle color="#2563eb" />Create Event</h2>
-                            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                        <div style={{
+                            background: 'var(--bg-card)',
+                            borderRadius: 20,
+                            padding: '32px 28px',
+                            border: '1px solid var(--border)',
+                            boxShadow: '0 4px 24px rgba(0,0,0,0.08)'
+                        }}>
+                            {/* Icon + Heading */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 28 }}>
+                                <div style={{
+                                    width: 56, height: 56, borderRadius: '50%',
+                                    background: 'rgba(37,99,235,0.1)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    marginBottom: 16
+                                }}>
+                                    <PlusCircle size={28} color="#2563eb" />
+                                </div>
+                                <h2 style={{ margin: 0, fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Create Event</h2>
+                                <p style={{ margin: '6px 0 0', fontSize: 14, color: 'var(--text-secondary)' }}>Schedule and send invites to guests</p>
+                            </div>
+                            <form onSubmit={handleSubmit} onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); } }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                 {/* 1. Title */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <input 
-                                        type="text" 
-                                        placeholder="Event Title" 
-                                        className="custom-input" 
-                                        value={formData.title} 
-                                        onChange={e => setFormData({ ...formData, title: e.target.value })} 
-                                        required 
+                                <div>
+                                    <input
+                                        type="text"
+                                        placeholder="Event Title"
+                                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                                        value={formData.title}
+                                        onChange={e => setFormData({ ...formData, title: e.target.value })}
+                                        required
                                     />
                                 </div>
 
                                 {/* 2. Description (optional) */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <textarea 
-                                        placeholder="Description" 
-                                        className="custom-input" 
-                                        style={{ minHeight: '90px', resize: 'none' }} 
-                                        value={formData.description} 
-                                        onChange={e => setFormData({ ...formData, description: e.target.value })} 
+                                <div>
+                                    <textarea
+                                        placeholder="Description (optional)"
+                                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                                        style={{ minHeight: '90px', resize: 'none' }}
+                                        value={formData.description}
+                                        onChange={e => setFormData({ ...formData, description: e.target.value })}
                                     />
                                 </div>
 
                                 {/* 3. Event Span */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <select 
-                                        className="custom-input" 
-                                        style={{ width: '100%' }}
-                                        value={formData.event_span} 
+                                <div>
+                                    <select
+                                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                                        value={formData.event_span}
                                         onChange={e => setFormData({ ...formData, event_span: e.target.value })}
                                     >
                                         <option value="single">Single Day</option>
@@ -930,7 +952,7 @@ const AdminDashboard = () => {
                                 </div>
 
                                 {/* 4. Location */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div>
                                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                         <PlaceAutocompleteInput
                                             apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
@@ -938,8 +960,8 @@ const AdminDashboard = () => {
                                             onChange={(value) => setFormData({ ...formData, venue: value })}
                                             onPlaceSelected={(place) => setFormData({ ...formData, venue: place.name ? `${place.name}, ${place.formatted_address || ''}`.replace(/, $/, '') : place.formatted_address })}
                                             placeholder="Venue"
-                                            className="custom-input"
-                                            style={{ flex: 1, height: '42px', boxSizing: 'border-box' }}
+                                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                                            style={{ flex: 1, height: '46px', boxSizing: 'border-box' }}
                                             required
                                         />
                                         <button type="button" onClick={async () => {
@@ -950,45 +972,169 @@ const AdminDashboard = () => {
                                                 setFormData(prev => ({ ...prev, venue: res.data.meetLink }));
                                             } catch { showToast('Failed to generate Meet link.', 'error'); }
                                             finally { setMeetLoading(false); }
-                                        }} className="btn-secondary" disabled={meetLoading} style={{ whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: calendarConnected ? 1 : 0.5, height: '42px', width: '90px', boxSizing: 'border-box' }}>
+                                        }} className="btn-secondary" disabled={meetLoading} style={{ whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: calendarConnected ? 1 : 0.5, height: '46px', width: '90px', boxSizing: 'border-box', borderRadius: 8 }}>
                                             {meetLoading ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg> : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" /></svg>}
                                             {meetLoading ? 'Loading' : 'Meet'}
                                         </button>
                                     </div>
                                 </div>
 
-                                {/* 5. Dates */}
+                                {/* 5. Dates — Mantine DateInput */}
                                 {formData.event_span === 'single' ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <input 
-                                            type="date" 
-                                            className="custom-input" 
-                                            value={formData.event_date} 
-                                            onChange={e => setFormData({ ...formData, event_date: e.target.value, end_date: e.target.value })} 
-                                            required 
-                                        />
-                                    </div>
+                                    <DateInput
+                                        key={`single-${formData.event_date ? 'filled' : 'empty'}`}
+                                        placeholder="dd-mm-yyyy"
+                                        valueFormat="DD-MM-YYYY"
+                                        weekendDays={[0]}
+                                        rightSection={
+                                            formData.event_date ? (
+                                                <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }} onClick={(e) => { e.stopPropagation(); setFormData({ ...formData, event_date: '', end_date: '' }); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', height: '100%', padding: '0 8px' }}>
+                                                    <X size={16} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                                                </div>
+                                            ) : (
+                                                <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }} onClick={(e) => { e.stopPropagation(); setOpenPicker(prev => prev === 'single' ? null : 'single'); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', height: '100%', padding: '0 8px' }}>
+                                                    <Calendar size={18} className="text-gray-400" />
+                                                </div>
+                                            )
+                                        }
+                                        rightSectionPointerEvents="auto"
+                                        popoverProps={{
+                                            opened: openPicker === 'single',
+                                            onChange: (opened) => { if (!opened) setOpenPicker(null); }
+                                        }}
+                                        dateParser={(input) => {
+                                            const parsed = dayjs(input, ['DD-MM-YYYY', 'DD/MM/YYYY', 'DD.MM.YYYY', 'DD-MM-YY'], true);
+                                            return parsed.isValid() ? parsed.toDate() : new Date(NaN);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                const val = e.currentTarget.value;
+                                                if (val) {
+                                                    const parsed = dayjs(val, ['DD-MM-YYYY', 'DD/MM/YYYY', 'DD.MM.YYYY', 'DD-MM-YY'], true);
+                                                    if (!parsed.isValid()) {
+                                                        toast.error('Invalid date format. Please use DD-MM-YYYY (e.g., 25-12-2027)');
+                                                        e.preventDefault();
+                                                    } else {
+                                                        e.currentTarget.blur();
+                                                    }
+                                                }
+                                            }
+                                        }}
+                                        value={formData.event_date ? dayjs(formData.event_date).toDate() : null}
+                                        onChange={(date) => {
+                                            const val = date ? dayjs(date).format('YYYY-MM-DD') : '';
+                                            setFormData({ ...formData, event_date: val, end_date: val });
+                                            setOpenPicker(null);
+                                        }}
+                                        minDate={new Date()}
+                                        required
+                                        classNames={{ input: "w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm" }}
+                                        styles={{ input: { height: '46px', borderRadius: '8px', fontSize: '14px' } }}
+                                    />
                                 ) : (
                                     <div style={{ display: 'flex', gap: 8 }}>
-                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            <input 
-                                                type="date" 
-                                                className="custom-input" 
-                                                value={formData.event_date} 
-                                                onChange={e => setFormData({ ...formData, event_date: e.target.value })} 
-                                                required 
-                                            />
-                                        </div>
-                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            <input 
-                                                type="date" 
-                                                className="custom-input" 
-                                                value={formData.end_date} 
-                                                onChange={e => setFormData({ ...formData, end_date: e.target.value })} 
-                                                min={formData.event_date} 
-                                                required 
-                                            />
-                                        </div>
+                                        <DateInput
+                                            key={`start-${formData.event_date ? 'filled' : 'empty'}`}
+                                            placeholder="dd-mm-yyyy"
+                                            valueFormat="DD-MM-YYYY"
+                                            weekendDays={[0]}
+                                            rightSection={
+                                                formData.event_date ? (
+                                                    <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }} onClick={(e) => { e.stopPropagation(); setFormData({ ...formData, event_date: '' }); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', height: '100%', padding: '0 8px' }}>
+                                                        <X size={16} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                                                    </div>
+                                                ) : (
+                                                    <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }} onClick={(e) => { e.stopPropagation(); setOpenPicker(prev => prev === 'start' ? null : 'start'); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', height: '100%', padding: '0 8px' }}>
+                                                        <Calendar size={18} className="text-gray-400" />
+                                                    </div>
+                                                )
+                                            }
+                                            rightSectionPointerEvents="auto"
+                                            popoverProps={{
+                                                opened: openPicker === 'start',
+                                                onChange: (opened) => { if (!opened) setOpenPicker(null); }
+                                            }}
+                                            dateParser={(input) => {
+                                                const parsed = dayjs(input, ['DD-MM-YYYY', 'DD/MM/YYYY', 'DD.MM.YYYY', 'DD-MM-YY'], true);
+                                                return parsed.isValid() ? parsed.toDate() : new Date(NaN);
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    const val = e.currentTarget.value;
+                                                    if (val) {
+                                                        const parsed = dayjs(val, ['DD-MM-YYYY', 'DD/MM/YYYY', 'DD.MM.YYYY', 'DD-MM-YY'], true);
+                                                        if (!parsed.isValid()) {
+                                                            toast.error('Invalid date format. Please use DD-MM-YYYY (e.g., 25-12-2027)');
+                                                            e.preventDefault();
+                                                        } else {
+                                                            e.currentTarget.blur();
+                                                        }
+                                                    }
+                                                }
+                                            }}
+                                            value={formData.event_date ? dayjs(formData.event_date).toDate() : null}
+                                            onChange={(date) => {
+                                                const val = date ? dayjs(date).format('YYYY-MM-DD') : '';
+                                                setFormData({ ...formData, event_date: val });
+                                                setOpenPicker(null);
+                                            }}
+                                            minDate={new Date()}
+                                            required
+                                            style={{ flex: 1 }}
+                                            classNames={{ input: "w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm" }}
+                                            styles={{ input: { height: '46px', borderRadius: '8px', fontSize: '14px' } }}
+                                        />
+                                        <DateInput
+                                            key={`end-${formData.end_date ? 'filled' : 'empty'}`}
+                                            placeholder="dd-mm-yyyy"
+                                            valueFormat="DD-MM-YYYY"
+                                            weekendDays={[0]}
+                                            rightSection={
+                                                formData.end_date ? (
+                                                    <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }} onClick={(e) => { e.stopPropagation(); setFormData({ ...formData, end_date: '' }); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', height: '100%', padding: '0 8px' }}>
+                                                        <X size={16} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                                                    </div>
+                                                ) : (
+                                                    <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }} onClick={(e) => { e.stopPropagation(); setOpenPicker(prev => prev === 'end' ? null : 'end'); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', height: '100%', padding: '0 8px' }}>
+                                                        <Calendar size={18} className="text-gray-400" />
+                                                    </div>
+                                                )
+                                            }
+                                            rightSectionPointerEvents="auto"
+                                            popoverProps={{
+                                                opened: openPicker === 'end',
+                                                onChange: (opened) => { if (!opened) setOpenPicker(null); }
+                                            }}
+                                            dateParser={(input) => {
+                                                const parsed = dayjs(input, ['DD-MM-YYYY', 'DD/MM/YYYY', 'DD.MM.YYYY', 'DD-MM-YY'], true);
+                                                return parsed.isValid() ? parsed.toDate() : new Date(NaN);
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    const val = e.currentTarget.value;
+                                                    if (val) {
+                                                        const parsed = dayjs(val, ['DD-MM-YYYY', 'DD/MM/YYYY', 'DD.MM.YYYY', 'DD-MM-YY'], true);
+                                                        if (!parsed.isValid()) {
+                                                            toast.error('Invalid date format. Please use DD-MM-YYYY (e.g., 25-12-2027)');
+                                                            e.preventDefault();
+                                                        } else {
+                                                            e.currentTarget.blur();
+                                                        }
+                                                    }
+                                                }
+                                            }}
+                                            value={formData.end_date ? dayjs(formData.end_date).toDate() : null}
+                                            onChange={(date) => {
+                                                const val = date ? dayjs(date).format('YYYY-MM-DD') : '';
+                                                setFormData({ ...formData, end_date: val });
+                                                setOpenPicker(null);
+                                            }}
+                                            minDate={formData.event_date ? dayjs(formData.event_date).add(1, 'day').toDate() : new Date()}
+                                            required
+                                            style={{ flex: 1 }}
+                                            classNames={{ input: "w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm" }}
+                                            styles={{ input: { height: '46px', borderRadius: '8px', fontSize: '14px' } }}
+                                        />
                                     </div>
                                 )}
 
@@ -1012,12 +1158,12 @@ const AdminDashboard = () => {
                                 {/* 7. Category */}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <Tag size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                                    <select className="custom-input" style={{ flex: 1 }} value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+                                    <select className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
                                         {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
 
-                                <hr style={{ border: 'none', borderTop: '1px solid #f1f5f9', margin: '5px 0' }} />
+                                <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '4px 0' }} />
 
                                 {/* 8. Attendees List (Main) */}
                                 <div className="attendee-logic">
@@ -1039,8 +1185,8 @@ const AdminDashboard = () => {
                                     </div>
                                     <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
                                         <div className="attendee-input-row">
-                                            <input type="text" placeholder="Guest Name" className="custom-input" style={{ flex: 1 }} value={currentAttendee.name} onChange={e => setCurrentAttendee({ ...currentAttendee, name: e.target.value })} />
-                                            <input type="email" placeholder="Guest Email" className="custom-input" style={{ flex: 1 }} value={currentAttendee.email} onChange={e => setCurrentAttendee({ ...currentAttendee, email: e.target.value.toLowerCase() })} />
+                                            <input type="text" placeholder="Guest Name" className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm" style={{ flex: 1 }} value={currentAttendee.name} onChange={e => setCurrentAttendee({ ...currentAttendee, name: e.target.value })} />
+                                            <input type="email" placeholder="Guest Email" className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm" style={{ flex: 1 }} value={currentAttendee.email} onChange={e => setCurrentAttendee({ ...currentAttendee, email: e.target.value.toLowerCase() })} />
                                             <button type="button" className="btn-secondary" onClick={handleAddAttendee}><UserPlus size={18} /></button>
                                         </div>
                                     </div>
@@ -1063,7 +1209,7 @@ const AdminDashboard = () => {
                                                 return (
                                                     <div key={day.date} className="sub-day-card" style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '12px', background: 'var(--bg-muted)' }}>
                                                         {/* Collapsed Header */}
-                                                        <div 
+                                                        <div
                                                             onClick={() => {
                                                                 setSubDays(prev => {
                                                                     const next = [...prev];
@@ -1071,10 +1217,10 @@ const AdminDashboard = () => {
                                                                     return next;
                                                                 });
                                                             }}
-                                                            style={{ 
-                                                                display: 'flex', 
-                                                                justifyContent: 'space-between', 
-                                                                alignItems: 'center', 
+                                                            style={{
+                                                                display: 'flex',
+                                                                justifyContent: 'space-between',
+                                                                alignItems: 'center',
                                                                 cursor: 'pointer',
                                                                 userSelect: 'none'
                                                             }}
@@ -1102,24 +1248,24 @@ const AdminDashboard = () => {
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
                                                                 {/* Sub Day Title */}
                                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                                    <input 
-                                                                        type="text" 
-                                                                        placeholder={`Day ${day.dayNumber} Title`} 
-                                                                        className="custom-input" 
-                                                                        value={day.title} 
-                                                                        onChange={e => updateSubDay(idx, 'title', e.target.value)} 
-                                                                        required 
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder={`Day ${day.dayNumber} Title`}
+                                                                        className="custom-input"
+                                                                        value={day.title}
+                                                                        onChange={e => updateSubDay(idx, 'title', e.target.value)}
+                                                                        required
                                                                     />
                                                                 </div>
 
                                                                 {/* Sub Day Description */}
                                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                                    <textarea 
-                                                                        placeholder={`Day ${day.dayNumber} Description`} 
-                                                                        className="custom-input" 
-                                                                        style={{ minHeight: '60px', resize: 'none' }} 
-                                                                        value={day.description} 
-                                                                        onChange={e => updateSubDay(idx, 'description', e.target.value)} 
+                                                                    <textarea
+                                                                        placeholder={`Day ${day.dayNumber} Description`}
+                                                                        className="custom-input"
+                                                                        style={{ minHeight: '60px', resize: 'none' }}
+                                                                        value={day.description}
+                                                                        onChange={e => updateSubDay(idx, 'description', e.target.value)}
                                                                     />
                                                                 </div>
 
@@ -1163,9 +1309,9 @@ const AdminDashboard = () => {
                                                                             </div>
 
                                                                             {idx === 0 && attendees.length > 0 && (
-                                                                                <button 
-                                                                                    type="button" 
-                                                                                    className="btn-secondary" 
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className="btn-secondary"
                                                                                     style={{ fontSize: '10px', padding: '3px 8px', height: 'auto' }}
                                                                                     onClick={() => {
                                                                                         updateSubDay(idx, 'attendees', [...day.attendees, ...attendees]);
@@ -1175,9 +1321,9 @@ const AdminDashboard = () => {
                                                                                 </button>
                                                                             )}
                                                                             {idx > 0 && subDays[idx - 1].attendees.length > 0 && (
-                                                                                <button 
-                                                                                    type="button" 
-                                                                                    className="btn-secondary" 
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className="btn-secondary"
                                                                                     style={{ fontSize: '10px', padding: '3px 8px', height: 'auto' }}
                                                                                     onClick={() => {
                                                                                         updateSubDay(idx, 'attendees', [...day.attendees, ...subDays[idx - 1].attendees]);
@@ -1191,25 +1337,25 @@ const AdminDashboard = () => {
 
                                                                     <div style={{ display: 'flex', gap: '6px', flexDirection: 'column' }}>
                                                                         <div className="attendee-input-row" style={{ display: 'flex', gap: '6px' }}>
-                                                                            <input 
-                                                                                type="text" 
-                                                                                placeholder="Guest Name" 
-                                                                                className="custom-input" 
-                                                                                style={{ flex: 1, height: '34px', fontSize: '12px' }} 
-                                                                                value={day.currentAttendee?.name || ''} 
-                                                                                onChange={e => updateSubDayCurrentAttendee(idx, 'name', e.target.value)} 
+                                                                            <input
+                                                                                type="text"
+                                                                                placeholder="Guest Name"
+                                                                                className="custom-input"
+                                                                                style={{ flex: 1, height: '34px', fontSize: '12px' }}
+                                                                                value={day.currentAttendee?.name || ''}
+                                                                                onChange={e => updateSubDayCurrentAttendee(idx, 'name', e.target.value)}
                                                                             />
-                                                                                <input 
-                                                                                type="email" 
-                                                                                placeholder="Guest Email" 
-                                                                                className="custom-input" 
-                                                                                style={{ flex: 1, height: '34px', fontSize: '12px' }} 
-                                                                                value={day.currentAttendee?.email || ''} 
-                                                                                onChange={e => updateSubDayCurrentAttendee(idx, 'email', e.target.value.toLowerCase())} 
+                                                                            <input
+                                                                                type="email"
+                                                                                placeholder="Guest Email"
+                                                                                className="custom-input"
+                                                                                style={{ flex: 1, height: '34px', fontSize: '12px' }}
+                                                                                value={day.currentAttendee?.email || ''}
+                                                                                onChange={e => updateSubDayCurrentAttendee(idx, 'email', e.target.value.toLowerCase())}
                                                                             />
-                                                                            <button 
-                                                                                type="button" 
-                                                                                className="btn-secondary" 
+                                                                            <button
+                                                                                type="button"
+                                                                                className="btn-secondary"
                                                                                 style={{ height: '34px', padding: '0 10px' }}
                                                                                 onClick={() => addSubDayAttendee(idx)}
                                                                             >
@@ -1224,8 +1370,8 @@ const AdminDashboard = () => {
                                                                             {day.attendees.map((att, attIdx) => (
                                                                                 <div key={attIdx} className="guest-badge">
                                                                                     <span>{att.name} ({att.email})</span>
-                                                                                    <button 
-                                                                                        type="button" 
+                                                                                    <button
+                                                                                        type="button"
                                                                                         onClick={() => removeSubDayAttendee(idx, attIdx)}
                                                                                         title="Remove guest"
                                                                                     >
@@ -1244,7 +1390,10 @@ const AdminDashboard = () => {
                                         </div>
                                     </div>
                                 )}
-                                <button type="submit" className="btn-primary" disabled={submitting} style={{ opacity: submitting ? 0.8 : 1, cursor: submitting ? 'not-allowed' : 'pointer' }}>
+                                <button type="submit" disabled={submitting}
+                                    className="w-full py-3 px-4 mt-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-sm hover:shadow transition-all"
+                                    style={{ opacity: submitting ? 0.8 : 1, cursor: submitting ? 'not-allowed' : 'pointer', border: 'none' }}
+                                >
                                     {submitting ? (
                                         <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}>
@@ -1288,13 +1437,57 @@ const AdminDashboard = () => {
                                     <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none', zIndex: 1 }} />
                                     <input className="custom-input" style={{ paddingLeft: 36, paddingRight: 12, paddingTop: 10, paddingBottom: 10, height: 42 }} placeholder="Search events..." value={search} onChange={e => setSearch(e.target.value)} />
                                 </div>
-                                {viewMode !== 'calendar' && (
-                                    <div style={{ position: 'relative', flexShrink: 0, width: 160 }}>
-                                        <input type="date" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: '100%', height: '100%', top: 0, left: 0 }} value={filterDate} onChange={e => setFilterDate(e.target.value)} id="filter-date-input" />
-                                        <button type="button" className="btn-secondary" onClick={() => document.getElementById('filter-date-input').showPicker()} style={{ gap: 8, whiteSpace: 'nowrap', width: '100%', justifyContent: 'center', height: 42, boxSizing: 'border-box' }}>
-                                            <Calendar size={15} />
-                                            {filterDate ? new Date(filterDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Filter by Date'}
-                                        </button>
+                                {viewMode !== 'calendar' && activeTab !== 'live' && (
+                                    <div style={{ position: 'relative', flexShrink: 0, width: 180 }}>
+                                        <DateInput
+                                            key={`filter-${filterDate ? 'filled' : 'empty'}`}
+                                            placeholder="Filter by Date"
+                                            valueFormat="DD-MM-YYYY"
+                                            weekendDays={[0]}
+                                            minDate={activeTab === 'upcoming' ? new Date() : undefined}
+                                            maxDate={activeTab === 'past' ? new Date() : undefined}
+                                            rightSection={
+                                                filterDate ? (
+                                                    <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }} onClick={(e) => { e.stopPropagation(); setFilterDate(''); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', height: '100%', padding: '0 8px' }}>
+                                                        <X size={16} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                                                    </div>
+                                                ) : (
+                                                    <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }} onClick={(e) => { e.stopPropagation(); setOpenPicker(prev => prev === 'filter' ? null : 'filter'); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', height: '100%', padding: '0 8px' }}>
+                                                        <Calendar size={18} className="text-gray-400" />
+                                                    </div>
+                                                )
+                                            }
+                                            rightSectionPointerEvents="auto"
+                                            popoverProps={{
+                                                opened: openPicker === 'filter',
+                                                onChange: (opened) => { if (!opened) setOpenPicker(null); }
+                                            }}
+                                            dateParser={(input) => {
+                                                const parsed = dayjs(input, ['DD-MM-YYYY', 'DD/MM/YYYY', 'DD.MM.YYYY', 'DD-MM-YY'], true);
+                                                return parsed.isValid() ? parsed.toDate() : new Date(NaN);
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    const val = e.currentTarget.value;
+                                                    if (val) {
+                                                        const parsed = dayjs(val, ['DD-MM-YYYY', 'DD/MM/YYYY', 'DD.MM.YYYY', 'DD-MM-YY'], true);
+                                                        if (!parsed.isValid()) {
+                                                            toast.error('Invalid date format. Please use DD-MM-YYYY');
+                                                            e.preventDefault();
+                                                        } else {
+                                                            e.currentTarget.blur();
+                                                        }
+                                                    }
+                                                }
+                                            }}
+                                            value={filterDate ? dayjs(filterDate).toDate() : null}
+                                            onChange={(date) => {
+                                                setFilterDate(date ? dayjs(date).format('YYYY-MM-DD') : '');
+                                                setOpenPicker(null);
+                                            }}
+                                            classNames={{ input: "w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm" }}
+                                            styles={{ input: { height: 42 } }}
+                                        />
                                     </div>
                                 )}
                                 <select className="custom-input" style={{ width: 180, height: 42, paddingTop: 0, paddingBottom: 0 }} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
@@ -1335,11 +1528,11 @@ const AdminDashboard = () => {
                                             const rawCat = e.resource?.category || 'General';
                                             const cat = rawCat.charAt(0).toUpperCase() + rawCat.slice(1).toLowerCase();
                                             const c = CATEGORY_COLORS[cat];
-                                            
+
                                             const now = new Date();
                                             const isPast = now > e.end;
                                             const isLive = now >= e.start && now <= e.end;
-                                            
+
                                             let className = '';
                                             if (isLive) className = 'event-live';
 
@@ -1354,34 +1547,34 @@ const AdminDashboard = () => {
                                     {(() => {
                                         const now = new Date();
                                         const filtered = groupMultiDaySpans(events).filter(e => {
-                                             const date = e.event_date.slice(0, 10);
-                                             const endDate = e.end_date ? e.end_date.slice(0, 10) : date;
-                                             const [sH, sM] = e.start_time.split(':');
-                                             const [eH, eM] = e.end_time.split(':');
-                                             const start = new Date(date); start.setHours(+sH, +sM, 0, 0);
-                                             const end = new Date(endDate); end.setHours(+eH, +eM, 0, 0);
-                                             const tabMatch = activeTab === 'upcoming' ? now < start : activeTab === 'live' ? now >= start && now <= end : end < now;
-                                             const searchMatch = !search || e.title.toLowerCase().startsWith(search.toLowerCase());
-                                             const dateMatch = !filterDate || (filterDate >= date && filterDate <= endDate);
-                                             const catMatch = !filterCategory || (e.category || 'General').toLowerCase() === filterCategory.toLowerCase();
-                                             return tabMatch && searchMatch && dateMatch && catMatch;
-                                         }).sort((a, b) => {
-                                             const dateA = a.event_date.slice(0, 10);
-                                             const endDateA = a.end_date ? a.end_date.slice(0, 10) : dateA;
-                                             const [sHa, sMa] = a.start_time.split(':');
-                                             const startA = new Date(dateA); startA.setHours(+sHa, +sMa, 0, 0);
-                                             const endA = new Date(endDateA); endA.setHours(+a.end_time.split(':')[0], +a.end_time.split(':')[1], 0, 0);
-                                             
-                                             const dateB = b.event_date.slice(0, 10);
-                                             const endDateB = b.end_date ? b.end_date.slice(0, 10) : dateB;
-                                             const [sHb, sMb] = b.start_time.split(':');
-                                             const startB = new Date(dateB); startB.setHours(+sHb, +sMb, 0, 0);
-                                             const endB = new Date(endDateB); endB.setHours(+b.end_time.split(':')[0], +b.end_time.split(':')[1], 0, 0);
-                                             
-                                             if (activeTab === 'upcoming') return startA - startB;
-                                             if (activeTab === 'live') return endA - endB;
-                                             return startB - startA;
-                                         });
+                                            const date = e.event_date.slice(0, 10);
+                                            const endDate = e.end_date ? e.end_date.slice(0, 10) : date;
+                                            const [sH, sM] = e.start_time.split(':');
+                                            const [eH, eM] = e.end_time.split(':');
+                                            const start = new Date(date); start.setHours(+sH, +sM, 0, 0);
+                                            const end = new Date(endDate); end.setHours(+eH, +eM, 0, 0);
+                                            const tabMatch = activeTab === 'upcoming' ? now < start : activeTab === 'live' ? now >= start && now <= end : end < now;
+                                            const searchMatch = !search || e.title.toLowerCase().startsWith(search.toLowerCase());
+                                            const dateMatch = !filterDate || (filterDate >= date && filterDate <= endDate);
+                                            const catMatch = !filterCategory || (e.category || 'General').toLowerCase() === filterCategory.toLowerCase();
+                                            return tabMatch && searchMatch && dateMatch && catMatch;
+                                        }).sort((a, b) => {
+                                            const dateA = a.event_date.slice(0, 10);
+                                            const endDateA = a.end_date ? a.end_date.slice(0, 10) : dateA;
+                                            const [sHa, sMa] = a.start_time.split(':');
+                                            const startA = new Date(dateA); startA.setHours(+sHa, +sMa, 0, 0);
+                                            const endA = new Date(endDateA); endA.setHours(+a.end_time.split(':')[0], +a.end_time.split(':')[1], 0, 0);
+
+                                            const dateB = b.event_date.slice(0, 10);
+                                            const endDateB = b.end_date ? b.end_date.slice(0, 10) : dateB;
+                                            const [sHb, sMb] = b.start_time.split(':');
+                                            const startB = new Date(dateB); startB.setHours(+sHb, +sMb, 0, 0);
+                                            const endB = new Date(endDateB); endB.setHours(+b.end_time.split(':')[0], +b.end_time.split(':')[1], 0, 0);
+
+                                            if (activeTab === 'upcoming') return startA - startB;
+                                            if (activeTab === 'live') return endA - endB;
+                                            return startB - startA;
+                                        });
                                         if (filtered.length === 0)
                                             return <div className="empty-state-card">No {activeTab} events found.</div>;
                                         const totalPages = Math.ceil(filtered.length / PAGE_SIZE);

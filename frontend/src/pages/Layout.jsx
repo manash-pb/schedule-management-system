@@ -5,6 +5,7 @@ import { io } from 'socket.io-client';
 import { Sun, Moon, Bell, Paperclip, MessageCircle, X, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import moonSvg from '../assets/moon.svg';
 import sunSvg from '../assets/sun.svg';
+import notificationBellSvg from '../assets/notification-bell.svg';
 import gauhatiLogo from '../assets/logo1.png';
 import { getAuthData } from '../utils/authStorage';
 
@@ -201,6 +202,7 @@ const Layout = ({ children }) => {
   const [userPic, setUserPic] = useState(getAuthData('userPicture'));
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
   const [showNotifications, setShowNotifications] = useState(false);
+  const [canRing, setCanRing] = useState(false);
   const notificationRef = useRef(null);
 
   const [notifications, setNotifications] = useState([]);
@@ -325,7 +327,7 @@ const Layout = ({ children }) => {
           <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             <button
               onClick={() => setDarkMode(d => !d)}
-              className="flex items-center justify-center w-[38px] h-[38px] bg-blue-950 hover:bg-blue-900 dark:bg-sky-500 dark:hover:bg-sky-400 border border-blue-900 dark:border-sky-400 rounded-full shadow-sm transition-all text-white"
+              className="flex items-center justify-center w-[38px] h-[38px] bg-blue-900 hover:bg-blue-800 dark:bg-sky-500 dark:hover:bg-sky-400 border border-blue-800 dark:border-sky-400 rounded-full shadow-sm transition-all text-white"
             >
               <div className="relative w-[22px] h-[22px] flex items-center justify-center">
                 <img src={sunSvg} alt="Sun" className={`absolute transition-all duration-500 w-[22px] h-[22px] ${darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-0'}`} />
@@ -366,11 +368,13 @@ const Layout = ({ children }) => {
             {location.pathname !== '/notifications' && (
               <div className="relative" ref={notificationRef}>
                 <button 
-                  onClick={() => setShowNotifications(!showNotifications)} 
-                  className="btn-secondary theme-btn" 
-                  style={{ padding: '0', position: 'relative', borderRadius: '50%', width: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center' }}
+                  onClick={() => { setShowNotifications(!showNotifications); setCanRing(false); }} 
+                  onMouseEnter={() => setCanRing(true)}
+                  onMouseLeave={() => setCanRing(false)}
+                  className={`flex items-center justify-center w-[38px] h-[38px] bg-transparent border-none rounded-full transition-all ${!showNotifications && canRing ? 'notification-btn' : ''}`} 
+                  style={{ padding: '0', position: 'relative' }}
                 >
-                <Bell size={18} style={{ transform: 'rotate(15deg)' }} />
+                <img src={notificationBellSvg} width={38} height={38} alt="Notification Bell" className="bell-icon" />
                 {unreadCount > 0 && (
                   <span style={{
                     position: 'absolute', top: '-2px', right: '-2px',

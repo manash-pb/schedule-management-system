@@ -144,7 +144,7 @@ const Login = () => {
       <div className="w-[90%] max-w-lg bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-8 transition-colors duration-300">
 
         <div className="flex justify-center mb-6">
-          <img src={CalendarScheduleSvg} alt="Calendar Schedule" style={{ width: '56px', height: '56px' }} />
+          <img src={CalendarScheduleSvg} alt="Calendar Schedule" style={{ width: '56px', height: '56px' }} className="dark:filter dark:brightness-150 dark:contrast-125" />
         </div>
 
         {/* Role Tabs */}
@@ -220,17 +220,28 @@ const Login = () => {
           </div>
 
           <div className="flex items-center justify-between px-1 mt-2">
-            <label className="flex items-center gap-2 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-              />
-              <span className="text-sm text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-200 transition-colors">
+            <div className="flex items-center gap-2">
+              <div className="relative flex items-center justify-center w-4 h-4">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="peer appearance-none w-4 h-4 bg-gray-200 border border-gray-300 rounded checked:bg-pink-500 checked:border-pink-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:checked:bg-pink-500 cursor-pointer transition-colors"
+                />
+                <svg
+                  className="absolute w-3 h-3 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <span className="text-sm text-gray-600 dark:text-gray-400">
                 Remember Me
               </span>
-            </label>
+            </div>
 
             {!isSignUpMode && (
               <button
@@ -253,7 +264,7 @@ const Login = () => {
 
         <a
           href={`/auth/google?role=${isSignUpMode ? 'user' : activeTab}&remember=${rememberMe}`}
-          className="flex items-center justify-center gap-3 w-full py-3 px-4 mt-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-200 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-sm transition-all"
+          className="flex items-center justify-center gap-3 w-full py-3 px-4 mt-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-200 font-medium hover:bg-gray-100 dark:hover:bg-gray-950 hover:shadow-sm transition-all"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />

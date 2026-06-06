@@ -1,6 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import axios from "axios";
+import '@mantine/core/styles.css';
+import '@mantine/dates/styles.css';
 import "./index.css";
 import App from "./pages/App.jsx";
 import { getAuthData, clearAuthData } from "./utils/authStorage";

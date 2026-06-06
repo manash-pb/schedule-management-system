@@ -10,8 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mantine/core": "^9.3.0",
+    "@mantine/dates": "^9.3.0",
+    "@mantine/hooks": "^9.3.0",
     "axios": "^1.13.6",
     "date-fns": "^4.2.0",
+    "dayjs": "^1.11.21",
     "lucide-react": "^0.577.0",
     "react": "^19.2.0",
     "react-big-calendar": "^1.19.4",
