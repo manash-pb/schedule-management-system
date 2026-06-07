@@ -18,6 +18,8 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { CATEGORIES, CATEGORY_COLORS } from '../utils/constants';
 import { unrollEvents, toCalendarEvents, groupMultiDaySpans, formatTime } from '../utils/eventUtils';
 import CustomCalendarToolbar from '../components/CustomCalendarToolbar';
+import CategoryDropdown from '../components/CategoryDropdown';
+import EventSpanDropdown from '../components/EventSpanDropdown';
 import PlaceAutocompleteInput from '../components/PlaceAutocompleteInput';
 import CustomTimeInput from '../components/CustomTimeInput';
 import AttendeesModal from '../components/AttendeesModal';
@@ -903,17 +905,9 @@ const AdminDashboard = () => {
                             boxShadow: '0 4px 24px rgba(0,0,0,0.08)'
                         }}>
                             {/* Icon + Heading */}
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 28 }}>
-                                <div style={{
-                                    width: 56, height: 56, borderRadius: '50%',
-                                    background: 'rgba(37,99,235,0.1)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    marginBottom: 16
-                                }}>
-                                    <PlusCircle size={28} color="#2563eb" />
-                                </div>
-                                <h2 style={{ margin: 0, fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Create Event</h2>
-                                <p style={{ margin: '6px 0 0', fontSize: 14, color: 'var(--text-secondary)' }}>Schedule and send invites to guests</p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
+                                <PlusCircle size={24} color="#2563eb" />
+                                <h2 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)' }}>Create Event</h2>
                             </div>
                             <form onSubmit={handleSubmit} onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); } }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                 {/* 1. Title */}
@@ -939,16 +933,17 @@ const AdminDashboard = () => {
                                     />
                                 </div>
 
-                                {/* 3. Event Span */}
-                                <div>
-                                    <select
-                                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
-                                        value={formData.event_span}
-                                        onChange={e => setFormData({ ...formData, event_span: e.target.value })}
-                                    >
-                                        <option value="single">Single Day</option>
-                                        <option value="multiple">Multiple Days</option>
-                                    </select>
+                                {/* 3. Event Span & 7. Category - Same Row */}
+                                <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <EventSpanDropdown 
+                                            value={formData.event_span}
+                                            onChange={(span) => setFormData({ ...formData, event_span: span })}
+                                        />
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <CategoryDropdown value={formData.category} onChange={(cat) => setFormData({ ...formData, category: cat })} />
+                                    </div>
                                 </div>
 
                                 {/* 4. Location */}
@@ -1153,14 +1148,6 @@ const AdminDashboard = () => {
                                             onChange={(value) => setFormData(prev => ({ ...prev, end_time: value }))}
                                         />
                                     </div>
-                                </div>
-
-                                {/* 7. Category */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <Tag size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                                    <select className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
-                                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                                    </select>
                                 </div>
 
                                 <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '4px 0' }} />
@@ -1432,13 +1419,18 @@ const AdminDashboard = () => {
                             </div>
 
                             {/* Search & Filter */}
-                            <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-                                <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
+                            <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'nowrap' }}>
+                                <div style={{ position: 'relative', flex: 1, minWidth: 150 }}>
                                     <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none', zIndex: 1 }} />
-                                    <input className="custom-input" style={{ paddingLeft: 36, paddingRight: 12, paddingTop: 10, paddingBottom: 10, height: 42 }} placeholder="Search events..." value={search} onChange={e => setSearch(e.target.value)} />
+                                    <input className="custom-input" style={{ paddingLeft: 36, paddingRight: search ? 40 : 12, paddingTop: 10, paddingBottom: 10, height: 42, width: '100%', boxSizing: 'border-box' }} placeholder="Search events..." value={search} onChange={e => setSearch(e.target.value)} />
+                                    {search && (
+                                        <button type="button" onClick={() => setSearch('')} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, zIndex: 10, pointerEvents: 'auto' }} onMouseEnter={(e) => e.currentTarget.style.color = '#cbd5e1'} onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}>
+                                            <X size={18} strokeWidth={2.5} />
+                                        </button>
+                                    )}
                                 </div>
                                 {viewMode !== 'calendar' && activeTab !== 'live' && (
-                                    <div style={{ position: 'relative', flexShrink: 0, width: 180 }}>
+                                    <div style={{ position: 'relative', flexShrink: 0, width: 140 }}>
                                         <DateInput
                                             key={`filter-${filterDate ? 'filled' : 'empty'}`}
                                             placeholder="Filter by Date"
@@ -1490,13 +1482,9 @@ const AdminDashboard = () => {
                                         />
                                     </div>
                                 )}
-                                <select className="custom-input" style={{ width: 180, height: 42, paddingTop: 0, paddingBottom: 0 }} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-                                    <option value="">All Categories</option>
-                                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                                {(search || filterDate || filterCategory) && (
-                                    <button className="btn-secondary" onClick={() => { setSearch(''); setFilterDate(''); setFilterCategory(''); }}>Clear</button>
-                                )}
+                                <div style={{ position: 'relative', flexShrink: 0, width: 150 }}>
+                                    <CategoryDropdown value={filterCategory} onChange={setFilterCategory} isFilter={true} />
+                                </div>
                             </div>
 
                             {/* Event list / Calendar */}

@@ -163,178 +163,150 @@ const UserProfile = () => {
     return (
         <div className="dashboard-container">
             <div className="dashboard-wrapper">
-                {/* Header */}
+                {/* Header Back Button */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 15, marginBottom: 30, paddingTop: 10 }}>
                     <button onClick={goBack} className="btn-icon" style={{ padding: 8 }}>
                         <ArrowLeft size={20} />
                     </button>
-                    <h2 style={{ margin: 0, fontSize: 24 }}>My Profile</h2>
                 </div>
 
                 <div className="form-container">
-                    {showPicOptions && (
-                        <div
-                            onClick={() => setShowPicOptions(false)}
-                            style={{
-                                position: 'fixed',
-                                inset: 0,
-                                backdropFilter: 'blur(6px)',
-                                WebkitBackdropFilter: 'blur(6px)',
-                                backgroundColor: 'rgba(255,255,255,0.35)',
-                                zIndex: 10,
-                            }}
-                        />
-                    )}
                     <div style={{ maxWidth: 450, margin: '0 auto' }}>
 
-                        {/* 1. Avatar Section */}
-                        <div style={{ position: 'relative', width: 100, height: 100, margin: '0 auto 30px auto' }}>
-                            {userPic && userPic !== 'null' && userPic !== 'undefined' ? (
-                                <img
-                                    src={userPic}
-                                    alt="Profile"
-                                    style={{
-                                        width: '100%', height: '100%',
-                                        borderRadius: '50%',
-                                        objectFit: 'cover',
-                                        border: `2.5px solid ${isDarkMode ? '#6b7280' : '#2563eb'}`,
-                                        boxShadow: '0 4px 10px rgba(0, 0, 0, 0.12)'
-                                    }}
-                                />
-                            ) : (
-                                <div
-                                    style={{
-                                        width: '100%', height: '100%',
-                                        borderRadius: '50%',
-                                        backgroundColor: '#2563eb',
-                                        color: '#ffffff',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        fontSize: 36, fontWeight: 'bold',
-                                        border: `2.5px solid ${isDarkMode ? '#6b7280' : '#2563eb'}`,
-                                        boxShadow: '0 4px 10px rgba(0, 0, 0, 0.12)'
-                                    }}
-                                >
-                                    {userName.charAt(0).toUpperCase()}
-                                </div>
-                            )}
+                        {/* Details Modal/Card */}
+                        <div className="floating-card" style={{ padding: '32px 24px', textAlign: 'left', marginBottom: '24px', position: 'relative' }}>
+                            {/* Header inside Card */}
+                            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 'bold', color: 'var(--text-primary)' }}>My Profile</h2>
+                            </div>
 
-                            {/* Avatar Edit Icon */}
-                            <div style={{ position: 'absolute', bottom: -10, right: -10, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', zIndex: 40 }}>
-                                <button
-                                    type="button"
-                                    onClick={() => profileImageExists ? setShowPicOptions(prev => !prev) : triggerFileSelect()}
-                                    style={{
-                                        background: isDarkMode ? '#4b5563' : '#2563eb',
-                                        color: isDarkMode ? '#e5e7eb' : '#ffffff',
-                                        width: 34,
-                                        height: 34,
-                                        borderRadius: '50%',
-                                        cursor: 'pointer',
-                                        border: isDarkMode ? '1px solid #6b7280' : '2px solid #2563eb',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        boxShadow: '0 6px 16px rgba(15, 23, 42, 0.12)',
-                                        transition: 'transform 0.2s ease',
-                                        zIndex: 40,
-                                        outline: 'none',
-                                        WebkitAppearance: 'none',
-                                        appearance: 'none'
-                                    }}
-                                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-                                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                                >
-                                    {profileImageExists ? <Edit2 size={16} /> : <Camera size={16} />}
-                                </button>
-                                {showPicOptions && (
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: 44,
-                                        right: 0,
-                                        width: 190,
-                                        background: menuBackground,
-                                        border: menuBorder,
-                                        borderRadius: 18,
-                                        boxShadow: '0 20px 50px rgba(15, 23, 42, 0.18)',
-                                        overflow: 'hidden',
-                                        zIndex: 30
-                                    }}>
-                                        <button
-                                            type="button"
-                                            onClick={triggerFileSelect}
-                                            style={{
-                                                width: '100%',
-                                                padding: '12px 14px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: 10,
-                                                background: 'transparent',
-                                                border: 'none',
-                                                color: menuTextColor,
-                                                cursor: 'pointer',
-                                                fontWeight: 600,
-                                                transition: 'background 0.2s ease'
-                                            }}
-                                            onMouseEnter={(e) => e.currentTarget.style.background = menuHoverBg}
-                                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                        >
-                                            <Upload size={16} color={editIconColor} />
-                                            Upload image
-                                        </button>
-                                        {profileImageExists && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowDeleteConfirm(true)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '12px 14px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: 10,
-                                                    background: 'transparent',
-                                                    border: 'none',
-                                                    color: '#f87171',
-                                                    cursor: 'pointer',
-                                                    fontWeight: 600,
-                                                    transition: 'background 0.2s ease'
-                                                }}
-                                                onMouseEnter={(e) => e.currentTarget.style.background = isDarkMode ? 'rgba(248,113,113,0.15)' : 'rgba(254,226,226,0.6)'}
-                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                            >
-                                                <Trash2 size={16} color="#f87171" />
-                                                Delete current image
-                                            </button>
-                                        )}
+                            {/* 1. Avatar Section moved inside Card */}
+                            <div style={{ position: 'relative', width: 100, height: 100, margin: '0 auto 30px auto' }}>
+                                {userPic && userPic !== 'null' && userPic !== 'undefined' ? (
+                                    <img
+                                        src={userPic}
+                                        alt="Profile"
+                                        style={{
+                                            width: '100%', height: '100%',
+                                            borderRadius: '50%',
+                                            objectFit: 'cover',
+                                            border: `3px solid ${isDarkMode ? '#4b5563' : '#e2e8f0'}`,
+                                            boxShadow: '0 4px 10px rgba(0, 0, 0, 0.08)'
+                                        }}
+                                    />
+                                ) : (
+                                    <div
+                                        style={{
+                                            width: '100%', height: '100%',
+                                            borderRadius: '50%',
+                                            backgroundColor: '#2563eb',
+                                            color: '#ffffff',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontSize: 36, fontWeight: 'bold',
+                                            border: `3px solid ${isDarkMode ? '#4b5563' : '#e2e8f0'}`,
+                                            boxShadow: '0 4px 10px rgba(0, 0, 0, 0.08)'
+                                        }}
+                                    >
+                                        {userName.charAt(0).toUpperCase()}
                                     </div>
                                 )}
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/*"
-                                    style={{ display: 'none' }}
-                                    onChange={onFileChange}
-                                />
-                            </div>
-                        </div>
 
-                        {/* 2. Details Modal/Card */}
-                        <div className="floating-card" style={{ padding: '24px', textAlign: 'left', marginBottom: '24px' }}>
+                                {/* Avatar Edit Icon */}
+                                <div style={{ position: 'absolute', bottom: -5, right: -5, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', zIndex: 40 }}>
+                                    {showPicOptions && (
+                                        <div
+                                            onClick={() => setShowPicOptions(false)}
+                                            style={{ position: 'fixed', inset: 0, zIndex: 10, cursor: 'default' }}
+                                        />
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => profileImageExists ? setShowPicOptions(prev => !prev) : triggerFileSelect()}
+                                        style={{
+                                            background: isDarkMode ? '#374151' : '#ffffff',
+                                            color: isDarkMode ? '#e5e7eb' : '#2563eb',
+                                            width: 32,
+                                            height: 32,
+                                            borderRadius: '50%',
+                                            cursor: 'pointer',
+                                            border: isDarkMode ? '1px solid #4b5563' : '1px solid #e2e8f0',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                                            transition: 'transform 0.2s ease',
+                                            zIndex: 20,
+                                            position: 'relative',
+                                            outline: 'none',
+                                            WebkitAppearance: 'none',
+                                            appearance: 'none'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                    >
+                                        {profileImageExists ? <Edit2 size={14} /> : <Camera size={14} />}
+                                    </button>
+                                    {showPicOptions && (
+                                        <div 
+                                            className="absolute transition-opacity duration-200 bg-[var(--bg-card)] border border-[var(--border)] shadow-md rounded-xl ml-2 overflow-hidden" 
+                                            style={{ top: '50%', left: '100%', transform: 'translateY(-50%)', width: 190, zIndex: 30 }}
+                                            role="menu"
+                                        >
+                                            <div className="p-2 flex flex-col gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={triggerFileSelect}
+                                                    className="w-full text-left py-2 px-3 rounded-lg text-sm font-medium transition-colors focus:outline-none flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+                                                >
+                                                    <Upload size={14} className="text-blue-500 dark:text-blue-400" />
+                                                    Upload image
+                                                </button>
+                                                {profileImageExists && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowDeleteConfirm(true)}
+                                                        className="w-full text-left py-2 px-3 rounded-lg text-sm font-medium transition-colors focus:outline-none flex items-center gap-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                        Delete current image
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        style={{ display: 'none' }}
+                                        onChange={onFileChange}
+                                    />
+                                </div>
+                            </div>
 
                             {/* Name Row */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #e2e8f0' }}>
-                                <div style={{ flex: 1 }}>
-                                    <span style={{ display: 'block', fontSize: 12, color: '#64748b', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Full Name</span>
-                                    {isEditingName ? (
-                                        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                                            <input type="text" className="custom-input" value={tempName} onChange={e => setTempName(e.target.value)} autoFocus />
-                                            <button onClick={saveName} className="btn-icon" style={{ color: '#16a34a', background: '#dcfce7' }}><Check size={18} /></button>
-                                            <button onClick={() => setIsEditingName(false)} className="btn-icon" style={{ color: '#ef4444', background: '#fee2e2' }}><X size={18} /></button>
-                                        </div>
-                                    ) : (
-                                        <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--text-primary)' }}>{userName}</span>
+                            <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #e2e8f0' }}>
+                                <span style={{ display: 'block', fontSize: 12, color: '#64748b', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Full Name</span>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ flex: 1 }}>
+                                        {isEditingName ? (
+                                            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                                                <input 
+                                                    type="text" 
+                                                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
+                                                    value={tempName} 
+                                                    onChange={e => setTempName(e.target.value)} 
+                                                    autoFocus 
+                                                />
+                                                <button onClick={saveName} className="btn-icon" style={{ color: '#16a34a', background: '#dcfce7' }}><Check size={18} /></button>
+                                                <button onClick={() => setIsEditingName(false)} className="btn-icon" style={{ color: '#ef4444', background: '#fee2e2' }}><X size={18} /></button>
+                                            </div>
+                                        ) : (
+                                            <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--text-primary)' }}>{userName}</span>
+                                        )}
+                                    </div>
+                                    {!isEditingName && (
+                                        <button onClick={() => setIsEditingName(true)} className="btn-icon" style={{ marginLeft: 16 }}><Edit2 size={18} color="#64748b" /></button>
                                     )}
                                 </div>
-                                {!isEditingName && (
-                                    <button onClick={() => setIsEditingName(true)} className="btn-icon"><Edit2 size={18} color="#64748b" /></button>
-                                )}
                             </div>
 
                             {/* Email Row */}

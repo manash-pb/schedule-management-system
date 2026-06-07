@@ -82,7 +82,7 @@ html.dark input:-webkit-autofill:active {
     min-height: 100vh;
     width: 100%;
     background-color: var(--bg-page);
-    transition: background-color 0.3s ease, color 0.3s ease;
+    transition: background-color 0.5s ease, color 0.5s ease;
   }
 
   body {
@@ -1732,7 +1732,21 @@ html.dark .attachment-link:hover {
     background-color: #374151 !important;
 }
 
-/* Custom Mantine DatePicker Dark Theme */
+/* Override Mantine weekend (Saturday/Sunday) red color in datepicker */
+.mantine-DatePicker-day[data-weekend],
+.mantine-DateInput-day[data-weekend] {
+  color: inherit !important;
+}
+
+html[data-mantine-color-scheme="dark"] .mantine-DatePicker-day[data-weekend],
+html[data-mantine-color-scheme="dark"] .mantine-DateInput-day[data-weekend] {
+  color: #e6edf3 !important;
+}
+
+html[data-mantine-color-scheme="light"] .mantine-DatePicker-day[data-weekend],
+html[data-mantine-color-scheme="light"] .mantine-DateInput-day[data-weekend] {
+  color: #1f2328 !important;
+}
 html[data-mantine-color-scheme="dark"] .mantine-Popover-dropdown {
     background-color: #1c2128 !important; /* Slightly lighter than app bg #161b22 for elevation */
     border-color: #30363d !important;
@@ -1781,4 +1795,81 @@ html[data-mantine-color-scheme="dark"] .mantine-DatePicker-day[data-outside="tru
 
 .notification-btn:hover .bell-icon {
   animation: ringing 1s ease-in-out infinite;
+}
+
+/* --- GLOBAL DROPDOWN STYLING (Select, Menu, Popover) --- */
+
+/* LIGHT MODE */
+.mantine-Select-dropdown,
+.mantine-Menu-dropdown,
+.mantine-Popover-dropdown {
+    border: none !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+    border-radius: 8px !important;
+    margin-top: 4px; /* Float below input */
+}
+
+/* Light mode hover state for list items */
+.mantine-Select-option,
+.mantine-Menu-item {
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.mantine-Select-option:hover,
+.mantine-Menu-item:hover,
+.mantine-Select-option[data-selected="true"],
+.mantine-Select-option[data-hovered="true"] {
+    background-color: #f3f4f6 !important; /* soft faint gray */
+    color: #111827 !important;
+}
+
+/* DARK MODE */
+html[data-mantine-color-scheme="dark"] .mantine-Select-dropdown,
+html[data-mantine-color-scheme="dark"] .mantine-Menu-dropdown,
+html[data-mantine-color-scheme="dark"] .mantine-Popover-dropdown {
+    background-color: #1c2128 !important;
+    border: 1px solid #30363d !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
+    border-radius: 8px !important;
+    margin-top: 4px;
+}
+
+/* Dark mode hover/selected state for list items */
+html[data-mantine-color-scheme="dark"] .mantine-Select-option,
+html[data-mantine-color-scheme="dark"] .mantine-Menu-item {
+    background-color: transparent !important;
+    color: #e6edf3 !important;
+    position: relative;
+    overflow: hidden;
+}
+
+html[data-mantine-color-scheme="dark"] .mantine-Select-option:hover,
+html[data-mantine-color-scheme="dark"] .mantine-Menu-item:hover,
+html[data-mantine-color-scheme="dark"] .mantine-Select-option[data-selected="true"],
+html[data-mantine-color-scheme="dark"] .mantine-Select-option[data-hovered="true"] {
+    background-color: #2d333b !important; /* Lighter dark-gray */
+    color: #ffffff !important;
+}
+
+/* Glowing blue vertical accent bar on the left edge */
+html[data-mantine-color-scheme="dark"] .mantine-Select-option::before,
+html[data-mantine-color-scheme="dark"] .mantine-Menu-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 10%;
+    bottom: 10%;
+    width: 3px;
+    background-color: #38bdf8; /* bright blue */
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.6); /* glowing */
+    border-radius: 0 4px 4px 0;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+html[data-mantine-color-scheme="dark"] .mantine-Select-option:hover::before,
+html[data-mantine-color-scheme="dark"] .mantine-Menu-item:hover::before,
+html[data-mantine-color-scheme="dark"] .mantine-Select-option[data-selected="true"]::before,
+html[data-mantine-color-scheme="dark"] .mantine-Select-option[data-hovered="true"]::before {
+    opacity: 1;
 }

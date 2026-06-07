@@ -9,11 +9,16 @@ import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { DateInput } from '@mantine/dates';
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
+dayjs.extend(customParseFormat);
 
 // Extracted Components & Utils
 import { CATEGORIES, CATEGORY_COLORS } from '../utils/constants';
 import { unrollEvents, toCalendarEvents, groupMultiDaySpans } from '../utils/eventUtils';
 import CustomCalendarToolbar from '../components/CustomCalendarToolbar';
+import CategoryDropdown from '../components/CategoryDropdown';
 import UserPreviewModal from '../components/UserPreviewModal';
 import UserEventCard from '../components/UserEventCard';
 
@@ -29,6 +34,7 @@ const UserDashboard = () => {
     const [filterCategory, setFilterCategory] = useState('');
     const [page, setPage] = useState(1);
     const PAGE_SIZE = 5;
+    const [openPicker, setOpenPicker] = useState(null);
     
     const [viewMode, setViewMode] = useState(() => localStorage.getItem('userViewMode') || 'list');
     const [calendarView, setCalendarView] = useState('month');
@@ -135,27 +141,72 @@ const UserDashboard = () => {
                             </div>
 
                             {/* Search & Filter */}
-                            <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-                                <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
+                            <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'nowrap' }}>
+                                <div style={{ position: 'relative', flex: 1, minWidth: 150 }}>
                                     <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none', zIndex: 1 }} />
-                                    <input className="custom-input" style={{ paddingLeft: 36, paddingRight: 12, paddingTop: 10, paddingBottom: 10, height: 42 }} placeholder="Search events..." value={search} onChange={e => setSearch(e.target.value)} />
+                                    <input className="custom-input" style={{ paddingLeft: 36, paddingRight: search ? 40 : 12, paddingTop: 10, paddingBottom: 10, height: 42, width: '100%', boxSizing: 'border-box' }} placeholder="Search events..." value={search} onChange={e => setSearch(e.target.value)} />
+                                    {search && (
+                                        <button type="button" onClick={() => setSearch('')} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, zIndex: 10, pointerEvents: 'auto' }} onMouseEnter={(e) => e.currentTarget.style.color = '#cbd5e1'} onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}>
+                                            <X size={18} strokeWidth={2.5} />
+                                        </button>
+                                    )}
                                 </div>
-                                {viewMode !== 'calendar' && (
-                                <div style={{ position: 'relative', flexShrink: 0, width: 160 }}>
-                                    <input type="date" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: '100%', height: '100%', top: 0, left: 0 }} value={filterDate} onChange={e => setFilterDate(e.target.value)} id="filter-date-input" />
-                                    <button type="button" className="btn-secondary" onClick={() => document.getElementById('filter-date-input').showPicker()} style={{ gap: 8, whiteSpace: 'nowrap', width: '100%', justifyContent: 'center', height: 42, boxSizing: 'border-box' }}>
-                                        <Calendar size={15} />
-                                        {filterDate ? new Date(filterDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Filter by Date'}
-                                    </button>
+                                {viewMode !== 'calendar' && activeTab !== 'live' && (
+                                    <div style={{ position: 'relative', flexShrink: 0, width: 140 }}>
+                                        <DateInput
+                                            key={`filter-${filterDate ? 'filled' : 'empty'}`}
+                                            placeholder="Filter by Date"
+                                            valueFormat="DD-MM-YYYY"
+                                            weekendDays={[0]}
+                                            minDate={activeTab === 'upcoming' ? new Date() : undefined}
+                                            maxDate={activeTab === 'past' ? new Date() : undefined}
+                                            rightSection={
+                                                filterDate ? (
+                                                    <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }} onClick={(e) => { e.stopPropagation(); setFilterDate(''); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', height: '100%', padding: '0 8px' }}>
+                                                        <X size={16} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                                                    </div>
+                                                ) : (
+                                                    <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }} onClick={(e) => { e.stopPropagation(); setOpenPicker(prev => prev === 'filter' ? null : 'filter'); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', height: '100%', padding: '0 8px' }}>
+                                                        <Calendar size={18} className="text-gray-400" />
+                                                    </div>
+                                                )
+                                            }
+                                            rightSectionPointerEvents="auto"
+                                            popoverProps={{
+                                                opened: openPicker === 'filter',
+                                                onChange: (opened) => { if (!opened) setOpenPicker(null); }
+                                            }}
+                                            dateParser={(input) => {
+                                                const parsed = dayjs(input, ['DD-MM-YYYY', 'DD/MM/YYYY', 'DD.MM.YYYY', 'DD-MM-YY'], true);
+                                                return parsed.isValid() ? parsed.toDate() : new Date(NaN);
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    const val = e.currentTarget.value;
+                                                    if (val) {
+                                                        const parsed = dayjs(val, ['DD-MM-YYYY', 'DD/MM/YYYY', 'DD.MM.YYYY', 'DD-MM-YY'], true);
+                                                        if (!parsed.isValid()) {
+                                                            toast.error('Invalid date format. Please use DD-MM-YYYY');
+                                                            e.preventDefault();
+                                                        } else {
+                                                            e.currentTarget.blur();
+                                                        }
+                                                    }
+                                                }
+                                            }}
+                                            value={filterDate ? dayjs(filterDate).toDate() : null}
+                                            onChange={(date) => {
+                                                setFilterDate(date ? dayjs(date).format('YYYY-MM-DD') : '');
+                                                setOpenPicker(null);
+                                            }}
+                                            classNames={{ input: "w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm" }}
+                                            styles={{ input: { height: 42 } }}
+                                        />
+                                    </div>
+                                )}
+                                <div style={{ position: 'relative', flexShrink: 0, width: 150 }}>
+                                    <CategoryDropdown value={filterCategory} onChange={setFilterCategory} isFilter={true} />
                                 </div>
-                                )}
-                                <select className="custom-input" style={{ width: 180, height: 42, paddingTop: 0, paddingBottom: 0 }} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-                                    <option value="">All Categories</option>
-                                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                                {(search || filterDate || filterCategory) && (
-                                    <button className="btn-secondary" onClick={() => { setSearch(''); setFilterDate(''); setFilterCategory(''); }}>Clear</button>
-                                )}
                             </div>
 
                             {/* Event list / Calendar */}

@@ -185,7 +185,7 @@ const EventCard = ({ event, onDelete, onPreview, onEdit, tab, darkMode }) => {
                             <button onClick={() => onPreview(event)} className="btn-icon preview"><ClosedEyeIcon size={20} /></button>
                             <span className="tooltip-text">Preview</span>
                         </div>
-                        {onEdit && (
+                        {onEdit && tab !== 'past' && (
                             <div className="tooltip-wrap">
                                 <button onClick={() => onEdit(event)} className="btn-icon edit"><Pencil size={18} /></button>
                                 <span className="tooltip-text">Edit</span>
