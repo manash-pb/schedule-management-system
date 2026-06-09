@@ -6,7 +6,7 @@ import { Sun, Moon, Bell, Paperclip, MessageCircle, X, ChevronDown, ChevronUp, T
 import moonSvg from '../assets/moon.svg';
 import sunSvg from '../assets/sun.svg';
 import notificationBellSvg from '../assets/notification-bell.svg';
-import gauhatiLogo from '../assets/logo1.png';
+import gauhatiLogo from '../assets/GU-logo.png';
 import { getAuthData } from '../utils/authStorage';
 
 const Layout = ({ children }) => {
