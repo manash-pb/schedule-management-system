@@ -248,7 +248,13 @@ exports.checkCalendar = async (req, res) => {
     if (!email) return res.json({ connected: false });
     try {
         const [rows] = await pool.execute('SELECT google_tokens FROM users WHERE email = ? AND role = "admin"', [email]);
-        res.json({ connected: rows.length > 0 && !!rows[0].google_tokens });
+        if (rows.length > 0 && rows[0].google_tokens) {
+            const tokensStr = typeof rows[0].google_tokens === 'string' ? rows[0].google_tokens : JSON.stringify(rows[0].google_tokens);
+            if (tokensStr.includes('googleapis.com/auth/calendar')) {
+                return res.json({ connected: true });
+            }
+        }
+        res.json({ connected: false });
     } catch {
         res.json({ connected: false });
     }

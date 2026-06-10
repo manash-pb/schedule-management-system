@@ -9,19 +9,28 @@ const getAdminTokens = async (adminEmail) => {
             [adminEmail]
         );
         if (rows.length && rows[0].google_tokens) {
-            return typeof rows[0].google_tokens === 'string'
-                ? JSON.parse(rows[0].google_tokens)
-                : rows[0].google_tokens;
+            const tokensStr = typeof rows[0].google_tokens === 'string' ? rows[0].google_tokens : JSON.stringify(rows[0].google_tokens);
+            if (tokensStr.includes('googleapis.com/auth/calendar')) {
+                return typeof rows[0].google_tokens === 'string'
+                    ? JSON.parse(rows[0].google_tokens)
+                    : rows[0].google_tokens;
+            }
         }
     }
-    // Fallback to any admin with tokens
-    const [fallback] = await pool.execute(
-        'SELECT google_tokens FROM users WHERE role = "admin" AND google_tokens IS NOT NULL LIMIT 1'
+    // Fallback to any admin with valid calendar tokens
+    const [fallbacks] = await pool.execute(
+        'SELECT google_tokens FROM users WHERE role = "admin" AND google_tokens IS NOT NULL'
     );
-    if (!fallback.length || !fallback[0].google_tokens) return null;
-    return typeof fallback[0].google_tokens === 'string'
-        ? JSON.parse(fallback[0].google_tokens)
-        : fallback[0].google_tokens;
+    for (const row of fallbacks) {
+        if (!row.google_tokens) continue;
+        const tokensStr = typeof row.google_tokens === 'string' ? row.google_tokens : JSON.stringify(row.google_tokens);
+        if (tokensStr.includes('googleapis.com/auth/calendar')) {
+            return typeof row.google_tokens === 'string'
+                ? JSON.parse(row.google_tokens)
+                : row.google_tokens;
+        }
+    }
+    return null;
 };
 exports.getAdminTokens = getAdminTokens;
 
