@@ -6,6 +6,7 @@ node_modules/
 # Ignore environment variables (SECURITY RISK IF UPLOADED!)
 backend/.env
 frontend/.env
+
 # Ignore Vite build files
 frontend/dist/
 
@@ -14,3 +15,6 @@ backend/uploads/*
 
 # But don't ignore the .gitkeep file
 !backend/uploads/.gitkeep
+
+# Temporary Files
+*.sql

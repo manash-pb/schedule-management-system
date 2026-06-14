@@ -50,6 +50,92 @@ The **Schedule Management System** is a full-stack web application designed to h
 
 ## Architecture & Flow Diagrams
 
+### Database Entity-Relationship (ER) Diagram
+```mermaid
+erDiagram
+    USERS {
+        int id PK
+        string name
+        string email UK
+        string password
+        string google_id
+        string role
+        json google_tokens
+        string profile_picture
+    }
+    
+    ATTENDEES {
+        int attendee_id PK
+        string name
+        string email UK
+    }
+
+    EVENTS {
+        int event_id PK
+        string title
+        text description
+        string venue
+        date event_date
+        date end_date
+        time start_time
+        time end_time
+        string google_event_id
+        string category
+        string span_id
+        string google_form_id
+        string google_form_url
+        text summary
+    }
+
+    EVENT_ATTENDEES {
+        int event_id PK, FK
+        int attendee_id PK, FK
+    }
+
+    NOTIFICATIONS {
+        int id PK
+        string subject
+        string message
+        string attachment_path
+        string attachment_name
+        timestamp created_at
+    }
+
+    NOTIFICATION_ATTACHMENTS {
+        int id PK
+        int notification_id FK
+        string file_path
+        string file_name
+    }
+
+    USER_NOTIFICATIONS {
+        string user_email PK
+        int notification_id PK, FK
+        timestamp read_at
+    }
+
+    USER_QUERIES {
+        int id PK
+        string user_name
+        string user_email FK
+        string subject
+        text message
+        string status
+        text reply_message
+        timestamp reply_at
+        string replied_by
+        timestamp created_at
+        boolean deleted_by_user
+        boolean deleted_by_admin
+    }
+
+    USERS ||--o{ USER_QUERIES : "submits"
+    EVENTS ||--o{ EVENT_ATTENDEES : "has"
+    ATTENDEES ||--o{ EVENT_ATTENDEES : "attends"
+    NOTIFICATIONS ||--o{ NOTIFICATION_ATTACHMENTS : "includes"
+    NOTIFICATIONS ||--o{ USER_NOTIFICATIONS : "sent to"
+```
+
 ### High-Level Architecture
 ```mermaid
 graph TD;
