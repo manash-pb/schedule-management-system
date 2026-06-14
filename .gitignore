@@ -15,6 +15,3 @@ backend/uploads/*
 
 # But don't ignore the .gitkeep file
 !backend/uploads/.gitkeep
-
-# Temporary Files
-*.sql

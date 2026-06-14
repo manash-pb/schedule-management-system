@@ -204,27 +204,40 @@ npm run install-all
 
 ### Step 3: Database & Environment Setup
 1. Open your MySQL client and create a new database for the system.
-2. Navigate to the `backend` directory and configure your environment variables in a `.env` file.
+2. Navigate to the `backend` directory and create a `.env` file. Fill in your own values:
 
-*Example `backend/.env` configuration:*
+*Template for `backend/.env`:*
 ```env
+# Database Configuration
+DB_HOST=your_db_host
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+DB_NAME=your_db_name
+
+# Server Configuration
 PORT=3000
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=your_mysql_password
-DB_NAME=your_database_name
+BACKEND_URL=http://localhost:3000
+
+# Authentication
 JWT_SECRET=your_jwt_secret
 
 # Email Service Configuration (Nodemailer)
-EMAIL_USER=your_email@example.com
-EMAIL_PASS=your_email_app_password
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_email_app_password
 
-# Google Calendar API Credentials
-# Include necessary keys here if using Google API
+# Google OAuth & Calendar API Credentials
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_REDIRECT_URI=http://localhost:3000/auth/google/callback
 ```
 *Note: The system will automatically create the `user_queries` table and handle schema initializations on the first successful database connection.*
 
-3. Navigate to the `frontend` directory and create its `.env` file (if required, for setting base API URLs).
+3. Navigate to the `frontend` directory and create its `.env` file. Fill in your own values:
+
+*Template for `frontend/.env`:*
+```env
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+```
 
 ### Step 4: Run the Application
 You can run both the frontend and backend servers simultaneously from the root directory using the custom scripts provided:
